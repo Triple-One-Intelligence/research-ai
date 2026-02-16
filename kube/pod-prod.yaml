@@ -6,6 +6,8 @@ spec:
   containers:
     - name: api
       image: research-ai-api:prod
+      ports:
+        - containerPort: 8000
       envFrom:
         - configMapRef:
             name: research-ai-env
