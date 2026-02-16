@@ -1,4 +1,4 @@
-domain.nl {
+0xai.nl {
 
     handle /api/* {
         uri strip_prefix /api
