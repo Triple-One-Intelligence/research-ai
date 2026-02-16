@@ -4,8 +4,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List
-from backend.utils.ricgraph.connections import fetch_collaborators
-from backend.schemas import Person, Publication, Organization, Connections
+from app.schemas import Person, Publication, Organization, Connections
 
 
 # these endpoints can be reached using the /connections URL prefix
@@ -19,6 +18,6 @@ def get_person_connections(author_id: str):
         organizations=[]
     )
 
-@router.get("/organization/{organization_id}", response_model=Connections)
-def get_person_publication_connections(organization_id: str):
-    return fetch_collaborators(organization_id)
+# @router.get("/organization/{organization_id}", response_model=Connections)
+# def get_person_publication_connections(organization_id: str):
+#     return fetch_collaborators(organization_id)

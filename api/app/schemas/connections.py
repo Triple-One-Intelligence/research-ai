@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from typing import List
-from backend.schemas import Person, Publication, Organization
+from .person import Person
+from .publication import Publication
+from .organization import Organization
 
 class Connections(BaseModel):
     persons: List[Person]

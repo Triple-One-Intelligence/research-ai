@@ -23,9 +23,9 @@ app = FastAPI(debug=True)
 #     allow_headers=["*"],
 # )
 
-# from routers import connections
-# app.include_router(connections.router)
-# app.include_router(auth_router)
+from app.routers import connections, autocomplete
+app.include_router(connections.router)
+app.include_router(autocomplete.router)
 
 memory_db = {"fruits": []}
 
