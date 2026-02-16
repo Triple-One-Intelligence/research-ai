@@ -8,11 +8,11 @@ router = APIRouter(prefix = "/autocomplete")
 
 class Suggestions(BaseModel):
     persons: List[Person]
-    Organizations: List[Organization]
+    organizations: List[Organization]
 
 
 @router.get("/", response_model=Suggestions)
-def suggest(query: str, types: List[str], limit: int):
+def suggest(query: str, limit: int):
     return Suggestions(
         persons=[Person(author_id="1", name="testpersoon")],
         organizations=[Organization(organization_id="2", name="testorg")]

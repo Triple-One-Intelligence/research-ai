@@ -8,7 +8,6 @@ const api = axios.create({
 
 export const searchEntities = async (
   query: string,
-  _types: string[] = ['person', 'organization'],
   _limit: number = 10
 ): Promise<EntitySuggestion[]> => {
   // Todo: Implement actual API call
