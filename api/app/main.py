@@ -14,8 +14,6 @@ class Fruits(BaseModel):
 
 app = FastAPI(debug=True)
 
-cors_env = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
-origins = [o.strip() for o in cors_env.split(",")]
 
 # app.add_middleware(
 #     CORSMiddleware,
@@ -25,9 +23,9 @@ origins = [o.strip() for o in cors_env.split(",")]
 #     allow_headers=["*"],
 # )
 
-from routers import connections
-app.include_router(connections.router)
-app.include_router(auth_router)
+# from routers import connections
+# app.include_router(connections.router)
+# app.include_router(auth_router)
 
 memory_db = {"fruits": []}
 
