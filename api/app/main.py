@@ -22,8 +22,6 @@ app = FastAPI(
 )
 app.include_router(ai_router)
 
-cors_env = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
-origins = [o.strip() for o in cors_env.split(",")]
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,13 +31,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.routers import connections, autocomplete
+app.include_router(connections.router)
+app.include_router(autocomplete.router)
+
 memory_db = {"fruits": []}
 
 @app.get("/health")
 def health():
     return {
         "status": "ok",
-        "service": "Research-AI Baacensd",
+        "service": "ReseachAI API",
         "time": datetime.now().isoformat(),
         "fruit_count": len(memory_db["fruits"]),
     }
