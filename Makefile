@@ -54,7 +54,7 @@ deploy:
 	podman build -t research-ai-frontend:prod -f ./frontend/Containerfile .
 # move and bundle manifest.yaml 
 	sudo mkdir -p /etc/research-ai
-	(cat kube/env.yaml; echo "---"; cat kube/pod.prod.yaml) | sudo tee $(BUNDLE_DEST) > /dev/null
+	(cat kube/env.yaml; echo "---"; cat kube/pod-prod.yaml) | sudo tee $(BUNDLE_DEST) > /dev/null
 # move quadlet .kube yaml
 	sudo cp kube/research-ai.kube $(UNIT_DEST)
 # (re)start quadlet service
