@@ -25,13 +25,17 @@ origins = [o.strip() for o in cors_env.split(",")]
 #     allow_headers=["*"],
 # )
 
+from routers import connections
+app.include_router(connections.router)
+app.include_router(auth_router)
+
 memory_db = {"fruits": []}
 
 @app.get("/health")
 def health():
     return {
         "status": "ok",
-        "service": "Research-AI Baacensd",
+        "service": "ReseachAI API",
         "time": datetime.now().isoformat(),
         "fruit_count": len(memory_db["fruits"]),
     }
