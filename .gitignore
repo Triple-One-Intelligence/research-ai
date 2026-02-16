@@ -1,0 +1,6 @@
+# --- Project Specific & Secrets ---
+.caddy/
+kube/env.yaml
+
+# --- Python Artifacts ---
+__pycache__/

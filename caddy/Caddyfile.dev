@@ -1,0 +1,21 @@
+{
+  debug
+  local_certs
+}
+
+localhost {
+  tls internal
+
+  handle /api/* {
+    uri strip_prefix /api
+    reverse_proxy localhost:8000
+  }
+
+  handle /ai/* {
+    reverse_proxy localhost:8001
+  }
+
+  handle {
+    reverse_proxy localhost:5173
+  }
+}
