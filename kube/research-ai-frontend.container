@@ -1,13 +1,11 @@
 [Unit]
 Description=Research AI Frontend
-Requires=research-ai-prod-pod.service
-After=research-ai-prod-pod.service
 
 [Container]
 ContainerName=research-ai-frontend
 Image=research-ai-frontend:prod
-Pod=research-ai-prod.pod
-
+PublishPort=80:80
+PublishPort=443:443
 Volume=caddy-data:/data
 Volume=caddy-config:/config
 

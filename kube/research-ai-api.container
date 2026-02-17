@@ -1,20 +1,16 @@
 [Unit]
 Description=Research AI API (GPU)
-Requires=research-ai-prod-pod.service
-After=research-ai-prod-pod.service
+Requires=research-ai-frontend.service
+After=research-ai-frontend.service
 
 [Container]
 ContainerName=research-ai-api
 Image=research-ai-api:prod
-Pod=research-ai-prod.pod
-
-ExposeHostPort=8000
+Network=container:research-ai-frontend
 
 EnvironmentFile=/etc/research-ai/research-ai.env
-
 Environment=NVIDIA_VISIBLE_DEVICES=all
 Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
-
 AddDevice=nvidia.com/gpu=all
 
 [Install]

@@ -1,14 +1,13 @@
 [Unit]
 Description=Research AI Ricgraph
-Requires=research-ai-prod-pod.service
-After=research-ai-prod-pod.service
+Requires=research-ai-frontend.service
+After=research-ai-frontend.service
 
 [Container]
 ContainerName=research-ai-ricgraph
 Image=ghcr.io/utrechtuniversity/ricgraph:latest
-Pod=research-ai-prod.pod
+Network=container:research-ai-frontend
 
-ExposeHostPort=3030
 Volume=ricgraph-data:/var/lib/neo4j/data
 
 [Install]

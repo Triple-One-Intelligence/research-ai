@@ -48,6 +48,7 @@ clear:
 
 
 # prod rules:
+# prod rules:
 deploy:
 # build
 	podman build -t research-ai-api:prod -f ./api/Containerfile .
@@ -55,7 +56,6 @@ deploy:
 
 # install quadlet units
 	sudo mkdir -p /etc/containers/systemd
-	sudo install -m 0644 -D kube/research-ai-prod.pod /etc/containers/systemd/research-ai-prod.pod
 	sudo install -m 0644 -D kube/research-ai-api.container /etc/containers/systemd/research-ai-api.container
 	sudo install -m 0644 -D kube/research-ai-frontend.container /etc/containers/systemd/research-ai-frontend.container
 	sudo install -m 0644 -D kube/research-ai-ricgraph.container /etc/containers/systemd/research-ai-ricgraph.container
@@ -64,31 +64,28 @@ deploy:
 	sudo mkdir -p /etc/research-ai
 	sudo install -m 0644 -D kube/research-ai.env /etc/research-ai/research-ai.env
 
-# volumes (PVC replacements) - idempotent
+# volumes - idempotent
 	podman volume create caddy-data || true
 	podman volume create caddy-config || true
 	podman volume create ricgraph-data || true
 
-# reload + enable/start (pod pulls containers via Wants=; containers pull pod via Requires=)
+# reload + enable/start 
+# We start frontend first; the others will follow via systemd dependencies
 	sudo systemctl daemon-reload
-	sudo systemctl enable --now research-ai-prod-pod.service
-	sudo systemctl enable --now research-ai-api.service
 	sudo systemctl enable --now research-ai-frontend.service
+	sudo systemctl enable --now research-ai-api.service
 	sudo systemctl enable --now research-ai-ricgraph.service
 
-
 undeploy:
-# stop + disable (ignore if not present)
+# stop + disable
 	sudo systemctl disable --now research-ai-ricgraph.service 2>/dev/null || true
-	sudo systemctl disable --now research-ai-frontend.service 2>/dev/null || true
 	sudo systemctl disable --now research-ai-api.service 2>/dev/null || true
-	sudo systemctl disable --now research-ai-prod-pod.service 2>/dev/null || true
+	sudo systemctl disable --now research-ai-frontend.service 2>/dev/null || true
 
 # remove env file
 	sudo rm -f /etc/research-ai/research-ai.env
 
 # remove quadlet units
-	sudo rm -f /etc/containers/systemd/research-ai-prod.pod
 	sudo rm -f /etc/containers/systemd/research-ai-api.container
 	sudo rm -f /etc/containers/systemd/research-ai-frontend.container
 	sudo rm -f /etc/containers/systemd/research-ai-ricgraph.container
