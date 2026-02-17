@@ -1,5 +1,5 @@
 # 1. Use the official NVIDIA base (Guarantees GPU access)
-FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
+FROM docker.io/nvidia/cuda:12.4.1-devel-ubuntu22.04
 
 # 2. Install Python
 RUN apt-get update && apt-get install -y \
