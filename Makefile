@@ -79,8 +79,8 @@ deploy:
 undeploy:
 # stop + disable
 	sudo systemctl stop research-ai-ricgraph.service 2>/dev/null || true
-    sudo systemctl stop research-ai-api.service 2>/dev/null || true
-    sudo systemctl stop research-ai-frontend.service 2>/dev/null || true
+	sudo systemctl stop research-ai-api.service 2>/dev/null || true
+	sudo systemctl stop research-ai-frontend.service 2>/dev/null || true
 
 # remove env file
 	sudo rm -f /etc/research-ai/research-ai.env
