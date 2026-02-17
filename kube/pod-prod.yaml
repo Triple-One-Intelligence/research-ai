@@ -11,9 +11,13 @@ spec:
       envFrom:
         - configMapRef:
             name: research-ai-env
+      resources:
+        limits:
+          nvidia.com/gpu: 1
 
     - name: frontend
       image: research-ai-frontend:prod
+      
       ports:
         - containerPort: 80
         - containerPort: 443
