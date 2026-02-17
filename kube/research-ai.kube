@@ -6,7 +6,6 @@ After=network-online.target
 Yaml=/etc/research-ai/bundle.yaml
 PublishPort=80:80
 PublishPort=443:443
-PodmanArgs=--device nvidia.com/gpu=all
 
 [Install]
 WantedBy=default.target
