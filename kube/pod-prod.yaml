@@ -11,13 +11,11 @@ spec:
       envFrom:
         - configMapRef:
             name: research-ai-env
-      resources:
-        limits:
-          nvidia.com/gpu: 1
-
+      annotations:
+        podman.io/device: "nvidia.com/gpu=all"
+ 
     - name: frontend
       image: research-ai-frontend:prod
-      
       ports:
         - containerPort: 80
         - containerPort: 443
