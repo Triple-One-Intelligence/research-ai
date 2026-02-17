@@ -6,9 +6,11 @@ from pydantic import BaseModel
 try:
     from llama_cpp import Llama
     AI_AVAILABLE = True
-except:
+    print("✅ GPU/CUDA libraries found. AI features enabled.")
+except Exception as e:
     AI_AVAILABLE = False
     Llama = None
+    print(f"❌ AI initialization failed: {e}", file=sys.stderr)
 
 router = APIRouter(prefix="/ai", tags=["AI Models"])
 
@@ -44,7 +46,7 @@ class ChatRequest(BaseModel):
     repo_id: str
     filename: str
     prompt: str
-    
+
     class Config:
         json_schema_extra = {
             "example": {
