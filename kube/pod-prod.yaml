@@ -11,8 +11,17 @@ spec:
       envFrom:
         - configMapRef:
             name: research-ai-env
-      annotations:
-        podman.io/device: "nvidia.com/gpu=all"
+      devices:
+        - path: nvidia.com/gpu=all
+      resources:
+        limits:
+          nvidia.com/gpu=all: 1
+      env:
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "all"
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: "compute,utility"
+
  
     - name: frontend
       image: research-ai-frontend:prod
