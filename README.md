@@ -8,9 +8,9 @@ To set this up:
 
 1.  **Copy the example file:**
     ```bash
-    cp kube/env.yaml.example kube/env.yaml
+    cp kube/research-ai.env.example kube/research-ai.env
     ```
-2.  **Add credentials:** Open the newly created `kube/env.yaml` and fill in your specific values/credentials.
+2.  **Add credentials:** Open the newly created `kube/research-ai.env` and fill in your specific values/credentials.
 
 ## Makefile Usage
 
@@ -19,13 +19,20 @@ Use `make` to manage the application lifecycle.
 | Command | Description |
 | --- | --- |
 | **Development** |  |
-| `make up` | Builds images and starts the local Podman pod. |
-| `make down` | Stops the local pod. |
-| `make watch` | Tails logs for the whole pod (use `wapi` / `wui` for specific logs). |
-| `make labelSELinux` | Fixes SELinux context labels for volumes (only when developing on a Security-Enhanced Linux kernel). |
+| `make up` | Builds dev images and deploys the pod using values from `.env`. |
+| `make down` | Stops and removes the local pod. |
+| `make watch` | Tails logs for the entire pod. |
+| `make wapi` / `wui` | Tails logs for the API or Frontend specifically. |
+| `make labelSELinux` | Relabels files for OSes running a security-hardened Linux kernel. |
 | **Production** |  |
-| `make deploy` | Builds prod images and installs the Systemd Quadlet service. |
-| `make logs` | Tails the systemd journal for the service. |
+| `make deploy` | Builds prod images and installs Systemd Quadlet units. |
+| `make undeploy` | Stops services and removes Quadlet units/env files. |
+| `make logs` | Tails combined systemd journals for all services. |
+| `make logs-api` | Tails journals for the API service only. |
+| `make logs-ui` | Tails journals for the frontend service only. |
+| `make logs-ric` | Tails journals for the ricgraph service only. |
+| **Maintenance** |  |
+| `make nuke` | **The Nuclear Option:** Wipes all containers, pods, volumes, and images. |
 
 ## Gitignore Policy
 

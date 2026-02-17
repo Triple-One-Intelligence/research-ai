@@ -1,20 +1,17 @@
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: research-ai-env
+data:
+  VITE_API_URL: ${VITE_API_URL}"
+
+---
+apiVersion: v1
 kind: Pod
 metadata:
   name: research-ai-dev
 spec:
   containers:
-    - name: surf-heartbeat
-      image: alpine:latest
-      envFrom:
-        - configMapRef:
-            name: research-ai-env
-      volumeMounts:
-        - name: heartbeat-script-file
-          mountPath: /scripts/surf-heartbeat.sh
-          readOnly: true
-      command: ["sh", "/scripts/surf-heartbeat.sh"]
-
     - name: api
       image: research-ai-api:dev
       env:
@@ -76,12 +73,7 @@ spec:
           subPath: Caddyfile.dev
           readOnly: true
 
-  volumes:
-    - name: heartbeat-script-file
-      hostPath:
-        path: ./kube/surf-heartbeat.sh
-        type: File
-        
+  volumes:        
     - name: api-src
       hostPath:
         path: ./api
