@@ -11,11 +11,6 @@ spec:
       envFrom:
         - configMapRef:
             name: research-ai-env
-      devices:
-        - path: nvidia.com/gpu=all
-      resources:
-        limits:
-          nvidia.com/gpu=all: 1
       env:
         - name: NVIDIA_VISIBLE_DEVICES
           value: "all"
