@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
+from app.ai import router as ai_router
 
 class Fruit(BaseModel):
     name: str
@@ -12,7 +13,14 @@ class Fruit(BaseModel):
 class Fruits(BaseModel):
     fruits: List[Fruit]
 
-app = FastAPI(debug=True)
+app = FastAPI(
+    title="Research AI API",
+    description="API for Fruit management and AI Text Generation",
+    version="1.0.0",
+    root_path="/api",
+    debug=True
+)
+app.include_router(ai_router)
 
 cors_env = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
 origins = [o.strip() for o in cors_env.split(",")]
