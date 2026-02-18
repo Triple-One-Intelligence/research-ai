@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: research-ai-env
 data:
-  VITE_API_URL: ${VITE_API_URL}"
+  VITE_API_URL: "${VITE_API_URL}"
 
 ---
 apiVersion: v1
