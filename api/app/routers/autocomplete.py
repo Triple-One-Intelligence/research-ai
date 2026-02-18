@@ -1,3 +1,4 @@
+from app.utils.ricgraph.autocomplete_utils import autocomplete
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List
@@ -12,8 +13,6 @@ class Suggestions(BaseModel):
 
 
 @router.get("/", response_model=Suggestions)
-def suggest(query: str, limit: int):
-    return Suggestions(
-        persons=[Person(author_id="1", name="testpersoon")],
-        organizations=[Organization(organization_id="2", name="testorg")]
-    )
+def suggest(query: str, limit: int = 10):
+    results = autocomplete(query, limit)
+    return results
