@@ -1,0 +1,25 @@
+[Unit]
+Description=Research AI LLM Service (GPU)
+
+[Service]
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=0
+StartLimitBurst=0
+
+[Container]
+ContainerName=research-ai-ai
+Image=docker.io/ollama/ollama:latest
+Network=research-ai-net.network
+
+Environment=NVIDIA_VISIBLE_DEVICES=all
+Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
+AddDevice=nvidia.com/gpu=all
+
+# Expose to localhost on the server so the SSH tunnel can reach it
+PublishPort=127.0.0.1:11434:11434 
+
+Volume=ai-data:/root/.ollama
+
+[Install]
+WantedBy=multi-user.target

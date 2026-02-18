@@ -1,4 +1,6 @@
 fastapi
 uvicorn
 pydantic
-huggingface_hub
+pyjwt
+httpx
+python-multipart

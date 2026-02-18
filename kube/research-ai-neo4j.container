@@ -1,0 +1,24 @@
+[Unit]
+Description=Research AI Neo4j Database
+
+[Service]
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=0
+StartLimitBurst=0
+
+[Container]
+ContainerName=research-ai-neo4j
+Image=docker.io/library/neo4j:5
+Network=research-ai-net.network
+
+EnvironmentFile=/etc/research-ai/research-ai-prod.env
+
+# Expose to localhost on the server so the SSH tunnel can reach it
+PublishPort=127.0.0.1:7474:7474
+PublishPort=127.0.0.1:7687:7687
+
+Volume=neo4j-data:/data
+
+[Install]
+WantedBy=multi-user.target

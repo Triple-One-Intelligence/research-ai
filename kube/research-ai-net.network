@@ -1,0 +1,5 @@
+[Unit]
+Description=Research AI Internal Network
+
+[Network]
+NetworkName=research-ai-net

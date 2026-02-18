@@ -1,12 +1,19 @@
 [Unit]
 Description=Research AI Ricgraph
-Requires=research-ai-frontend.service
-After=research-ai-frontend.service
+
+[Service]
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=0
+StartLimitBurst=0
 
 [Container]
 ContainerName=research-ai-ricgraph
 Image=ghcr.io/utrechtuniversity/ricgraph:latest
-Network=container:research-ai-frontend
+Network=research-ai-net.network
+
+# Expose to localhost on the server so the SSH tunnel can reach it
+PublishPort=127.0.0.1:8080:8080
 
 Volume=ricgraph-data:/var/lib/neo4j/data
 
