@@ -3,46 +3,56 @@ import axios from 'axios';
 import type { EntitySuggestion } from './types';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000"
+  baseURL: import.meta.env.VITE_API_URL || "/api"  
 });
+
+// Backend response types
+interface Person {
+  author_id: string;
+  name: string;
+}
+
+interface Organization {
+  organization_id: string;
+  name: string;
+}
+
+interface SuggestionsResponse {
+  persons: Person[];
+  organizations: Organization[];  
+}
 
 export const searchEntities = async (
   query: string,
-  _limit: number = 10
+  limit: number = 10
 ): Promise<EntitySuggestion[]> => {
-  // Todo: Implement actual API call
-  return getMockSuggestions(query);
-};
+  const params = new URLSearchParams();
+  params.append('query', query);
+  params.append('limit', limit.toString());
+ 
 
-function getUsers(): Promise<EntitySuggestion[]> {
-  // For now, consider the data is stored on a static `users.json` file
-  return fetch('/autocomplete')
-    // the JSON body is taken from the response
-    .then(res => res.json())
-    .then(res => {
-      // The response has an `any` type, so we need to cast
-      // it to the `User` type, and return it from the promise
-      return res as EntitySuggestion[]
-    })
-}
-
-const getMockSuggestions = (query: string): EntitySuggestion[] => {
-
-  // const mockData: EntitySuggestion[] = [
-  //   { id: 'pure:org:1', type: 'organization', label: 'Faculty of Science', extra: 'Utrecht University' },
-  //   { id: 'pure:org:2', type: 'organization', label: 'Department of Computer Science', extra: 'Faculty of Science' },
-  //   { id: 'pure:org:3', type: 'organization', label: 'Chair of Petrology', extra: 'Faculty of Geosciences' },
-  //   { id: 'pure:person:1', type: 'person', label: 'Dr. Jan de Vries', extra: 'Computer Science' },
-  //   { id: 'pure:person:2', type: 'person', label: 'Prof. Maria van den Berg', extra: 'Faculty of Science' },
-  //   { id: 'pure:person:3', type: 'person', label: 'Dr. Peter Jansen', extra: 'Petrology' },
-  //];
-
-  const lowerQuery = query.toLowerCase();
-  return mockData.filter(
-    item => 
-      item.label.toLowerCase().includes(lowerQuery) ||
-      item.extra?.toLowerCase().includes(lowerQuery)
-  );
+  const response = await api.get<SuggestionsResponse>(`/autocomplete/?${params.toString()}`);
+  
+  // Transform backend response to frontend type EntitySuggestion[]
+  const suggestions: EntitySuggestion[] = [];
+  
+  response.data.persons?.forEach((p) => {
+    suggestions.push({
+      id: p.author_id,
+      type: 'person',
+      label: p.name,
+    });
+  });
+  
+  response.data.organizations?.forEach((o) => {
+    suggestions.push({
+      id: o.organization_id,
+      type: 'organization',
+      label: o.name,
+    });
+  });
+  
+  return suggestions;
 };
 
 export default api;
