@@ -3,6 +3,12 @@ Description=Research AI API (GPU)
 Requires=research-ai-frontend.service
 After=research-ai-frontend.service
 
+[Service]
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=0
+StartLimitBurst=0
+
 [Container]
 ContainerName=research-ai-api
 Image=research-ai-api:prod

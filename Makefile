@@ -42,9 +42,10 @@ deploy:
 	podman build -t research-ai-frontend:prod -f ./frontend/Containerfile .
 
 	mkdir -p /etc/containers/systemd
-	install -m 0644 -D kube/research-ai-api.container /etc/containers/systemd/research-ai-api.container
 	install -m 0644 -D kube/research-ai-frontend.container /etc/containers/systemd/research-ai-frontend.container
+	install -m 0644 -D kube/research-ai-api.container /etc/containers/systemd/research-ai-api.container
 	install -m 0644 -D kube/research-ai-ricgraph.container /etc/containers/systemd/research-ai-ricgraph.container
+	install -m 0644 -D kube/research-ai-neo4j.container /etc/containers/systemd/research-ai-neo4j.container
 
 	mkdir -p /etc/research-ai
 	install -m 0644 -D kube/research-ai.env /etc/research-ai/research-ai.env
@@ -52,22 +53,26 @@ deploy:
 	podman volume create caddy-data || true
 	podman volume create caddy-config || true
 	podman volume create ricgraph-data || true
+	podman volume create neo4j-data || true
 
 	systemctl daemon-reload
 	systemctl restart --now research-ai-frontend.service
 	systemctl restart --now research-ai-api.service
 	systemctl restart --now research-ai-ricgraph.service
+	systemctl restart --now research-ai-neo4j.service
 
 undeploy:
-	systemctl stop research-ai-ricgraph.service 2>/dev/null || true
-	systemctl stop research-ai-api.service 2>/dev/null || true
 	systemctl stop research-ai-frontend.service 2>/dev/null || true
+	systemctl stop research-ai-api.service 2>/dev/null || true
+	systemctl stop research-ai-ricgraph.service 2>/dev/null || true
+	systemctl stop research-ai-neo4j.service 2>/dev/null || true
 
 	rm -f /etc/research-ai/research-ai.env
 
-	rm -f /etc/containers/systemd/research-ai-api.container
 	rm -f /etc/containers/systemd/research-ai-frontend.container
+	rm -f /etc/containers/systemd/research-ai-api.container
 	rm -f /etc/containers/systemd/research-ai-ricgraph.container
+	rm -f /etc/containers/systemd/research-ai-neo4j.container
 
 	systemctl daemon-reload
 
