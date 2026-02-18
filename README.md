@@ -34,6 +34,69 @@ Use `make` to manage the application lifecycle.
 | **Maintenance** |  |
 | `make nuke` | **The Nuclear Option:** Wipes all containers, pods, volumes, and images. |
 
+
+## Deployment Workflow
+
+Follow these steps to deploy changes or test branches on the remote server.
+
+**1. Connect to the Server**
+Connect via SSH (e.g., from WSL or your terminal):
+
+```bash
+ssh root@0xai.nl
+```
+
+**2. Navigate to the Project**
+Move to the repository directory:
+
+```bash
+cd research-ai/
+```
+
+**3. Deploy a Feature Branch**
+To test or deploy a specific branch:
+
+1. **Stop the current version:**
+```bash
+make undeploy
+```
+
+
+2. **Switch to your branch and update:**
+```bash
+git checkout <your-branch-name>
+git pull
+```
+
+
+3. **Deploy:**
+```bash
+make deploy
+```
+
+
+**4. Restore Master (Stable)**
+To revert the server to the main stable version:
+
+1. **Stop the current version:**
+```bash
+make undeploy
+```
+
+
+2. **Switch back to master and update:**
+```bash
+git checkout master
+git pull
+```
+
+
+3. **Redeploy stable:**
+```bash
+make deploy
+```
+
+
 ## Gitignore Policy
 
 **Do not clutter the project `.gitignore` with personal tooling configurations.**
