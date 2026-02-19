@@ -35,7 +35,7 @@ def make_ricgraph_request(
         return data
 
     except requests.RequestException as e:
-        print(f"[Ricgraph Error] Request to {endpoint} failed: {e}")
+        print(f"Request to {endpoint} failed: {e}")
         return []
 
 def search_person(value: str, max_nr_items: int = 10) -> List[Dict[str, Any]]:
