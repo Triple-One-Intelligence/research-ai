@@ -31,7 +31,7 @@ export const searchEntities = async (
   params.append('limit', limit.toString());
  
 
-  const response = await api.get<SuggestionsResponse>(`/autocomplete/?${params.toString()}`);
+  const response = await api.get<SuggestionsResponse>(`/autocomplete?${params.toString()}`);
   
   // Transform backend response to frontend type EntitySuggestion[]
   const suggestions: EntitySuggestion[] = [];
