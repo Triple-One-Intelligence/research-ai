@@ -1,8 +1,9 @@
+import os
 import requests
 from typing import List, Dict, Any, Optional
 
-BASE_URL = "https://explorer.ricgraph.eu/api"
-
+# Allow overriding the Ricgraph base URL via environment variable.
+BASE_URL = "http://localhost:3030/api"
 
 def make_ricgraph_request(
     endpoint: str,
