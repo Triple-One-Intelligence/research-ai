@@ -12,7 +12,7 @@ class Suggestions(BaseModel):
     organizations: List[Organization]
 
 
-@router.get("/", response_model=Suggestions)
+@router.get("", response_model=Suggestions)
 def suggest(query: str, limit: int = 10):
     results = autocomplete(query, limit)
     return results
