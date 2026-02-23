@@ -29,8 +29,22 @@ graph = rcg.open_ricgraph()
 
 
 @app.get("/query")
-def executeQuery(query: str, **params):
-    rows = graph.execute_query(query, result_transformer_=Result.data, **params)
+async def executeQuery(request: Request):
+    # get the 'query' parameter
+    q = request.query_params.get("query")
+    if not q:
+        raise HTTPException(status_code=400, detail="missing 'query' parameter")
+
+    # build params dict from remaining query params
+    params = dict(request.query_params)
+    params.pop("query", None)
+
+    # convert numeric-looking values to int where appropriate
+    for k, v in list(params.items()):
+        if v.isdigit():
+            params[k] = int(v)
+
+    rows = graph.execute_query(q, result_transformer_=Result.data, **params)
     return rows
 
 
