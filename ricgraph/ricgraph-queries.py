@@ -1,5 +1,7 @@
+from typing import Any
+
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from neo4j import Result
 
 import ricgraph as rcg
@@ -35,13 +37,14 @@ async def executeQuery(request: Request):
     if not q:
         raise HTTPException(status_code=400, detail="missing 'query' parameter")
 
-    # build params dict from remaining query params
-    params = dict(request.query_params)
-    params.pop("query", None)
+    # build params dict from remaining query params and allow non-str values
+    params: dict[str, Any] = {
+        k: v for k, v in request.query_params.items() if k != "query"
+    }
 
     # convert numeric-looking values to int where appropriate
     for k, v in list(params.items()):
-        if v.isdigit():
+        if isinstance(v, str) and v.isdigit():
             params[k] = int(v)
 
     rows = graph.execute_query(q, result_transformer_=Result.data, **params)
