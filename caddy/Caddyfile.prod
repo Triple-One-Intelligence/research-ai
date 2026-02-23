@@ -1,17 +1,11 @@
-domain.nl {
-
-    handle /api/* {
-        uri strip_prefix /api
+0xai.nl {
+    handle_path /api/* {
         reverse_proxy localhost:8000
-    }
-
-    handle /ai/* {
-        reverse_proxy localhost:8001
     }
 
     handle {
         root * /srv
-        file_server
         try_files {path} /index.html
+        file_server
     }
 }

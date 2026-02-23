@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
+from app.ai import router as ai_router
 
 class Fruit(BaseModel):
     name: str
@@ -12,16 +13,27 @@ class Fruit(BaseModel):
 class Fruits(BaseModel):
     fruits: List[Fruit]
 
-app = FastAPI(debug=True)
+app = FastAPI(
+    title="Research AI API",
+    description="API for Fruit management and AI Text Generation",
+    version="1.0.0",
+    root_path="/api",
+    debug=True
+)
+app.include_router(ai_router)
 
 
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=origins,
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+from app.routers import connections, autocomplete
+app.include_router(connections.router)
+app.include_router(autocomplete.router)
 
 from app.routers import connections, autocomplete
 app.include_router(connections.router)

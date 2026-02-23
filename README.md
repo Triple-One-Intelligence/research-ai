@@ -8,9 +8,9 @@ To set this up:
 
 1.  **Copy the example file:**
     ```bash
-    cp kube/env.yaml.example kube/env.yaml
+    cp kube/research-ai.env.example kube/research-ai.env
     ```
-2.  **Add credentials:** Open the newly created `kube/env.yaml` and fill in your specific values/credentials.
+2.  **Add credentials:** Open the newly created `kube/research-ai.env` and fill in your specific values/credentials.
 
 ## Makefile Usage
 
@@ -19,13 +19,83 @@ Use `make` to manage the application lifecycle.
 | Command | Description |
 | --- | --- |
 | **Development** |  |
-| `make up` | Builds images and starts the local Podman pod. |
-| `make down` | Stops the local pod. |
-| `make watch` | Tails logs for the whole pod (use `wapi` / `wui` for specific logs). |
-| `make labelSELinux` | Fixes SELinux context labels for volumes (only when developing on a Security-Enhanced Linux kernel). |
+| `make up` | Builds dev images and deploys the pod using values from `.env`. |
+| `make down` | Stops and removes the local pod. |
+| `make watch` | Tails logs for the entire pod. |
+| `make wapi` / `wui` | Tails logs for the API or Frontend specifically. |
+| `make labelSELinux` | Relabels files for OSes running a security-hardened Linux kernel. |
 | **Production** |  |
-| `make deploy` | Builds prod images and installs the Systemd Quadlet service. |
-| `make logs` | Tails the systemd journal for the service. |
+| `make deploy` | Builds prod images and installs Systemd Quadlet units. |
+| `make undeploy` | Stops services and removes Quadlet units/env files. |
+| `make logs` | Tails combined systemd journals for all services. |
+| `make logs-api` | Tails journals for the API service only. |
+| `make logs-ui` | Tails journals for the frontend service only. |
+| `make logs-ric` | Tails journals for the ricgraph service only. |
+| **Maintenance** |  |
+| `make nuke` | **The Nuclear Option:** Wipes all containers, pods, volumes, and images. |
+
+
+## Deployment Workflow
+
+Follow these steps to deploy changes or test branches on the remote server.
+
+**1. Connect to the Server**
+Connect via SSH (e.g., from WSL or your terminal):
+
+```bash
+ssh root@0xai.nl
+```
+
+**2. Navigate to the Project**
+Move to the repository directory:
+
+```bash
+cd research-ai/
+```
+
+**3. Deploy a Feature Branch**
+To test or deploy a specific branch:
+
+1. **Stop the current version:**
+```bash
+make undeploy
+```
+
+
+2. **Switch to your branch and update:**
+```bash
+git checkout <your-branch-name>
+git pull
+```
+
+
+3. **Deploy:**
+```bash
+make deploy
+```
+
+
+**4. Restore Master (Stable)**
+To revert the server to the main stable version:
+
+1. **Stop the current version:**
+```bash
+make undeploy
+```
+
+
+2. **Switch back to master and update:**
+```bash
+git checkout master
+git pull
+```
+
+
+3. **Redeploy stable:**
+```bash
+make deploy
+```
+
 
 ## Gitignore Policy
 

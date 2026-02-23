@@ -1,0 +1,14 @@
+[Unit]
+Description=Research AI Ricgraph
+Requires=research-ai-frontend.service
+After=research-ai-frontend.service
+
+[Container]
+ContainerName=research-ai-ricgraph
+Image=ghcr.io/utrechtuniversity/ricgraph:latest
+Network=container:research-ai-frontend
+
+Volume=ricgraph-data:/var/lib/neo4j/data
+
+[Install]
+WantedBy=multi-user.target

@@ -1,6 +1,6 @@
 # --- Project Specific & Secrets ---
 .caddy/
-kube/env.yaml
+kube/research-ai.env
 
 # --- Python Artifacts ---
 __pycache__/

@@ -11,10 +11,36 @@ localhost {
     reverse_proxy localhost:8000
   }
 
-  handle /ai/* {
-    reverse_proxy localhost:8001
+  # Used to test the local frontend against the live production database.
+  # Usage: Set VITE_API_URL=/remote-api in your local research-ai.env file.
+  handle /remote-api/* {
+    # Map the path back to the real API path
+    uri replace /remote-api /api
+    
+    reverse_proxy https://0xai.nl {
+      # FastAPI uses strict CORS middleware. If it detects
+      # a cross-origin or proxied request, the browser blocks the response.
+      
+      # Spoof the Host and Referer to make the request look like it 
+      # originated directly from the production frontend.
+      header_up Host "0xai.nl"
+      header_up Referer "https://0xai.nl/"
+      
+      # Strip the Origin header. Standard same-origin GET requests 
+      # do NOT send an Origin header. If FastAPI sees this, it triggers CORS.
+      header_up -Origin
+      
+      # Caddy automatically adds these headers, 
+      # but FastAPI reads them and realizes the request is being proxied.
+      # Removing them makes this look like a direct, native client request.
+      header_up -X-Forwarded-Host
+      header_up -X-Forwarded-For
+      header_up -X-Forwarded-Proto
+    }
   }
 
+  # 3. FRONTEND ROUTE
+  # Everything else goes to Vite
   handle {
     reverse_proxy localhost:5173
   }
