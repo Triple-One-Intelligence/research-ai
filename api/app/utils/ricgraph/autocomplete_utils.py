@@ -1,4 +1,3 @@
-from app.routers.autocomplete import Suggestions
 from app.utils.ricgraph.RicgraphAPI import execute_query
 
 # module-scoped cache voor gedetecteerde index-namen
@@ -187,4 +186,4 @@ def autocomplete(query: str, limit: int = 10):
     persons = search_persons(query, limit)
     orgs = search_organizations(query, limit)
 
-    return Suggestions(persons, orgs)
+    return {"persons": persons, "organizations": orgs}
