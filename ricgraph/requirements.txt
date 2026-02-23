@@ -19,3 +19,4 @@ Sickle
 twine
 unidecode
 xmltodict
+jsonify

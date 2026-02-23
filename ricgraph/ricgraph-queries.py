@@ -8,7 +8,7 @@ app = FastAPI(
     title="Ricgraph Query API",
     description="API for custom ricgraph queries",
     version="1.0.0",
-    root_path="/",
+    root_path="/api ",
     debug=True,
 )
 
