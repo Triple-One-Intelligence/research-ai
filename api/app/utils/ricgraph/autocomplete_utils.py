@@ -1,17 +1,20 @@
 from app.utils.ricgraph.RicgraphAPI import execute_query
 from app.utils.schemas import Suggestions
 
-def strip_hash(label: str) -> str:
+def clean_label(raw) -> str:
     """Remove trailing #uuid fragments and tidy whitespace/leading commas."""
-    if not label:
+    if not raw or not isinstance(raw, str):
         return ""
+
     # Remove trailing #... fragment
-    idx = label.find("#")
-    res = label[:idx] if idx != -1 else label
+    idx = raw.find("#")
+    res = raw[:idx] if idx != -1 else raw
+
     # Trim whitespace and strip a leading comma if present
     res = res.strip()
     if res.startswith(","):
         res = res.lstrip(",").strip()
+
     return res
 
 def choose_better_label(a: str, b: str) -> str:
@@ -25,38 +28,13 @@ def choose_better_label(a: str, b: str) -> str:
 
     return a if len(a) >= len(b) else b
 
-def sanitize_id(raw):
-    """Normalize a raw id-like string from the node._key:
-    - If present, take the part before '|' (strip metadata suffix)
-    - Remove trailing '#...' fragments
-    - Trim whitespace and remove leading commas
-    Returns None if raw is falsy.
-    """
-    if not raw:
-        return None
-    if not isinstance(raw, str):
-        return raw
-    # First remove any pipe-suffix metadata
-    val = raw.split("|", 1)[0]
-    # Then remove trailing #... fragments
-    val = val.split("#", 1)[0]
-    # Trim and remove leading comma if present
-    val = val.strip()
-    if val.startswith(","):
-        val = val.lstrip(",").strip()
-    return val or None
-
 def pack(rows, category: str):
     out = []
     for row in rows:
         node = row.get("node") or {}
         # Require a canonical _key; skip nodes without it
-        raw_key = node.get("_key")
-        if not raw_key:
-            continue
-
-        value = sanitize_id(raw_key)
-        if not value:
+        key = node.get("_key")
+        if not key:
             continue
 
         # In Ricgraph, node.name is the property type (e.g. "FULL_NAME", "SCOPUS_AUTHOR_ID")
@@ -64,14 +42,14 @@ def pack(rows, category: str):
         # So the label MUST be based on node.value, NOT node.name.
         raw_value = node.get("value")
 
-        if raw_value and str(raw_value).strip():
-            label = strip_hash(str(raw_value))
-        else:
-            label = value
+        label = clean_label(str(raw_value))
+
+        if not label:
+            continue
 
         out.append(
             {
-                "value": value,
+                "value": key,
                 "label": label,
                 "category": category,
                 "score": row.get("score", 1.0),
@@ -102,14 +80,14 @@ def prefix_orgs(term, limit):
     return pack(rows, "organization")
 
 def parse_persons(persons: list, limit: int) -> list:
-    """Merge persons with the same value (_key), strip #uuid in label, choose best label."""
+    """Merge persons with the same value (_key), clean label, choose best label."""
     values = {}
     for person in persons:
         value = person.get("value")
         if not value:
             continue
 
-        label = strip_hash(person.get("label") or "")
+        label = clean_label(person.get("label") or "")
         if value in values:
             current_person = values[value]
             current_person["label"] = choose_better_label(current_person.get("label"), label)
