@@ -91,7 +91,17 @@ def search_persons(term: str, limit: int = 10):
     if remain > 0:
         # build exclude list of values (prefer _key)
         excludes = [p["value"] for p in persons if p.get("value")]
-        query = """
+        # Base query (without excludes)
+        base_query = """
+        MATCH (n:RicgraphNode {category:'person'})
+        WHERE (toLower(n.value) CONTAINS toLower($term)
+           OR (n.name IS NOT NULL AND toLower(n.name) CONTAINS toLower($term)))
+        RETURN n AS node, 1.0 AS score
+        ORDER BY n.value
+        LIMIT $lim
+        """
+        # Query with excludes clause
+        query_with_excludes = """
         MATCH (n:RicgraphNode {category:'person'})
         WHERE (toLower(n.value) CONTAINS toLower($term)
            OR (n.name IS NOT NULL AND toLower(n.name) CONTAINS toLower($term)))
@@ -100,30 +110,44 @@ def search_persons(term: str, limit: int = 10):
         ORDER BY n.value
         LIMIT $lim
         """
+
         # debug: print the params we will pass
         print(f"[autocomplete-debug] running CONTAINS fallback, remain={remain}, excludes_count={len(excludes)}")
-        extra = execute_query(query, term=term, excludes=excludes or ["__no_exclude__"], lim=remain)
-        print(f"[autocomplete-debug] CONTAINS returned {len(extra) if extra else 0} rows")
-        # show a few node values from extra
+
+        if excludes:
+            extra = execute_query(query_with_excludes, term=term, excludes=excludes, lim=remain)
+        else:
+            extra = execute_query(base_query, term=term, lim=remain)
+
+        extra_count = len(extra) if extra else 0
+        print(f"[autocomplete-debug] CONTAINS returned {extra_count} rows")
         try:
             sample_vals = [r.get('node', {}).get('value') or r.get('node', {}).get('name') for r in (extra or [])][:10]
             print(f"[autocomplete-debug] CONTAINS sample values: {sample_vals}")
         except Exception:
             pass
+
         persons += pack(extra, "person")
 
     persons = parse_persons(persons, limit)
     return persons
 
-
 def search_organizations(term: str, limit: int = 10):
     orgs = prefix_orgs(term, limit)
-    orgs = orgs  # keep same structure
 
     remain = max(0, limit - len(orgs))
     if remain > 0:
         excludes = [o["value"] for o in orgs if o.get("value")]
-        query = """
+
+        base_query = """
+        MATCH (n:RicgraphNode {category:'organization'})
+        WHERE (toLower(n.value) CONTAINS toLower($term)
+           OR (n.name IS NOT NULL AND toLower(n.name) CONTAINS toLower($term)))
+        RETURN n AS node, 1.0 AS score
+        ORDER BY n.value
+        LIMIT $lim
+        """
+        query_with_excludes = """
         MATCH (n:RicgraphNode {category:'organization'})
         WHERE (toLower(n.value) CONTAINS toLower($term)
            OR (n.name IS NOT NULL AND toLower(n.name) CONTAINS toLower($term)))
@@ -132,7 +156,14 @@ def search_organizations(term: str, limit: int = 10):
         ORDER BY n.value
         LIMIT $lim
         """
-        extra = execute_query(query, term=term, excludes=excludes or ["__no_exclude__"], lim=remain)
+
+        print(f"[autocomplete-debug] running ORG CONTAINS fallback, remain={remain}, excludes_count={len(excludes)}")
+
+        if excludes:
+            extra = execute_query(query_with_excludes, term=term, excludes=excludes, lim=remain)
+        else:
+            extra = execute_query(base_query, term=term, lim=remain)
+
         orgs += pack(extra, "organization")
 
     return orgs
