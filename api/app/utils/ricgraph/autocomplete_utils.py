@@ -1,4 +1,3 @@
-from neo4j import Result
 from RicgraphAPI import execute_query
 
 from api.app.routers.autocomplete import Suggestions
@@ -38,7 +37,6 @@ def _detect_fulltext_indexes():
     rows = execute_query(  # noqa: F821 (verwacht globale graph)
         "SHOW INDEXES YIELD name, type, labelsOrTypes, properties, state "
         "RETURN name, type, labelsOrTypes, properties, state",
-        result_transformer_=Result.data,
     )
 
     # Helper om index te vinden op basis van property-voorkeur
@@ -87,7 +85,7 @@ def _prefix_persons(term, limit):
     ORDER BY n.value
     LIMIT $lim
     """
-    rows = execute_query(q, term=term, lim=limit, result_transformer_=Result.data)
+    rows = execute_query(q, term=term, lim=limit)
     return _pack(rows, "person")
 
 
@@ -100,7 +98,7 @@ def _prefix_orgs(term, limit):
     ORDER BY n.value
     LIMIT $lim
     """
-    rows = execute_query(q, term=term, lim=limit, result_transformer_=Result.data)
+    rows = execute_query(q, term=term, lim=limit)
     return _pack(rows, "organization")
 
 
@@ -150,13 +148,7 @@ def search_persons(query: str, limit: int = 10):
             ORDER BY score DESC
             LIMIT $lim
             """
-            extra = execute_query(
-                q,
-                _idx=_PERSON_FT_INDEX,
-                term=term,
-                lim=remain,
-                result_transformer_=Result.data,
-            )
+            extra = execute_query(q, _idx=_PERSON_FT_INDEX, term=term, lim=remain)
             persons += _pack(extra, "person")
         except Exception as e:
             print(f"[autocomplete] fulltext persons skipped ({_PERSON_FT_INDEX}): {e}")
@@ -184,13 +176,7 @@ def search_organizations(query: str, limit: int = 10):
             ORDER BY score DESC
             LIMIT $lim
             """
-            extra = execute_query(
-                q,
-                _idx=_ORG_FT_INDEX,
-                term=term,
-                lim=remain,
-                result_transformer_=Result.data,
-            )
+            extra = execute_query(q, _idx=_ORG_FT_INDEX, term=term, lim=remain)
             orgs += _pack(extra, "organization")
         except Exception as e:
             print(f"[autocomplete] fulltext orgs skipped ({_ORG_FT_INDEX}): {e}")
