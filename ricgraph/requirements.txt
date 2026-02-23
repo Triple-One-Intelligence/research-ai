@@ -4,3 +4,4 @@ neo4j
 pymemcache
 numpy
 pandas
+unidecode
