@@ -2,9 +2,7 @@ from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
-from neo4j import Result
-
-import ricgraph as rcg
+from neo4j import Driver, GraphDatabase, Result
 
 app = FastAPI(
     title="Ricgraph Query API",
@@ -17,7 +15,21 @@ app = FastAPI(
 NEO4J_URI = "bolt://localhost:7687"
 USERNAME = "neo4j"
 PASSWORD = "dSRj5ewlbDR4"
-graph = rcg.open_ricgraph()
+
+
+def get_graph() -> Driver:
+    try:
+        graph = GraphDatabase.driver(NEO4J_URI, auth=(USERNAME, PASSWORD))
+        graph.verify_connectivity()
+    except Exception as e:
+        print("open_ricgraph(): An exception occurred. Name: " + type(e).__name__ + ",")
+        print("  error message: " + str(e) + ".")
+        exit(1)
+
+    return graph
+
+
+graph = get_graph()
 
 # execute_query(
 # query,
@@ -39,13 +51,13 @@ async def executeQuery(request: Request):
 
     # build params dict from remaining query params and allow non-str values
     params: dict[str, Any] = {
-        k: v for k, v in request.query_params.items() if k != "query"
+        key: value for key, value in request.query_params.items() if key != "query"
     }
 
     # convert numeric-looking values to int where appropriate
-    for k, v in list(params.items()):
-        if isinstance(v, str) and v.isdigit():
-            params[k] = int(v)
+    for key, value in list(params.items()):
+        if isinstance(value, str) and value.isdigit():
+            params[key] = int(value)
 
     rows = graph.execute_query(query, result_transformer_=Result.data, **params)
     return rows
