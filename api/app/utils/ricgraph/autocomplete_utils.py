@@ -132,11 +132,13 @@ def search_persons(term: str, limit: int = 10):
     # get persons which have the term as prefix
     persons = _prefix_persons(term, limit)
 
+    persons = _dedupe_persons_by_value(persons, limit)
+
     # if any space remains to return more persons, use the full text indices
     remain = max(0, limit - len(persons))
     if remain > 0 and _PERSON_FT_INDEX:
         try:
-            q = f"""
+            q = """
             CALL db.index.fulltext.queryNodes($_idx, $term)
             YIELD node, score
             WHERE node.category = 'person'
@@ -150,8 +152,6 @@ def search_persons(term: str, limit: int = 10):
         except Exception as e:
             print(f"[autocomplete] fulltext persons skipped ({_PERSON_FT_INDEX}): {e}")
 
-    # strip '#...' and de-dupe by value (_key)
-    persons = _dedupe_persons_by_value(persons, limit)
     return persons
 
 
@@ -164,7 +164,7 @@ def search_organizations(term: str, limit: int = 10):
     remain = max(0, limit - len(orgs))
     if remain > 0 and _ORG_FT_INDEX:
         try:
-            q = f"""
+            q = """
             CALL db.index.fulltext.queryNodes($_idx, $term)
             YIELD node, score
             WHERE node.category = 'organization'
