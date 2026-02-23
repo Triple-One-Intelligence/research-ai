@@ -184,7 +184,7 @@ def autocomplete(query: str, limit: int = 10):
 
     # first clean the query string
     term = (query or "").strip()
-    
+
     # decides the minimum number of characters required to provide autocomplete feedback
     if len(term) < 2:
         return []
@@ -215,5 +215,4 @@ def autocomplete(query: str, limit: int = 10):
             continue
         orgs_out.append({"organization_id": val, "name": lab})
 
-
-    return Suggestions(persons_out, orgs_out)
+    return Suggestions(persons=persons, organizations=orgs)
