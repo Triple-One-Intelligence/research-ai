@@ -83,6 +83,9 @@ def search_persons(term: str, limit: int = 10):
     persons = search_prefix_persons(term, limit)
     persons = parse_persons(persons, limit)
 
+    # debug: how many prefix results
+    print(f"[autocomplete-debug] term={term!r} prefix_count={len(persons)} prefix_values={[p.get('value') for p in persons][:10]}")
+
     # 2) if we need more, search for term anywhere using CONTAINS
     remain = max(0, limit - len(persons))
     if remain > 0:
@@ -97,11 +100,21 @@ def search_persons(term: str, limit: int = 10):
         ORDER BY n.value
         LIMIT $lim
         """
+        # debug: print the params we will pass
+        print(f"[autocomplete-debug] running CONTAINS fallback, remain={remain}, excludes_count={len(excludes)}")
         extra = execute_query(query, term=term, excludes=excludes or ["__no_exclude__"], lim=remain)
+        print(f"[autocomplete-debug] CONTAINS returned {len(extra) if extra else 0} rows")
+        # show a few node values from extra
+        try:
+            sample_vals = [r.get('node', {}).get('value') or r.get('node', {}).get('name') for r in (extra or [])][:10]
+            print(f"[autocomplete-debug] CONTAINS sample values: {sample_vals}")
+        except Exception:
+            pass
         persons += pack(extra, "person")
 
     persons = parse_persons(persons, limit)
     return persons
+
 
 def search_organizations(term: str, limit: int = 10):
     orgs = prefix_orgs(term, limit)
@@ -137,8 +150,6 @@ def format_for_api(items: list, id_field_name: str) -> list:
 
 def autocomplete(query: str, limit: int = 10):
     """Searches for persons and organizations matching the query. Combines prefix search and fulltext search."""
-
-    limit = 50
 
     term = (query or "").strip()
     if len(term) < 2:
