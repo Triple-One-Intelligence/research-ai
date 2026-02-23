@@ -5,6 +5,11 @@ from app.utils.schemas import Suggestions
 _PERSON_FT_INDEX = None
 _ORG_FT_INDEX = None
 
+# Debug
+print(execute_query("SHOW INDEXES YIELD name, type, labelsOrTypes, properties, state RETURN name, type, labelsOrTypes, properties, state"))
+print(execute_query("CALL db.index.fulltext.list() YIELD * RETURN *"))
+
+
 def strip_hash(label: str) -> str:
     if not label:
         return ""
