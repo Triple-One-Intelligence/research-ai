@@ -4,7 +4,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List
-from app.schemas import Person, Publication, Organization, Connections
+from app.utils.schemas import Person, Publication, Organization, Connections
 
 
 # these endpoints can be reached using the /connections URL prefix

@@ -1,4 +1,5 @@
 from app.utils.ricgraph.RicgraphAPI import execute_query
+from app.utils.schemas import Suggestions
 
 # module-scoped cache voor gedetecteerde index-namen
 _PERSON_FT_INDEX = None
@@ -32,9 +33,9 @@ def _detect_fulltext_indexes():
     if _PERSON_FT_INDEX and _ORG_FT_INDEX:
         return
 
-    rows = execute_query(  # noqa: F821 (verwacht globale graph)
+    rows = execute_query(
         "SHOW INDEXES YIELD name, type, labelsOrTypes, properties, state "
-        "RETURN name, type, labelsOrTypes, properties, state",
+        "RETURN name, type, labelsOrTypes, properties, state"
     )
 
     # Helper om index te vinden op basis van property-voorkeur
@@ -126,14 +127,12 @@ def _dedupe_persons_by_value(items: list, limit: int) -> list:
     return merged[:limit]
 
 
-def search_persons(query: str, limit: int = 10):
-    term = (query or "").strip()
-    if len(term) < 2:
-        return []
+def search_persons(term: str, limit: int = 10):
 
-    _detect_fulltext_indexes()  # zoals eerder
-
+    # get persons which have the term as prefix
     persons = _prefix_persons(term, limit)
+
+    # if any space remains to return more persons, use the full text indices
     remain = max(0, limit - len(persons))
     if remain > 0 and _PERSON_FT_INDEX:
         try:
@@ -151,18 +150,17 @@ def search_persons(query: str, limit: int = 10):
         except Exception as e:
             print(f"[autocomplete] fulltext persons skipped ({_PERSON_FT_INDEX}): {e}")
 
-    # 🔧 alleen voor personen: strip '#...' en de-dupe op value (_key)
+    # strip '#...' and de-dupe by value (_key)
     persons = _dedupe_persons_by_value(persons, limit)
     return persons
 
 
-def search_organizations(query: str, limit: int = 10):
-    term = (query or "").strip()
-    if len(term) < 2:
-        return []
-    _detect_fulltext_indexes()
+def search_organizations(term: str, limit: int = 10):
 
+    # get the organizations which have the term as prefix
     orgs = _prefix_orgs(term, limit)
+
+    # if any space remains to return more organizations, use the full text indices
     remain = max(0, limit - len(orgs))
     if remain > 0 and _ORG_FT_INDEX:
         try:
@@ -183,27 +181,18 @@ def search_organizations(query: str, limit: int = 10):
 
 def autocomplete(query: str, limit: int = 10):
     """Zoekt naar personen en organisaties die matchen op query. Combineert prefix search en fulltext search."""
-    persons = search_persons(query, limit)
-    orgs = search_organizations(query, limit)
 
-    # Convert internal format {"value","label",...} -> API schema expected fields
-    # Person schema expects: {"author_id": str, "name": str}
-    # Organization schema expects: {"organization_id": str, "name": str}
-    persons_out = []
-    for p in persons:
-        # skip malformed items
-        val = p.get("value")
-        lab = p.get("label")
-        if not val or not lab:
-            continue
-        persons_out.append({"author_id": val, "name": lab})
+    # first clean the query string
+    term = (query or "").strip()
+    
+    # decides the minimum number of characters required to provide autocomplete feedback
+    if len(term) < 2:
+        return []
 
-    orgs_out = []
-    for o in orgs:
-        val = o.get("value")
-        lab = o.get("label")
-        if not val or not lab:
-            continue
-        orgs_out.append({"organization_id": val, "name": lab})
+    # prepare fulltext indices
+    _detect_fulltext_indexes()
 
-    return {"persons": persons_out, "organizations": orgs_out}
+    persons = search_persons(term, limit)
+    orgs = search_organizations(term, limit)
+
+    return Suggestions(persons, orgs)

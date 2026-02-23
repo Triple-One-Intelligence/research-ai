@@ -1,3 +1,5 @@
+# this file is used to execute queries directly on the ricgraph database, instead of using the API.
+
 from typing import Any
 
 import uvicorn
@@ -19,20 +21,10 @@ USERNAME = "neo4j"
 PASSWORD = "dSRj5ewlbDR4"
 graph = rcg.open_ricgraph()
 
-# execute_query(
-# query,
-# parameters_=None,
-# routing_=neo4j.RoutingControl.WRITE,
-# database_=None,
-# impersonated_user_=None,
-# bookmark_manager_=self.execute_query_bookmark_manager,
-# auth_=None,
-# result_transformer_=Result.to_eager_result, **kwargs)
-
-
 @app.get("/query")
 async def executeQuery(request: Request):
-    # get the 'query' parameter
+
+    # get the 'query' parameter (the word that needs autocompleting)
     q = request.query_params.get("query")
     if not q:
         raise HTTPException(status_code=400, detail="missing 'query' parameter")
