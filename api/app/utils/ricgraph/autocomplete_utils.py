@@ -56,6 +56,8 @@ def detect_fulltext_indexes():
     _PERSON_FT_INDEX = pick(["value_ft", "value"])
     _ORG_FT_INDEX = pick(["value", "value_ft"])
 
+    print(f"Detected person fulltext index: {_PERSON_FT_INDEX}, org index: {_ORG_FT_INDEX}")
+
 
 def pack(rows, category: str):
     out = []
@@ -136,10 +138,12 @@ def search_persons(term: str, limit: int = 10):
             ORDER BY score DESC
             LIMIT $lim
             """
-            extra = execute_query(query, _idx=_PERSON_FT_INDEX, term=term, lim=remain)
+            extra = execute_query(query, _idx=_PERSON_FT_INDEX, term=term+"*", lim=remain)
             persons += pack(extra, "person")
         except Exception as e:
             print(f"[autocomplete] fulltext persons skipped ({_PERSON_FT_INDEX}): {e}")
+
+    persons = parse_persons(persons, limit)
 
     return persons
 
