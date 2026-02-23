@@ -19,15 +19,15 @@ else
 fi
 
 # Install Python requirements
-if [ -f "$REQ" ]; then
-  echo "[ricgraph-entrypoint] Installing Python requirements from $REQ"
-  python -m pip install --no-cache-dir -r "$REQ" || {
-    echo "[ricgraph-entrypoint] pip install failed" >&2
-    exit 1
-  }
-else
-  echo "[ricgraph-entrypoint] No requirements.txt found at $REQ, skipping pip install"
-fi
+# if [ -f "$REQ" ]; then
+#   echo "[ricgraph-entrypoint] Installing Python requirements from $REQ"
+#   python -m pip install --no-cache-dir -r "$REQ" || {
+#     echo "[ricgraph-entrypoint] pip install failed" >&2
+#     exit 1
+#   }
+# else
+#   echo "[ricgraph-entrypoint] No requirements.txt found at $REQ, skipping pip install"
+# fi
 
 # Run the queries script
 if [ -f "$SCRIPT" ]; then
