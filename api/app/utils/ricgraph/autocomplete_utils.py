@@ -1,4 +1,4 @@
-from RicgraphAPI import execute_query
+from app.utils.ricgraph.RicgraphAPI import execute_query
 
 from api.app.routers.autocomplete import Suggestions
 
