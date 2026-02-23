@@ -2,10 +2,16 @@ from app.utils.ricgraph.RicgraphAPI import execute_query
 from app.utils.schemas import Suggestions
 
 def strip_hash(label: str) -> str:
+    """Remove trailing #uuid fragments and tidy leading/trailing whitespace/commas."""
     if not label:
         return ""
-    index = label.find("#")
-    return label[:index] if index != -1 else label
+    idx = label.find("#")
+    res = label[:idx] if idx != -1 else label
+    res = res.strip()
+    # Remove a leading comma if present (e.g. ", Foo Bar" -> "Foo Bar")
+    if res.startswith(","):
+        res = res.lstrip(",").strip()
+    return res
 
 def choose_better_label(a: str, b: str) -> str:
     """Choose the 'best' display name: prefer the variant with a comma (last name, initials),
@@ -18,14 +24,33 @@ def choose_better_label(a: str, b: str) -> str:
 
     return a if len(a) >= len(b) else b
 
+def sanitize_id(raw):
+    """Normalize a raw id-like string from the node:
+    - prefer the part before '|' if present
+    - strip trailing '#...' fragments
+    - trim whitespace
+    Return None if raw is empty/None.
+    """
+    if not raw:
+        return None
+    if not isinstance(raw, str):
+        return raw
+    val = raw.split("|", 1)[0]
+    val = val.split("#", 1)[0]
+    return val.strip()
+
 def pack(rows, category: str):
     out = []
     for row in rows:
         node = row.get("node") or {}
+        raw_value = node.get("_key") or node.get("id") or node.get("value")
+        value = sanitize_id(raw_value)
+        raw_label = node.get("value") or node.get("name") or node.get("_key")
+        label = strip_hash(raw_label or "")
         out.append(
             {
-                "value": node.get("_key") or node.get("id") or node.get("value"),
-                "label": node.get("value") or node.get("name") or node.get("_key"),
+                "value": value,
+                "label": label,
                 "category": category,
                 "score": row.get("score", 1.0),
             }
