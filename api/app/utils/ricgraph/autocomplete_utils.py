@@ -1,5 +1,6 @@
 from neo4j import Result
 from RicgraphAPI import execute_query
+
 from api.app.routers.autocomplete import Suggestions
 
 # module-scoped cache voor gedetecteerde index-namen
@@ -183,7 +184,7 @@ def search_organizations(query: str, limit: int = 10):
             ORDER BY score DESC
             LIMIT $lim
             """
-            extra = =execute_query(
+            extra = execute_query(
                 q,
                 _idx=_ORG_FT_INDEX,
                 term=term,
@@ -194,6 +195,7 @@ def search_organizations(query: str, limit: int = 10):
         except Exception as e:
             print(f"[autocomplete] fulltext orgs skipped ({_ORG_FT_INDEX}): {e}")
     return orgs
+
 
 def autocomplete(query: str, limit: int = 10):
     """Zoekt naar personen en organisaties die matchen op query. Combineert prefix search en fulltext search."""
