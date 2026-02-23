@@ -215,4 +215,4 @@ def autocomplete(query: str, limit: int = 10):
             continue
         orgs_out.append({"organization_id": val, "name": lab})
 
-    return Suggestions(persons=persons, organizations=orgs)
+    return Suggestions(persons=persons_out, organizations=orgs_out)
