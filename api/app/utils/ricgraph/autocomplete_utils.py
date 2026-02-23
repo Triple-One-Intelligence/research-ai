@@ -1,33 +1,32 @@
 from app.utils.ricgraph.RicgraphAPI import execute_query
 from app.utils.schemas import Suggestions
 
-# module-scoped cache voor gedetecteerde index-namen
+# Module-scoped cache for detected index-names
 _PERSON_FT_INDEX = None
 _ORG_FT_INDEX = None
 
-
-# helpers
-def _strip_hash(label: str) -> str:
+def strip_hash(label: str) -> str:
     if not label:
         return ""
-    i = label.find("#")
-    return label[:i] if i != -1 else label
+    index = label.find("#")
+    return label[:index] if index != -1 else label
 
+def choose_better_label(a: str, b: str) -> str:
+    """Choose the 'best' display name: prefer the variant with a comma (last name, initials),
+    otherwise the longest."""
+    a = a or ""
+    b = b or ""
 
-def _better_label(a: str, b: str) -> str:
-    """Kies de ‘beste’ weergavenaam: voorkeur aan variant met komma (achternaam, initialen),
-    anders de langste."""
-    a, b = a or "", b or ""
     if ("," in a) != ("," in b):
         return a if "," in a else b
+
     return a if len(a) >= len(b) else b
 
-
-def _detect_fulltext_indexes():
+def detect_fulltext_indexes():
     """
-    Leest SHOW INDEXES en kiest geschikte FULLTEXT indexen voor persons/orgs.
-    Persons: voorkeur property 'value_ft' (zoals bij jou)
-    Orgs:    voorkeur property 'value'
+    Reads SHOW INDEXES and chooses appropriate FULLTEXT indexes for persons/orgs.
+    Persons: preferred property 'value_ft' (as in your setup)
+    Orgs:    preferred property 'value'
     """
     global _PERSON_FT_INDEX, _ORG_FT_INDEX
     if _PERSON_FT_INDEX and _ORG_FT_INDEX:
@@ -38,45 +37,42 @@ def _detect_fulltext_indexes():
         "RETURN name, type, labelsOrTypes, properties, state"
     )
 
-    # Helper om index te vinden op basis van property-voorkeur
-    def pick(preferred_props):
-        # prioriteer FULLTEXT op RicgraphNode met property in preferred_props en ONLINE
-        for prop in preferred_props:
-            for r in rows:
+    # Helper to find index based on property preference
+    def pick(preferred_properties):
+        # prioritize FULLTEXT on RicgraphNode with property in preferred_properties and ONLINE
+        for property in preferred_properties:
+            for row in rows:
                 if (
-                    r.get("type") == "FULLTEXT"
-                    and r.get("state") == "ONLINE"
-                    and r.get("labelsOrTypes")
-                    and "RicgraphNode" in r["labelsOrTypes"]
-                    and r.get("properties")
-                    and prop in r["properties"]
+                    row.get("type") == "FULLTEXT"
+                    and row.get("state") == "ONLINE"
+                    and row.get("labelsOrTypes")
+                    and "RicgraphNode" in row["labelsOrTypes"]
+                    and row.get("properties")
+                    and property in row["properties"]
                 ):
-                    return r["name"]
+                    return row["name"]
         return None
 
-    # Personen gebruiken bij jou value_ft
     _PERSON_FT_INDEX = pick(["value_ft", "value"])
-    # Organisaties gebruiken bij jou value
     _ORG_FT_INDEX = pick(["value", "value_ft"])
 
 
-def _pack(rows, category: str):
+def pack(rows, category: str):
     out = []
-    for r in rows:
-        n = r.get("node") or {}
+    for row in rows:
+        node = row.get("node") or {}
         out.append(
             {
-                "value": n.get("_key") or n.get("id") or n.get("value"),
-                "label": n.get("value") or n.get("name") or n.get("_key"),
+                "value": node.get("_key") or node.get("id") or node.get("value"),
+                "label": node.get("value") or node.get("name") or node.get("_key"),
                 "category": category,
-                "score": r.get("score", 1.0),
+                "score": row.get("score", 1.0),
             }
         )
     return out
 
-
-def _prefix_persons(term, limit):
-    q = """
+def search_prefix_persons(term, limit):
+    query = """
     MATCH (n:RicgraphNode {category:'person'})
     WHERE toLower(n.value) STARTS WITH toLower($term)
        OR (n.name IS NOT NULL AND toLower(n.name) STARTS WITH toLower($term))
@@ -84,12 +80,11 @@ def _prefix_persons(term, limit):
     ORDER BY n.value
     LIMIT $lim
     """
-    rows = execute_query(q, term=term, lim=limit)
-    return _pack(rows, "person")
+    rows = execute_query(query, term=term, lim=limit)
+    return pack(rows, "person")
 
-
-def _prefix_orgs(term, limit):
-    q = """
+def prefix_orgs(term, limit):
+    query = """
     MATCH (n:RicgraphNode {category:'organization'})
     WHERE toLower(n.value) STARTS WITH toLower($term)
        OR (n.name IS NOT NULL AND toLower(n.name) STARTS WITH toLower($term))
@@ -97,74 +92,67 @@ def _prefix_orgs(term, limit):
     ORDER BY n.value
     LIMIT $lim
     """
-    rows = execute_query(q, term=term, lim=limit)
-    return _pack(rows, "organization")
+    rows = execute_query(query, term=term, lim=limit)
+    return pack(rows, "organization")
 
-
-def _dedupe_persons_by_value(items: list, limit: int) -> list:
-    """Merge resultaten met dezelfde value (_key), strip #uuid in label, kies beste label."""
-    by_val = {}
-    for it in items:
-        v = it.get("value")
-        if not v:
+def parse_persons(persons: list, limit: int) -> list:
+    """Merge persons with the same value (_key), strip #uuid in label, choose best label."""
+    values = {}
+    for person in persons:
+        value = person.get("value")
+        if not value:
             continue
-        # strip #uuid alleen voor personen
-        lab = _strip_hash(it.get("label") or "")
-        if v in by_val:
-            cur = by_val[v]
-            # kies betere label
-            cur["label"] = _better_label(cur.get("label"), lab)
-            # hou hoogste score
-            cur["score"] = max(cur.get("score", 0), it.get("score", 0))
+
+        label = strip_hash(person.get("label") or "")
+        if value in values:
+            current_person = values[value]
+            current_person["label"] = choose_better_label(current_person.get("label"), label)
+            current_person["score"] = max(current_person.get("score", 0), person.get("score", 0))
         else:
-            new_it = dict(it)
-            new_it["label"] = lab
-            by_val[v] = new_it
-    # sorteer: eerst hoogste score, dan alfabetisch
-    merged = sorted(
-        by_val.values(), key=lambda x: (-x.get("score", 0), x.get("label") or "")
-    )
+            new_person = dict(person)
+            new_person["label"] = label
+            values[value] = new_person
+
+    # Sort: Highest score first, then alphabetically
+    merged = sorted(values.values(), key=lambda x: (-x.get("score", 0), x.get("label") or ""))
     return merged[:limit]
 
-
 def search_persons(term: str, limit: int = 10):
+    # Get persons which have the term as prefix
+    persons = search_prefix_persons(term, limit)
 
-    # get persons which have the term as prefix
-    persons = _prefix_persons(term, limit)
+    persons = parse_persons(persons, limit)
 
-    persons = _dedupe_persons_by_value(persons, limit)
-
-    # if any space remains to return more persons, use the full text indices
+    # If any space remains to return more persons, use the full text indices
     remain = max(0, limit - len(persons))
     if remain > 0 and _PERSON_FT_INDEX:
         try:
-            q = """
+            query = """
             CALL db.index.fulltext.queryNodes($_idx, $term)
             YIELD node, score
             WHERE node.category = 'person'
-            // geef raw node terug; we strippen # in Python
+            // return raw node; we strip # in Python
             RETURN node AS node, score
             ORDER BY score DESC
             LIMIT $lim
             """
-            extra = execute_query(q, _idx=_PERSON_FT_INDEX, term=term, lim=remain)
-            persons += _pack(extra, "person")
+            extra = execute_query(query, _idx=_PERSON_FT_INDEX, term=term, lim=remain)
+            persons += pack(extra, "person")
         except Exception as e:
             print(f"[autocomplete] fulltext persons skipped ({_PERSON_FT_INDEX}): {e}")
 
     return persons
 
-
 def search_organizations(term: str, limit: int = 10):
 
-    # get the organizations which have the term as prefix
-    orgs = _prefix_orgs(term, limit)
+    # Get the organizations which have the term as prefix
+    orgs = prefix_orgs(term, limit)
 
-    # if any space remains to return more organizations, use the full text indices
+    # If any space remains to return more organizations, use the full text indices
     remain = max(0, limit - len(orgs))
     if remain > 0 and _ORG_FT_INDEX:
         try:
-            q = """
+            query = """
             CALL db.index.fulltext.queryNodes($_idx, $term)
             YIELD node, score
             WHERE node.category = 'organization'
@@ -172,47 +160,36 @@ def search_organizations(term: str, limit: int = 10):
             ORDER BY score DESC
             LIMIT $lim
             """
-            extra = execute_query(q, _idx=_ORG_FT_INDEX, term=term, lim=remain)
-            orgs += _pack(extra, "organization")
+            extra = execute_query(query, _idx=_ORG_FT_INDEX, term=term, lim=remain)
+            orgs += pack(extra, "organization")
         except Exception as e:
             print(f"[autocomplete] fulltext orgs skipped ({_ORG_FT_INDEX}): {e}")
     return orgs
 
+def format_for_api(items: list, id_field_name: str) -> list:
+    """Generic formatter converting internal items to the API schema:
+    items are expected to have 'value' and 'label'. The id_field_name should be
+    either 'author_id' or 'organization_id' depending on the schema required.
+    """
+    return [
+        {id_field_name: item["value"], "name": item["label"]}
+        for item in items
+        if item.get("value") and item.get("label")
+    ]
 
 def autocomplete(query: str, limit: int = 10):
-    """Zoekt naar personen en organisaties die matchen op query. Combineert prefix search en fulltext search."""
+    """Searches for persons and organizations matching the query. Combines prefix search and fulltext search."""
 
-    # first clean the query string
     term = (query or "").strip()
-
-    # decides the minimum number of characters required to provide autocomplete feedback
     if len(term) < 2:
         return []
 
-    # prepare fulltext indices
-    _detect_fulltext_indexes()
+    detect_fulltext_indexes()
 
     persons = search_persons(term, limit)
-    orgs = search_organizations(term, limit)
+    organizations = search_organizations(term, limit)
 
-    # Convert internal format {"value","label",...} -> API schema expected fields
-    # Person schema expects: {"author_id": str, "name": str}
-    # Organization schema expects: {"organization_id": str, "name": str}
-    persons_out = []
-    for p in persons:
-        # skip malformed items
-        val = p.get("value")
-        lab = p.get("label")
-        if not val or not lab:
-            continue
-        persons_out.append({"author_id": val, "name": lab})
-
-    orgs_out = []
-    for o in orgs:
-        val = o.get("value")
-        lab = o.get("label")
-        if not val or not lab:
-            continue
-        orgs_out.append({"organization_id": val, "name": lab})
+    persons_out = format_for_api(persons, "author_id")
+    orgs_out = format_for_api(organizations, "organization_id")
 
     return Suggestions(persons=persons_out, organizations=orgs_out)
