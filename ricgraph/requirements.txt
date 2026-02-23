@@ -5,3 +5,4 @@ pymemcache
 numpy
 pandas
 unidecode
+requests
