@@ -1,8 +1,3 @@
 fastapi
 uvicorn
 neo4j
-pymemcache
-numpy
-pandas
-unidecode
-requests
