@@ -1,6 +1,5 @@
+from app.routers.autocomplete import Suggestions
 from app.utils.ricgraph.RicgraphAPI import execute_query
-
-from api.app.routers.autocomplete import Suggestions
 
 # module-scoped cache voor gedetecteerde index-namen
 _PERSON_FT_INDEX = None
