@@ -5,6 +5,8 @@ REQ=/app/ricgraph/requirements.txt
 SCRIPT=/app/ricgraph/ricgraph-queries.py
 INI=/app/ricgraph/ricgraph.ini
 
+neo4j start
+
 # Copy ini file to the right directory
 if [ -f "$INI" ]; then
   echo "[ricgraph-entrypoint] Copying $INI"
