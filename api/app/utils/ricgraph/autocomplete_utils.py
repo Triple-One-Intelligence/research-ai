@@ -32,14 +32,14 @@ def pack(rows, category: str):
     out = []
     for row in rows:
         node = row.get("node") or {}
-        # Require a canonical _key; skip nodes without it
+        # Require a _key, skip nodes without it
         key = node.get("_key")
         if not key:
             continue
 
         # In Ricgraph, node.name is the property type (e.g. "FULL_NAME", "SCOPUS_AUTHOR_ID")
         # node.value is the actual value (e.g. "John Doe", "12345")
-        # So the label MUST be based on node.value, NOT node.name.
+        # So the label must be based on node.value, not node.name.
         raw_value = node.get("value")
 
         label = clean_label(str(raw_value))
@@ -102,11 +102,9 @@ def parse_persons(persons: list, limit: int) -> list:
     return merged[:limit]
 
 def search_persons(term: str, limit: int = 10):
-    # 1) prefix matches
     persons = search_prefix_persons(term, limit)
     persons = parse_persons(persons, limit)
 
-    # 2) if we need more, search for term anywhere using CONTAINS
     remain = max(0, limit - len(persons))
     if remain > 0:
         excludes = [p["value"] for p in persons if p.get("value")]
