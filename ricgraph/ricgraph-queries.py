@@ -33,9 +33,9 @@ graph = rcg.open_ricgraph()
 @app.get("/query")
 async def executeQuery(request: Request):
     # get the 'query' parameter
-    q = request.query_params.get("query")
-    if not q:
-        raise HTTPException(status_code=400, detail="missing 'query' parameter")
+    query = request.query_params.get("query")
+    if not query:
+        raise HTTPException(status_code=400, detail="Missing 'query' parameter")
 
     # build params dict from remaining query params and allow non-str values
     params: dict[str, Any] = {
@@ -47,9 +47,9 @@ async def executeQuery(request: Request):
         if isinstance(v, str) and v.isdigit():
             params[k] = int(v)
 
-    rows = graph.execute_query(q, result_transformer_=Result.data, **params)
+    rows = graph.execute_query(query, result_transformer_=Result.data, **params)
     return rows
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=3031)
+    uvicorn.run(app, host="0.0.0.0", port=3030)
