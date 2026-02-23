@@ -195,4 +195,25 @@ def autocomplete(query: str, limit: int = 10):
     persons = search_persons(term, limit)
     orgs = search_organizations(term, limit)
 
-    return Suggestions(persons, orgs)
+    # Convert internal format {"value","label",...} -> API schema expected fields
+    # Person schema expects: {"author_id": str, "name": str}
+    # Organization schema expects: {"organization_id": str, "name": str}
+    persons_out = []
+    for p in persons:
+        # skip malformed items
+        val = p.get("value")
+        lab = p.get("label")
+        if not val or not lab:
+            continue
+        persons_out.append({"author_id": val, "name": lab})
+
+    orgs_out = []
+    for o in orgs:
+        val = o.get("value")
+        lab = o.get("label")
+        if not val or not lab:
+            continue
+        orgs_out.append({"organization_id": val, "name": lab})
+
+
+    return Suggestions(persons_out, orgs_out)
