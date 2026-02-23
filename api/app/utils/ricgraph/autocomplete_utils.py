@@ -104,26 +104,24 @@ def search_persons(term: str, limit: int = 10):
     return persons
 
 def search_organizations(term: str, limit: int = 10):
-
-    # Get the organizations which have the term as prefix
     orgs = prefix_orgs(term, limit)
+    orgs = orgs  # keep same structure
 
-    # If any space remains to return more organizations, use the full text indices
     remain = max(0, limit - len(orgs))
-    if remain > 0 and _ORG_FT_INDEX:
-        try:
-            query = """
-            CALL db.index.fulltext.queryNodes($_idx, $term)
-            YIELD node, score
-            WHERE node.category = 'organization'
-            RETURN node, score
-            ORDER BY score DESC
-            LIMIT $lim
-            """
-            extra = execute_query(query, _idx=_ORG_FT_INDEX, term=term, lim=remain)
-            orgs += pack(extra, "organization")
-        except Exception as e:
-            print(f"[autocomplete] fulltext orgs skipped ({_ORG_FT_INDEX}): {e}")
+    if remain > 0:
+        excludes = [o["value"] for o in orgs if o.get("value")]
+        query = """
+        MATCH (n:RicgraphNode {category:'organization'})
+        WHERE (toLower(n.value) CONTAINS toLower($term)
+           OR (n.name IS NOT NULL AND toLower(n.name) CONTAINS toLower($term)))
+          AND NOT (n._key IN $excludes)
+        RETURN n AS node, 1.0 AS score
+        ORDER BY n.value
+        LIMIT $lim
+        """
+        extra = execute_query(query, term=term, excludes=excludes or ["__no_exclude__"], lim=remain)
+        orgs += pack(extra, "organization")
+
     return orgs
 
 def format_for_api(items: list, id_field_name: str) -> list:
@@ -143,8 +141,6 @@ def autocomplete(query: str, limit: int = 10):
     term = (query or "").strip()
     if len(term) < 2:
         return []
-
-    detect_fulltext_indexes()
 
     persons = search_persons(term, limit)
     organizations = search_organizations(term, limit)
