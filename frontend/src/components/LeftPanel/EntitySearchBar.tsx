@@ -131,7 +131,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
   return (
     <div className="entity-search-bar">
       <label className="search-label" htmlFor="entity-search">
-        Search unit or person
+        Search organisation or person
       </label>
       
       <div className="search-input-container">
@@ -145,7 +145,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
           onFocus={() => {
             if (suggestions.length > 0) setShowDropdown(true);
           }}
-          placeholder="Type a name or unit…"
+          placeholder="Type a name or organisation…"
           className="search-input"
           role="combobox"
           aria-expanded={showDropdown}
