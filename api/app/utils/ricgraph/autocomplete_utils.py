@@ -1,14 +1,18 @@
 from app.utils.ricgraph.RicgraphAPI import execute_query
 from app.utils.schemas import Suggestions
+import re
+
+_DIGIT_ID_RE = re.compile(r'^[\d\-\s\(\)\/\+]+$')
 
 def strip_hash(label: str) -> str:
-    """Remove trailing #uuid fragments and tidy leading/trailing whitespace/commas."""
+    """Remove trailing #uuid fragments and tidy whitespace/leading commas."""
     if not label:
         return ""
+    # Remove trailing #... fragment
     idx = label.find("#")
     res = label[:idx] if idx != -1 else label
+    # Trim whitespace and strip a leading comma if present
     res = res.strip()
-    # Remove a leading comma if present (e.g. ", Foo Bar" -> "Foo Bar")
     if res.startswith(","):
         res = res.lstrip(",").strip()
     return res
@@ -25,34 +29,78 @@ def choose_better_label(a: str, b: str) -> str:
     return a if len(a) >= len(b) else b
 
 def sanitize_id(raw):
-    """Normalize a raw id-like string from the node:
-    - prefer the part before '|' if present
-    - strip trailing '#...' fragments
-    - trim whitespace
-    Return None if raw is empty/None.
+    """Normalize a raw id-like string from the node._key:
+    - If present, take the part before '|' (strip metadata suffix)
+    - Remove trailing '#...' fragments
+    - Trim whitespace and remove leading commas
+    Returns None if raw is falsy.
     """
     if not raw:
         return None
     if not isinstance(raw, str):
+        # if it's not a string, just return it (uncommon)
         return raw
+    # First remove any pipe-suffix metadata
     val = raw.split("|", 1)[0]
+    # Then remove trailing #... fragments
     val = val.split("#", 1)[0]
-    return val.strip()
+    # Trim and remove leading comma if present
+    val = val.strip()
+    if val.startswith(","):
+        val = val.lstrip(",").strip()
+    return val or None
+
+def looks_like_identifier(s: str) -> bool:
+    """Return True if the string looks like a numeric identifier (not a human name)."""
+    if not s or not isinstance(s, str):
+        return False
+    s = s.strip()
+    if not s:
+        return False
+    # If it contains letters, treat as a name
+    if re.search(r'[A-Za-z]', s):
+        return False
+    # If it matches the digit/id pattern (digits, hyphens, spaces, parentheses, slashes, plus)
+    if _DIGIT_ID_RE.fullmatch(s):
+        return True
+    # If it's mostly digits after removing non-digit separators, consider it an id
+    digits = re.sub(r'\D', '', s)
+    if len(digits) >= max(3, len(s) // 2):
+        return True
+    return False
 
 def pack(rows, category: str):
     out = []
     for row in rows:
         node = row.get("node") or {}
-        key = node.get("_key")
-        if not key:
+        # Require a canonical _key; skip nodes without it
+        raw_key = node.get("_key")
+        if not raw_key:
             continue
+
+        value = sanitize_id(raw_key)
+        if not value:
+            # if sanitize produced an empty value, skip
+            continue
+
+        # Choose label:
+        # 1) prefer node.name (human-readable)
+        # 2) else prefer node.value only if it does NOT look like an identifier
+        # 3) else fall back to sanitized key
+        raw_name = node.get("name")
+        raw_value = node.get("value")
+
+        if raw_name and str(raw_name).strip():
+            label = strip_hash(raw_name)
+        elif raw_value and not looks_like_identifier(str(raw_value)):
+            label = strip_hash(raw_value)
+        else:
+            label = value  # sanitized key
 
         out.append(
             {
-                # use _key only (skip nodes without _key)
-                "value": key,
-                # prefer readable label properties, and strip any trailing #uuid
-                "label": strip_hash(node.get("value") or node.get("name") or key),
+                "value": value,
+                "label": label,
                 "category": category,
                 "score": row.get("score", 1.0),
             }
