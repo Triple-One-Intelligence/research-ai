@@ -43,14 +43,16 @@ def pack(rows, category: str):
     out = []
     for row in rows:
         node = row.get("node") or {}
-        raw_value = node.get("_key") or node.get("id") or node.get("value")
-        value = sanitize_id(raw_value)
-        raw_label = node.get("value") or node.get("name") or node.get("_key")
-        label = strip_hash(raw_label or "")
+        key = node.get("_key")
+        if not key:
+            continue
+
         out.append(
             {
-                "value": value,
-                "label": label,
+                # use _key only (skip nodes without _key)
+                "value": key,
+                # prefer readable label properties, and strip any trailing #uuid
+                "label": strip_hash(node.get("value") or node.get("name") or key),
                 "category": category,
                 "score": row.get("score", 1.0),
             }
