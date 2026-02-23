@@ -37,5 +37,6 @@ else
   echo "[ricgraph-entrypoint] $SCRIPT not present, skipping"
 fi
 
-# Exec base image CMD
-exec "$@"
+# Start ricgraph explorer and ricgraph REST API
+bin/gunicorn --chdir /app/ricgraph/ricgraph_explorer --bind 0.0.0.0:3030 --workers 5 --worker-class uvicorn.workers.UvicornWorker ricgraph_explorer:create_ricgraph_explorer_app
+# while true; do sleep 60; done
