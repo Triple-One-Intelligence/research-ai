@@ -138,6 +138,8 @@ def format_for_api(items: list, id_field_name: str) -> list:
 def autocomplete(query: str, limit: int = 10):
     """Searches for persons and organizations matching the query. Combines prefix search and fulltext search."""
 
+    limit = 50
+
     term = (query or "").strip()
     if len(term) < 2:
         return []
