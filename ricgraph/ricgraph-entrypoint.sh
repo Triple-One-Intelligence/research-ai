@@ -2,7 +2,7 @@
 set -eu
 
 REQ=/app/ricgraph/requirements.txt
-SCRIPT=/app/ricgraph/ricgraph-queries.
+SCRIPT=/app/ricgraph/ricgraph-queries.py
 INI=/app/ricgraph/ricgraph.ini
 
 # Copy ini file to the right directory
