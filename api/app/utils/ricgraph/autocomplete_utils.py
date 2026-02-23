@@ -5,10 +5,6 @@ from app.utils.schemas import Suggestions
 _PERSON_FT_INDEX = None
 _ORG_FT_INDEX = None
 
-# Debug
-print(execute_query("SHOW INDEXES YIELD name, type, labelsOrTypes, properties, state RETURN name, type, labelsOrTypes, properties, state"))
-print(execute_query("CALL db.index.fulltext.list() YIELD * RETURN *"))
-
 
 def strip_hash(label: str) -> str:
     if not label:
@@ -188,6 +184,10 @@ def format_for_api(items: list, id_field_name: str) -> list:
 
 def autocomplete(query: str, limit: int = 10):
     """Searches for persons and organizations matching the query. Combines prefix search and fulltext search."""
+
+    # Debug
+    print(execute_query("SHOW INDEXES YIELD name, type, labelsOrTypes, properties, state RETURN name, type, labelsOrTypes, properties, state"))
+    print(execute_query("CALL db.index.fulltext.list() YIELD * RETURN *"))
 
     term = (query or "").strip()
     if len(term) < 2:
