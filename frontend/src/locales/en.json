@@ -1,0 +1,23 @@
+{
+  "header": {
+    "title": "Research AI Assistant"
+  },
+  "leftPanel": {
+    "searchLabel": "Search unit or person",
+    "searchPlaceholder": "Type a name or unit…",
+    "executiveSummary": "Executive Summary",
+    "strengthsGaps": "Strengths & Gaps",
+    "promptPlaceholder": "Write your question or instruction for the LLM…",
+    "askButton": "Ask",
+    "noResults": "No results found",
+    "clearSelection": "Clear selection",
+    "searchSuggestions": "Search suggestions",
+    "loading": "Loading"
+  },
+  "middlePanel": {
+    "placeholder": "Middle column - Answer panel"
+  },
+  "rightPanel": {
+    "placeholder": "Right column - Connections panel"
+  }
+}

@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import EntitySearchBar from './EntitySearchBar';
 import type { EntitySuggestion } from '../../types';
 import './LeftPanel.css';
 
 const LeftPanel = () => {
+  const { t } = useTranslation();
   const [selectedEntity, setSelectedEntity] = useState<EntitySuggestion | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
 
@@ -27,11 +29,11 @@ const LeftPanel = () => {
         <div className="prompt-buttons">
           <button className="prompt-btn">
             <span className="prompt-icon">📄</span>
-            Executive Summary
+            {t('leftPanel.executiveSummary')}
           </button>
           <button className="prompt-btn">
             <span className="prompt-icon">💪</span>
-            Strengths & Gaps
+            {t('leftPanel.strengthsGaps')}
           </button>
         </div>
       )}
@@ -39,13 +41,13 @@ const LeftPanel = () => {
       <div className="custom-prompt-composer">
         <textarea
           className="prompt-textarea"
-          placeholder="Write your question or instruction for the LLM…"
+          placeholder={t('leftPanel.promptPlaceholder')}
           value={customPrompt}
           onChange={(e) => setCustomPrompt(e.target.value)}
           rows={4}
         />
         <button className="ask-btn">
-          Ask
+          {t('leftPanel.askButton')}
         </button>
       </div>
     </aside>
