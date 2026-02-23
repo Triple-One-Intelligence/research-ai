@@ -2,20 +2,8 @@
 set -eu
 
 SCRIPT=/app/ricgraph/ricgraph-queries.py
-INI=/app/ricgraph/ricgraph.ini
 
 neo4j start
-
-# Copy ini file to the right directory
-if [ -f "$INI" ]; then
-  echo "[ricgraph-entrypoint] Copying $INI"
-  cp "$INI" /usr/ricgraph.ini || {
-    echo "[ricgraph-entrypoint] Failed to copy $INI" >&2
-    exit 1
-  }
-else
-  echo "[ricgraph-entrypoint] $SCRIPT not present, skipping"
-fi
 
 # Run the queries script
 if [ -f "$SCRIPT" ]; then
