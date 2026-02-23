@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 # Allow overriding the Ricgraph base URL via environment variable.
-BASE_URL = "http://localhost:3030/api"
+BASE_URL = "http://localhost:3031/api"
 
 
 def make_ricgraph_request(
