@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 from app.ai import router as ai_router
+from app.routers.llm import router as llm_router
 
 class Fruit(BaseModel):
     name: str
@@ -21,6 +22,7 @@ app = FastAPI(
     debug=True
 )
 app.include_router(ai_router)
+app.include_router(llm_router)
 
 cors_env = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
 origins = [o.strip() for o in cors_env.split(",")]
