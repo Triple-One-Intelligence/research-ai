@@ -1,0 +1,10 @@
+FROM ghcr.io/utrechtuniversity/ricgraph:latest
+
+RUN mkdir -p /app/ricgraph
+COPY ricgraph/ricgraph-queries.py /app/ricgraph/ricgraph-queries.py
+
+COPY ricgraph/ricgraph-entrypoint.sh /usr/local/bin/ricgraph-entrypoint.sh
+
+RUN chmod +x /app/ricgraph/ricgraph-queries.py /usr/local/bin/ricgraph-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/ricgraph-entrypoint.sh"]
