@@ -1,8 +1,5 @@
 from app.utils.ricgraph.RicgraphAPI import execute_query
 from app.utils.schemas import Suggestions
-import re
-
-_DIGIT_ID_RE = re.compile(r'^[\d\-\s\(\)\/\+]+$')
 
 def strip_hash(label: str) -> str:
     """Remove trailing #uuid fragments and tidy whitespace/leading commas."""
@@ -38,7 +35,6 @@ def sanitize_id(raw):
     if not raw:
         return None
     if not isinstance(raw, str):
-        # if it's not a string, just return it (uncommon)
         return raw
     # First remove any pipe-suffix metadata
     val = raw.split("|", 1)[0]
@@ -49,25 +45,6 @@ def sanitize_id(raw):
     if val.startswith(","):
         val = val.lstrip(",").strip()
     return val or None
-
-def looks_like_identifier(s: str) -> bool:
-    """Return True if the string looks like a numeric identifier (not a human name)."""
-    if not s or not isinstance(s, str):
-        return False
-    s = s.strip()
-    if not s:
-        return False
-    # If it contains letters, treat as a name
-    if re.search(r'[A-Za-z]', s):
-        return False
-    # If it matches the digit/id pattern (digits, hyphens, spaces, parentheses, slashes, plus)
-    if _DIGIT_ID_RE.fullmatch(s):
-        return True
-    # If it's mostly digits after removing non-digit separators, consider it an id
-    digits = re.sub(r'\D', '', s)
-    if len(digits) >= max(3, len(s) // 2):
-        return True
-    return False
 
 def pack(rows, category: str):
     out = []
@@ -80,22 +57,17 @@ def pack(rows, category: str):
 
         value = sanitize_id(raw_key)
         if not value:
-            # if sanitize produced an empty value, skip
             continue
 
-        # Choose label:
-        # 1) prefer node.name (human-readable)
-        # 2) else prefer node.value only if it does NOT look like an identifier
-        # 3) else fall back to sanitized key
-        raw_name = node.get("name")
+        # In Ricgraph, node.name is the property type (e.g. "FULL_NAME", "SCOPUS_AUTHOR_ID")
+        # node.value is the actual value (e.g. "John Doe", "12345")
+        # So the label MUST be based on node.value, NOT node.name.
         raw_value = node.get("value")
 
-        if raw_name and str(raw_name).strip():
-            label = strip_hash(raw_name)
-        elif raw_value and not looks_like_identifier(str(raw_value)):
-            label = strip_hash(raw_value)
+        if raw_value and str(raw_value).strip():
+            label = strip_hash(str(raw_value))
         else:
-            label = value  # sanitized key
+            label = value
 
         out.append(
             {
@@ -111,7 +83,6 @@ def search_prefix_persons(term, limit):
     query = """
     MATCH (n:RicgraphNode {category:'person'})
     WHERE toLower(n.value) STARTS WITH toLower($term)
-       OR (n.name IS NOT NULL AND toLower(n.name) STARTS WITH toLower($term))
     RETURN n AS node, 1.0 AS score
     ORDER BY n.value
     LIMIT $lim
@@ -123,7 +94,6 @@ def prefix_orgs(term, limit):
     query = """
     MATCH (n:RicgraphNode {category:'organization'})
     WHERE toLower(n.value) STARTS WITH toLower($term)
-       OR (n.name IS NOT NULL AND toLower(n.name) STARTS WITH toLower($term))
     RETURN n AS node, 1.0 AS score
     ORDER BY n.value
     LIMIT $lim
@@ -154,53 +124,36 @@ def parse_persons(persons: list, limit: int) -> list:
     return merged[:limit]
 
 def search_persons(term: str, limit: int = 10):
-    # 1) prefix matches (fast-ish, still no index used if not present)
+    # 1) prefix matches
     persons = search_prefix_persons(term, limit)
     persons = parse_persons(persons, limit)
-
-    # debug: how many prefix results
-    print(f"[autocomplete-debug] term={term!r} prefix_count={len(persons)} prefix_values={[p.get('value') for p in persons][:10]}")
 
     # 2) if we need more, search for term anywhere using CONTAINS
     remain = max(0, limit - len(persons))
     if remain > 0:
-        # build exclude list of values (prefer _key)
         excludes = [p["value"] for p in persons if p.get("value")]
-        # Base query (without excludes)
+
         base_query = """
         MATCH (n:RicgraphNode {category:'person'})
-        WHERE (toLower(n.value) CONTAINS toLower($term)
-           OR (n.name IS NOT NULL AND toLower(n.name) CONTAINS toLower($term)))
+        WHERE toLower(n.value) CONTAINS toLower($term)
         RETURN n AS node, 1.0 AS score
         ORDER BY n.value
         LIMIT $lim
         """
-        # Query with excludes clause
+
         query_with_excludes = """
         MATCH (n:RicgraphNode {category:'person'})
-        WHERE (toLower(n.value) CONTAINS toLower($term)
-           OR (n.name IS NOT NULL AND toLower(n.name) CONTAINS toLower($term)))
+        WHERE toLower(n.value) CONTAINS toLower($term)
           AND NOT (n._key IN $excludes)
         RETURN n AS node, 1.0 AS score
         ORDER BY n.value
         LIMIT $lim
         """
 
-        # debug: print the params we will pass
-        print(f"[autocomplete-debug] running CONTAINS fallback, remain={remain}, excludes_count={len(excludes)}")
-
         if excludes:
             extra = execute_query(query_with_excludes, term=term, excludes=excludes, lim=remain)
         else:
             extra = execute_query(base_query, term=term, lim=remain)
-
-        extra_count = len(extra) if extra else 0
-        print(f"[autocomplete-debug] CONTAINS returned {extra_count} rows")
-        try:
-            sample_vals = [r.get('node', {}).get('value') or r.get('node', {}).get('name') for r in (extra or [])][:10]
-            print(f"[autocomplete-debug] CONTAINS sample values: {sample_vals}")
-        except Exception:
-            pass
 
         persons += pack(extra, "person")
 
@@ -216,23 +169,20 @@ def search_organizations(term: str, limit: int = 10):
 
         base_query = """
         MATCH (n:RicgraphNode {category:'organization'})
-        WHERE (toLower(n.value) CONTAINS toLower($term)
-           OR (n.name IS NOT NULL AND toLower(n.name) CONTAINS toLower($term)))
-        RETURN n AS node, 1.0 AS score
-        ORDER BY n.value
-        LIMIT $lim
-        """
-        query_with_excludes = """
-        MATCH (n:RicgraphNode {category:'organization'})
-        WHERE (toLower(n.value) CONTAINS toLower($term)
-           OR (n.name IS NOT NULL AND toLower(n.name) CONTAINS toLower($term)))
-          AND NOT (n._key IN $excludes)
+        WHERE toLower(n.value) CONTAINS toLower($term)
         RETURN n AS node, 1.0 AS score
         ORDER BY n.value
         LIMIT $lim
         """
 
-        print(f"[autocomplete-debug] running ORG CONTAINS fallback, remain={remain}, excludes_count={len(excludes)}")
+        query_with_excludes = """
+        MATCH (n:RicgraphNode {category:'organization'})
+        WHERE toLower(n.value) CONTAINS toLower($term)
+          AND NOT (n._key IN $excludes)
+        RETURN n AS node, 1.0 AS score
+        ORDER BY n.value
+        LIMIT $lim
+        """
 
         if excludes:
             extra = execute_query(query_with_excludes, term=term, excludes=excludes, lim=remain)
