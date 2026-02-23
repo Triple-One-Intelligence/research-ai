@@ -2,7 +2,19 @@
 set -eu
 
 REQ=/app/ricgraph/requirements.txt
-SCRIPT=/app/ricgraph/ricgraph-queries.py
+SCRIPT=/app/ricgraph/ricgraph-queries.
+INI=/app/ricgraph/ricgraph.ini
+
+# Copy ini file to the right directory
+if [ -f "$INI" ]; then
+  echo "[ricgraph-entrypoint] Copying $INI"
+  cp "$INI" /usr/ricgraph.ini || {
+    echo "[ricgraph-entrypoint] Failed to copy $INI" >&2
+    exit 1
+  }
+else
+  echo "[ricgraph-entrypoint] $SCRIPT not present, skipping"
+fi
 
 # Install Python requirements
 if [ -f "$REQ" ]; then
