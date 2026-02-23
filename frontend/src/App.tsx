@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import './App.css';
 import { LeftPanel } from './components/LeftPanel';
+import { MiddlePanel } from './components/MiddlePanel';
 
 const App = () => {
   const [language, setLanguage] = useState<'nl' | 'en'>('nl');
@@ -27,10 +28,7 @@ const App = () => {
       <main className="app-main">
         <LeftPanel />
         <div className="middle-panel">
-          {/* Todo: Answer/Response panel */}
-          <div className="placeholder-panel">
-            <p>Middle column - Answer panel</p>
-          </div>
+          <MiddlePanel />
         </div>
         <div className="right-panel">
           {/* Todo: Connections panel */}
