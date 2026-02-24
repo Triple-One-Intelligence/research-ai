@@ -56,7 +56,7 @@ def ensure_fulltext_indexes(driver: Driver) -> None:
         print(f"Fulltext index '{FULLTEXT_INDEX_NAME}' is online.")
 
 graph = get_graph()
-ensure_fulltext_indexes(graph)
+#ensure_fulltext_indexes(graph)
 
 # execute_query(
 # query,
