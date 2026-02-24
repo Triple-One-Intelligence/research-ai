@@ -1,6 +1,6 @@
 import re
 
-from app.utils.ricgraph.RicgraphAPI import execute_query
+from app.utils.ricgraph.ricgraph_api import execute_query
 from app.utils.schemas import Suggestions
 
 # Must match the index name created in ricgraph_queries.py
@@ -39,8 +39,8 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
         return Suggestions(persons=[], organizations=[])
 
     # Input Cleaning
-    # Allow Unicode letters/numbers (\w), allow whitespace (\s).
-    # Replace everything else (hyphens, apostrophes, punctuation) with space.
+    # Tokenization alignment: the fulltext index analyzer splits on punctuation,
+    # so we do the same here to ensure each keyword maps to an indexed token.
     user_query = re.sub(r'[^\w\s]', ' ', user_query)
 
     # Create tokens (all lowercase, remove empty tokens)

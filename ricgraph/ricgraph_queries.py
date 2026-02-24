@@ -1,7 +1,5 @@
-# this file is used to execute queries directly on the ricgraph database, instead of using the API.
-
+# This file is used to execute queries directly on the ricgraph database, instead of using the API.
 from typing import Any
-
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from neo4j import Driver, GraphDatabase, Result
