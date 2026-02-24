@@ -10,7 +10,7 @@ StartLimitBurst=0
 [Container]
 ContainerName=research-ai-ricgraph
 Image=research-ai-ricgraph:prod
-Network=research-ai-net.network
+Network=container:research-ai-frontend
 
 EnvironmentFile=/etc/research-ai/research-ai-prod.env
 
