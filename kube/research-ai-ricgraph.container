@@ -5,7 +5,7 @@ After=research-ai-frontend.service
 
 [Container]
 ContainerName=research-ai-ricgraph
-Image=ghcr.io/utrechtuniversity/ricgraph:latest
+Image=research-ai-ricgraph:prod
 Network=container:research-ai-frontend
 
 Volume=ricgraph-data:/var/lib/neo4j/data

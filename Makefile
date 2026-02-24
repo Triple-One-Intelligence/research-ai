@@ -40,6 +40,7 @@ wui:
 deploy:
 	podman build -t research-ai-api:prod -f ./api/Containerfile .
 	podman build -t research-ai-frontend:prod -f ./frontend/Containerfile .
+	podman build -t research-ai-ricgraph:prod -f ./ricgraph/Containerfile .
 
 	mkdir -p /etc/containers/systemd
 	install -m 0644 -D kube/research-ai-api.container /etc/containers/systemd/research-ai-api.container
