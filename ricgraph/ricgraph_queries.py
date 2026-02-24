@@ -19,7 +19,7 @@ NEO4J_URI = "bolt://localhost:7687"
 USERNAME = "neo4j"
 PASSWORD = "dSRj5ewlbDR4"
 
-FULLTEXT_INDEX_NAME = "RicgraphValueFulltext"
+FULLTEXT_INDEX_NAME = "ValueFulltext"
 
 def get_graph() -> Driver:
     try:

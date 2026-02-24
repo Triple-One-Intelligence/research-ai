@@ -3,10 +3,34 @@ import re
 from app.utils.ricgraph.RicgraphAPI import execute_query
 from app.utils.schemas import Suggestions
 
+# Must match the index name created in ricgraph_queries.py
+FULLTEXT_INDEX_NAME = "ValueFulltext"
+
+# Lucene reserved characters that must be escaped
+LUCENE_SPECIAL = re.compile(r'([+\-&|!(){}\[\]^"~*?:\\/])')
+
+
+def escape_lucene(term: str) -> str:
+    """Escape Lucene special characters in a search term."""
+    return LUCENE_SPECIAL.sub(r'\\\1', term)
+
+
+def build_lucene_query(keywords: list[str]) -> str:
+    """
+    Build a Lucene query string for autocomplete.
+
+    Every keyword gets a wildcard suffix so partial input matches.
+    All keywords are AND-joined so every term must be present.
+
+    Example: ["henk", "boer"] -> "henk* AND boer*"
+    """
+    parts = [f"{escape_lucene(keyword)}*" for keyword in keywords]
+    return " AND ".join(parts)
+
 
 def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     """
-    Autocomplete search function for Neo4j.
+    Autocomplete search function for Neo4j using a fulltext index.
     """
 
     # Input Validation
@@ -19,7 +43,7 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     # Replace everything else (hyphens, apostrophes, punctuation) with space.
     user_query = re.sub(r'[^\w\s]', ' ', user_query)
 
-    # Create tokens (all lowercase, remove empyt tokens)
+    # Create tokens (all lowercase, remove empty tokens)
     # "Boer  Henk" -> ["boer", "henk"]
     keywords = [
         keyword.lower()
@@ -33,18 +57,19 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     # Create a clean string for the exact match score (100 points)
     clean_query = " ".join(keywords)
 
+    # Build the Lucene query with prefix wildcards for autocomplete
+    lucene_query = build_lucene_query(keywords)
+
     cypher_query = """
             CALL () {
                 // Persons
-                // Explicitly use the category index if it exists
-                MATCH (p:RicgraphNode)
+                CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)
+                YIELD node AS p, score AS ftScore
                 WHERE p.category = 'person'
-                AND ALL(word IN split($cleanQuery, ' ') WHERE toLower(coalesce(p.value, '')) CONTAINS word)
 
-                // Sort by length first before cutting.
-                // Shorter names are more likely exact matches.
+                // Use fulltext score for initial ordering, limit early for performance
                 WITH p
-                ORDER BY size(p.value) ASC
+                ORDER BY ftScore DESC, size(p.value) ASC
                 LIMIT 500
 
                 // Data cleaning (uuid + leading comma)
@@ -72,12 +97,12 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
                 UNION ALL
 
                 // Organizations
-                MATCH (o:RicgraphNode)
+                CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)
+                YIELD node AS o, score AS ftScore
                 WHERE o.category = 'organization'
-                AND ALL(word IN split($cleanQuery, ' ') WHERE toLower(coalesce(o.value, '')) CONTAINS word)
 
                 WITH o
-                ORDER BY size(o.value) ASC
+                ORDER BY ftScore DESC, size(o.value) ASC
                 LIMIT 500
 
                 WITH o, trim(split(o.value, '#')[0]) AS rawClean
@@ -88,7 +113,7 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
 
                 WITH o, name,
                      CASE
-                        WHEN dbCleanName = $cleanQuery THEN 100 // Fix point 3
+                        WHEN dbCleanName = $cleanQuery THEN 100
                         WHEN toLower(name) STARTS WITH $firstKeyword THEN 50
                         ELSE 10
                      END AS matchScore,
@@ -115,9 +140,11 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
 
     rows = execute_query(
         cypher_query,
+        indexName=FULLTEXT_INDEX_NAME,
+        luceneQuery=lucene_query,
         firstKeyword=keywords[0],
         cleanQuery=clean_query,
-        limit=limit
+        limit=limit,
     )
 
     # Map to Output Schema
