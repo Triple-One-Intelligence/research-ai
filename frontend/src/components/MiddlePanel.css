@@ -51,29 +51,3 @@
     opacity: 0;
   }
 }
-
-.action-buttons {
-  margin-top: 16px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.generate-btn {
-  padding: 8px 16px;
-  background-color: #4f46e5;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.generate-btn:hover:not(:disabled) {
-  background-color: #4338ca;
-}
-
-.generate-btn:disabled {
-  background-color: #a5b4fc;
-  cursor: not-allowed;
-}

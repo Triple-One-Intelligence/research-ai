@@ -3,7 +3,12 @@ import EntitySearchBar from './EntitySearchBar';
 import type { EntitySuggestion } from '../../types';
 import './LeftPanel.css';
 
-const LeftPanel = () => {
+interface LeftPanelProps {
+  onAsk: () => void;
+  isGenerating: boolean;
+}
+
+const LeftPanel = ({ onAsk, isGenerating }: LeftPanelProps) => {
   const [selectedEntity, setSelectedEntity] = useState<EntitySuggestion | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
 
@@ -44,8 +49,12 @@ const LeftPanel = () => {
           onChange={(e) => setCustomPrompt(e.target.value)}
           rows={4}
         />
-        <button className="ask-btn">
-          Ask
+        <button 
+          className="ask-btn" 
+          onClick={onAsk}
+          disabled={isGenerating}
+        >
+          {isGenerating ? 'Generating...' : 'Ask'}
         </button>
       </div>
     </aside>
@@ -53,3 +62,4 @@ const LeftPanel = () => {
 };
 
 export default LeftPanel;
+
