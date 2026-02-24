@@ -19,6 +19,7 @@ NEO4J_URI = "bolt://localhost:7687"
 USERNAME = "neo4j"
 PASSWORD = "dSRj5ewlbDR4"
 
+FULLTEXT_INDEX_NAME = "RicgraphValueFulltext"
 
 def get_graph() -> Driver:
     try:
@@ -31,8 +32,31 @@ def get_graph() -> Driver:
 
     return graph
 
+def ensure_fulltext_indexes(driver: Driver) -> None:
+    """Check if the fulltext index exists, and create it if it doesn't."""
+
+    # Query existing indexes and check if our fulltext index is already present
+    existing = driver.execute_query(
+        "SHOW INDEXES YIELD name RETURN collect(name) AS names",
+        result_transformer_=Result.data,
+    )
+
+    index_names: list[str] = existing[0]["names"] if existing else []
+
+    if FULLTEXT_INDEX_NAME in index_names:
+        return
+
+    print(f"Fulltext index '{FULLTEXT_INDEX_NAME}' not found, creating...")
+
+    driver.execute_query(
+        f"CREATE FULLTEXT INDEX {FULLTEXT_INDEX_NAME} "
+        f"FOR (n:RicgraphNode) ON EACH [n.value]",
+    )
+
+    print(f"Fulltext index '{FULLTEXT_INDEX_NAME}' created successfully.")
 
 graph = get_graph()
+ensure_fulltext_indexes(graph)
 
 # execute_query(
 # query,
