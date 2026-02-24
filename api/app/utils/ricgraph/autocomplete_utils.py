@@ -1,196 +1,142 @@
+import re
+
 from app.utils.ricgraph.RicgraphAPI import execute_query
 from app.utils.schemas import Suggestions
 
-def clean_label(raw) -> str:
-    """Remove trailing #uuid fragments and tidy whitespace/leading commas."""
-    if not raw or not isinstance(raw, str):
-        return ""
 
-    # Remove trailing #... fragment
-    idx = raw.find("#")
-    res = raw[:idx] if idx != -1 else raw
-
-    # Trim whitespace and strip a leading comma if present
-    res = res.strip()
-    if res.startswith(","):
-        res = res.lstrip(",").strip()
-
-    return res
-
-def choose_better_label(a: str, b: str) -> str:
-    """Choose the 'best' display name: prefer the variant with a comma (last name, initials),
-    otherwise the longest."""
-    a = a or ""
-    b = b or ""
-
-    if ("," in a) != ("," in b):
-        return a if "," in a else b
-
-    return a if len(a) >= len(b) else b
-
-def pack(rows, category: str):
-    out = []
-    for row in rows:
-        node = row.get("node") or {}
-        # Require a _key, skip nodes without it
-        key = node.get("_key")
-        if not key:
-            continue
-
-        # In Ricgraph, node.name is the property type (e.g. "FULL_NAME", "SCOPUS_AUTHOR_ID")
-        # node.value is the actual value (e.g. "John Doe", "12345")
-        # So the label must be based on node.value, not node.name.
-        raw_value = node.get("value")
-
-        label = clean_label(str(raw_value))
-
-        if not label:
-            continue
-
-        out.append(
-            {
-                "value": key,
-                "label": label,
-                "category": category,
-                "score": row.get("score", 1.0),
-            }
-        )
-    return out
-
-def search_prefix_persons(term, limit):
-    query = """
-    MATCH (n:RicgraphNode {category:'person'})
-    WHERE toLower(n.value) STARTS WITH toLower($term)
-    RETURN n AS node, 1.0 AS score
-    ORDER BY n.value
-    LIMIT $lim
+def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     """
-    rows = execute_query(query, term=term, lim=limit)
-    return pack(rows, "person")
-
-def prefix_orgs(term, limit):
-    query = """
-    MATCH (n:RicgraphNode {category:'organization'})
-    WHERE toLower(n.value) STARTS WITH toLower($term)
-    RETURN n AS node, 1.0 AS score
-    ORDER BY n.value
-    LIMIT $lim
+    Autocomplete search function for Neo4j.
     """
-    rows = execute_query(query, term=term, lim=limit)
-    return pack(rows, "organization")
 
-def parse_persons(persons: list, limit: int) -> list:
-    """Merge persons with the same value (_key), clean label, choose best label."""
-    values = {}
-    for person in persons:
-        value = person.get("value")
-        if not value:
-            continue
+    # Input Validation
+    user_query = (user_query or "").strip()
+    if len(user_query) < 2:
+        return Suggestions(persons=[], organizations=[])
 
-        label = clean_label(person.get("label") or "")
-        if value in values:
-            current_person = values[value]
-            current_person["label"] = choose_better_label(current_person.get("label"), label)
-            current_person["score"] = max(current_person.get("score", 0), person.get("score", 0))
-        else:
-            new_person = dict(person)
-            new_person["label"] = label
-            values[value] = new_person
+    # Input Cleaning
+    # Allow Unicode letters/numbers (\w), allow whitespace (\s).
+    # Replace everything else (hyphens, apostrophes, punctuation) with space.
+    user_query = re.sub(r'[^\w\s]', ' ', user_query)
 
-    # Sort: Highest score first, then alphabetically
-    merged = sorted(values.values(), key=lambda x: (-x.get("score", 0), x.get("label") or ""))
-    return merged[:limit]
-
-def search_persons(term: str, limit: int = 10):
-    persons = search_prefix_persons(term, limit)
-    persons = parse_persons(persons, limit)
-
-    remain = max(0, limit - len(persons))
-    if remain > 0:
-        excludes = [p["value"] for p in persons if p.get("value")]
-
-        base_query = """
-        MATCH (n:RicgraphNode {category:'person'})
-        WHERE toLower(n.value) CONTAINS toLower($term)
-        RETURN n AS node, 1.0 AS score
-        ORDER BY n.value
-        LIMIT $lim
-        """
-
-        query_with_excludes = """
-        MATCH (n:RicgraphNode {category:'person'})
-        WHERE toLower(n.value) CONTAINS toLower($term)
-          AND NOT (n._key IN $excludes)
-        RETURN n AS node, 1.0 AS score
-        ORDER BY n.value
-        LIMIT $lim
-        """
-
-        if excludes:
-            extra = execute_query(query_with_excludes, term=term, excludes=excludes, lim=remain)
-        else:
-            extra = execute_query(base_query, term=term, lim=remain)
-
-        persons += pack(extra, "person")
-
-    persons = parse_persons(persons, limit)
-    return persons
-
-def search_organizations(term: str, limit: int = 10):
-    orgs = prefix_orgs(term, limit)
-
-    remain = max(0, limit - len(orgs))
-    if remain > 0:
-        excludes = [o["value"] for o in orgs if o.get("value")]
-
-        base_query = """
-        MATCH (n:RicgraphNode {category:'organization'})
-        WHERE toLower(n.value) CONTAINS toLower($term)
-        RETURN n AS node, 1.0 AS score
-        ORDER BY n.value
-        LIMIT $lim
-        """
-
-        query_with_excludes = """
-        MATCH (n:RicgraphNode {category:'organization'})
-        WHERE toLower(n.value) CONTAINS toLower($term)
-          AND NOT (n._key IN $excludes)
-        RETURN n AS node, 1.0 AS score
-        ORDER BY n.value
-        LIMIT $lim
-        """
-
-        if excludes:
-            extra = execute_query(query_with_excludes, term=term, excludes=excludes, lim=remain)
-        else:
-            extra = execute_query(base_query, term=term, lim=remain)
-
-        orgs += pack(extra, "organization")
-
-    return orgs
-
-def format_for_api(items: list, id_field_name: str) -> list:
-    """Generic formatter converting internal items to the API schema:
-    items are expected to have 'value' and 'label'. The id_field_name should be
-    either 'author_id' or 'organization_id' depending on the schema required.
-    """
-    return [
-        {id_field_name: item["value"], "name": item["label"]}
-        for item in items
-        if item.get("value") and item.get("label")
+    # Create tokens (all lowercase, Remove empyt tokens and single characters)
+    # "Boer  Henk" -> ["boer", "henk"]
+    keywords = [
+        keyword.lower()
+        for keyword in user_query.split()
+        if keyword.strip() and len(keyword) > 1
     ]
 
-def autocomplete(query: str, limit: int = 10):
-    """Searches for persons and organizations matching the query. Combines prefix search and fulltext search."""
+    if not keywords:
+        return Suggestions(persons=[], organizations=[])
 
-    term = (query or "").strip()
-    if len(term) < 2:
-        return []
+    # Create a clean string for the exact match score (100 points)
+    clean_query = " ".join(keywords)
 
-    persons = search_persons(term, limit)
-    organizations = search_organizations(term, limit)
+    cypher_query = """
+            CALL {
+                // Persons
+                // Explicitly use the category index if it exists
+                MATCH (p:RicgraphNode)
+                WHERE p.category = 'person'
+                AND ALL(word IN $keywords WHERE toLower(coalesce(p.value, '')) CONTAINS word)
 
-    persons_out = format_for_api(persons, "author_id")
-    orgs_out = format_for_api(organizations, "organization_id")
+                // Sort by length first before cutting.
+                // Shorter names are more likely exact matches.
+                WITH p
+                ORDER BY size(p.value) ASC
+                LIMIT 500
+
+                // Data cleaning (uuid + leading comma)
+                WITH p, trim(split(p.value, '#')[0]) AS rawClean
+                WITH p, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
+
+                // Clean the DB name as well for comparison
+                WITH p, name,
+                     toLower(reduce(s = name, char IN [',','.','-'] | replace(s, char, ' '))) AS dbCleanName
+
+                WITH p, name,
+                     CASE
+                        WHEN dbCleanName = $cleanTerm THEN 100
+                        WHEN toLower(name) STARTS WITH $keywords[0] THEN 50
+                        ELSE 10
+                     END AS matchScore,
+                     CASE
+                        WHEN name CONTAINS ',' THEN 3
+                        WHEN name CONTAINS ' ' THEN 2
+                        ELSE 1
+                     END AS formatScore
+
+                RETURN p._key AS id, name, 'person' AS type, matchScore, formatScore
+
+                UNION ALL
+
+                // Organizations
+                MATCH (o:RicgraphNode)
+                WHERE o.category = 'organization'
+                AND ALL(word IN $keywords WHERE toLower(coalesce(o.value, '')) CONTAINS word)
+
+                WITH o
+                ORDER BY size(o.value) ASC
+                LIMIT 500
+
+                WITH o, trim(split(o.value, '#')[0]) AS rawClean
+                WITH o, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
+
+                WITH o, name,
+                     toLower(reduce(s = name, char IN [',','.','-'] | replace(s, char, ' '))) AS dbCleanName
+
+                WITH o, name,
+                     CASE
+                        WHEN dbCleanName = $cleanTerm THEN 100 // Fix point 3
+                        WHEN toLower(name) STARTS WITH $keywords[0] THEN 50
+                        ELSE 10
+                     END AS matchScore,
+                     CASE
+                        WHEN name CONTAINS ',' THEN 3
+                        WHEN name CONTAINS ' ' THEN 2
+                        ELSE 1
+                     END AS formatScore
+
+                RETURN o._key AS id, name, 'organization' AS type, matchScore, formatScore
+            }
+
+            WITH id, name, type, matchScore, formatScore
+            ORDER BY formatScore DESC, size(name) DESC
+
+            WITH id, type,
+                 head(collect(name)) AS displayName,
+                 max(matchScore) AS bestScore
+
+            RETURN id, displayName, type, bestScore
+            ORDER BY bestScore DESC, displayName ASC
+            LIMIT $limit
+            """
+
+    rows = execute_query(
+        cypher_query,
+        keywords=keywords,
+        cleanQuery=clean_query,
+        limit=limit
+    )
+
+    # Map to Output Schema
+    persons_out = []
+    orgs_out = []
+
+    for row in rows:
+        # row["id"] contains the _key from Neo4j
+        # row["displayName"] contains the cleaned name
+
+        if row["type"] == "person":
+            persons_out.append({
+                "author_id": row["id"],
+                "name": row["displayName"]
+            })
+        elif row["type"] == "organization":
+            orgs_out.append({
+                "organization_id": row["id"],
+                "name": row["displayName"]
+            })
 
     return Suggestions(persons=persons_out, organizations=orgs_out)
