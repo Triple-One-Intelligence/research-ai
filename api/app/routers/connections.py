@@ -2,8 +2,8 @@
 # (e.g. to return all connections between a person and their publications)
 
 from fastapi import APIRouter, Query
-from app.schemas import Person, Publication, Organization, Connections
-from app.schemas.connections import ConnectionsResponse, Member
+from app.utils.schemas import Person, Publication, Organization, Connections
+from app.utils.schemas.connections import ConnectionsResponse, Member
 
 
 # these endpoints can be reached using the /connections URL prefix
@@ -101,8 +101,4 @@ def get_entity_connections(
 
 @router.get("/person/{author_id}", response_model=Connections)
 def get_person_connections(author_id: str):
-    return Connections(
-        persons=[],
-        publications=[],
-        organizations=[],
-    )
+    return Connections(persons=[], publications=[], organizations=[])

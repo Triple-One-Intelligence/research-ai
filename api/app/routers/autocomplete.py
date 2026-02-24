@@ -1,15 +1,8 @@
 from app.utils.ricgraph.autocomplete_utils import autocomplete
+from app.utils.schemas import Suggestions
 from fastapi import APIRouter
-from pydantic import BaseModel
-from typing import List
-from app.schemas import Person, Publication, Organization, Connections
 
-
-router = APIRouter(prefix = "/autocomplete")
-
-class Suggestions(BaseModel):
-    persons: List[Person]
-    organizations: List[Organization]
+router = APIRouter(prefix="/autocomplete")
 
 
 @router.get("", response_model=Suggestions)

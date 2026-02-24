@@ -17,6 +17,7 @@ def make_ricgraph_request(
         endpoints that return lists, dicts, or other structures.
     """
     url = f"{BASE_URL}{endpoint}"
+
     # Remove None values from params to avoid sending empty keys
     clean_params = {k: v for k, v in params.items() if v is not None}
 
@@ -36,21 +37,6 @@ def make_ricgraph_request(
     except requests.RequestException as e:
         print(f"Request to {endpoint} failed: {e}")
         return []
-
-
-def search_person(value: str, max_nr_items: int = 10) -> List[Dict[str, Any]]:
-    """[GET /person/search] Search for a person."""
-    return make_ricgraph_request(
-        "/person/search", {"value": value, "max_nr_items": max_nr_items}
-    )
-
-
-def search_organization(value: str, max_nr_items: int = 10) -> List[Dict[str, Any]]:
-    """[GET /organization/search] Search for an organization."""
-    return make_ricgraph_request(
-        "/organization/search", {"value": value, "max_nr_items": max_nr_items}
-    )
-
 
 def execute_query(query: str, **params) -> List[Dict[str, Any]]:
     """[GET /query] Execute a custom query against the Ricgraph database."""
