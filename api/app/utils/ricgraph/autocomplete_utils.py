@@ -19,12 +19,12 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     # Replace everything else (hyphens, apostrophes, punctuation) with space.
     user_query = re.sub(r'[^\w\s]', ' ', user_query)
 
-    # Create tokens (all lowercase, Remove empyt tokens and single characters)
+    # Create tokens (all lowercase, remove empyt tokens)
     # "Boer  Henk" -> ["boer", "henk"]
     keywords = [
         keyword.lower()
         for keyword in user_query.split()
-        if keyword.strip() and len(keyword) > 1
+        if keyword.strip()
     ]
 
     if not keywords:
