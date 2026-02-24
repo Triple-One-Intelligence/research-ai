@@ -8,9 +8,9 @@ from fastapi import APIRouter
 router = APIRouter(prefix="/connections")
 
 
-@router.get("/person/{author_id}", response_model=Connections)
-def get_person_connections(author_id: str):
-    return Connections(persons=[], publications=[], organizations=[])
+@router.get("/entity", response_model=Connections)
+def get_person_connections(entity_id: str, entity_type: str):
+    return Connections(entity_id, entity_type, )
 
 
 # @router.get("/organization/{organization_id}", response_model=Connections)
