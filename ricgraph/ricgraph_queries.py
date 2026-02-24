@@ -41,7 +41,7 @@ def get_graph() -> Driver:
         graph = GraphDatabase.driver(RIC_NEO4J_URL, auth=(RIC_NEO4J_USER, RIC_NEO4J_PASS))
         graph.verify_connectivity()
     except Exception as e:
-        print("get_graph(): An exception occurred. Name: " + type(e).__name__ + ",")
+        print("[ricgraph_queries] get_graph(): An exception occurred. Name: " + type(e).__name__ + ",")
         print("  error message: " + str(e) + ".")
         exit(1)
 
@@ -61,14 +61,14 @@ def ensure_fulltext_indexes(driver: Driver) -> None:
                 f"CREATE FULLTEXT INDEX {FULLTEXT_INDEX_NAME} "
                 f"FOR (n:RicgraphNode) ON EACH [n.value]"
             )
-            print(f"Created fulltext index '{FULLTEXT_INDEX_NAME}'.")
+            print(f"[ricgraph_queries] Created fulltext index '{FULLTEXT_INDEX_NAME}'.")
 
         # Wait until the index is online before proceeding
         session.run(
             "CALL db.awaitIndex($name)",
             name=FULLTEXT_INDEX_NAME,
         )
-        print(f"Fulltext index '{FULLTEXT_INDEX_NAME}' is online.")
+        print(f"[ricgraph_queries] Fulltext index '{FULLTEXT_INDEX_NAME}' is online.")
 
 graph = get_graph()
 ensure_fulltext_indexes(graph)
@@ -86,7 +86,7 @@ class QueryRequest(BaseModel):
     params: dict[str, Any] = {}
 
 @app.post("/query")
-async def executeQuery(request: QueryRequest):
+def executeQuery(request: QueryRequest):
     """
     Endpoint POST /query
 
