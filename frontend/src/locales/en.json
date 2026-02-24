@@ -3,8 +3,8 @@
     "title": "Research AI Assistant"
   },
   "leftPanel": {
-    "searchLabel": "Search unit or person",
-    "searchPlaceholder": "Type a name or unit…",
+    "searchLabel": "Search organisation or person",
+    "searchPlaceholder": "Type a name or organisation…",
     "executiveSummary": "Executive Summary",
     "strengthsGaps": "Strengths & Gaps",
     "promptPlaceholder": "Write your question or instruction for the LLM…",
