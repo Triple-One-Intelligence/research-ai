@@ -2,7 +2,6 @@ import os
 from typing import Any, Dict, List, Literal, Optional
 import requests
 
-# Allow overriding the Ricgraph base URL via environment variable.
 RICGRAPH_URL = os.getenv("RICGRAPH_URL")
 
 def parse_response(data: Any) -> Any:
@@ -12,7 +11,6 @@ def parse_response(data: Any) -> Any:
     if isinstance(data, dict):
         return data.get("results", data)
     return data
-
 
 def make_ricgraph_request(
     method: Literal["GET", "POST"],
@@ -54,7 +52,6 @@ def make_ricgraph_request(
     except requests.RequestException as e:
         print(f"{method} request to {endpoint} failed: {e}")
         return []
-
 
 def execute_query(query: str, **params) -> List[Dict[str, Any]]:
     """[POST /query] Execute a custom query against the Ricgraph database."""
