@@ -8,7 +8,7 @@ ContainerName=research-ai-api
 Image=research-ai-api:prod
 Network=container:research-ai-frontend
 
-EnvironmentFile=/etc/research-ai/research-ai.env
+EnvironmentFile=/etc/research-ai/research-ai-prod.env
 Environment=NVIDIA_VISIBLE_DEVICES=all
 Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
 AddDevice=nvidia.com/gpu=all

@@ -1,10 +1,9 @@
+import os
 from typing import Any, Dict, List, Literal, Optional
-
 import requests
 
 # Allow overriding the Ricgraph base URL via environment variable.
-BASE_URL = "http://localhost:3030/api"
-
+RICGRAPH_URL = os.getenv("RICGRAPH_URL")
 
 def parse_response(data: Any) -> Any:
     """
@@ -36,7 +35,7 @@ def make_ricgraph_request(
         Any: The JSON response body, unwrapped from a 'results' key when present.
              Returns an empty list on failure.
     """
-    url = f"{BASE_URL}{endpoint}"
+    url = f"{RICGRAPH_URL}{endpoint}"
 
     clean_params = {k: v for k, v in (params or {}).items() if v is not None}
     clean_body = {k: v for k, v in (body or {}).items() if v is not None}

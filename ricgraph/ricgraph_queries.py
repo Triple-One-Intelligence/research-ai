@@ -13,6 +13,7 @@ Endpoint
   - response: list[dict]  -- rows returned by the query, serialized via
     `neo4j.Result.data()`
 """
+import os
 from typing import Any
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -28,17 +29,16 @@ app = FastAPI(
     debug=True,
 )
 
-# Credentials are hardcoded for now, this needs to be changed to use environment variables
-NEO4J_URI = "bolt://localhost:7687"
-USERNAME = "neo4j"
-PASSWORD = "dSRj5ewlbDR4"
+RIC_NEO4J_URL = os.getenv("RIC_NEO4J_URL", "")
+RIC_NEO4J_USER = os.getenv("RIC_NEO4J_USER", "")
+RIC_NEO4J_PASS = os.getenv("RIC_NEO4J_PASS", "")
 
 FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
 
 def get_graph() -> Driver:
     """Connect to the Neo4j graph database of ricgraph and return the driver instance."""
     try:
-        graph = GraphDatabase.driver(NEO4J_URI, auth=(USERNAME, PASSWORD))
+        graph = GraphDatabase.driver(RIC_NEO4J_URL, auth=(RIC_NEO4J_USER, RIC_NEO4J_PASS))
         graph.verify_connectivity()
     except Exception as e:
         print("get_graph(): An exception occurred. Name: " + type(e).__name__ + ",")
@@ -108,4 +108,4 @@ async def executeQuery(request: QueryRequest):
     return rows
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=3030)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
