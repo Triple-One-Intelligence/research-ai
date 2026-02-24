@@ -4,7 +4,7 @@ from app.utils.ricgraph.RicgraphAPI import execute_query
 from app.utils.schemas import Suggestions
 
 # Must match the index name created in ricgraph_queries.py
-FULLTEXT_INDEX_NAME = "ValueFulltext"
+FULLTEXT_INDEX_NAME = "RicgraphValueFulltext"
 
 # Lucene reserved characters that must be escaped
 LUCENE_SPECIAL = re.compile(r'([+\-&|!(){}\[\]^"~*?:\\/])')
