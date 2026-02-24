@@ -19,7 +19,7 @@ from fastapi import APIRouter
 router = APIRouter(prefix="/autocomplete")
 
 @router.get("", response_model=Suggestions)
-def suggest(user_query: str, limit: int = 10):
+def suggest(query: str, limit: int = 10):
     """
     Endpoint GET /autocomplete
 
@@ -34,4 +34,4 @@ def suggest(user_query: str, limit: int = 10):
       returned object into JSON according to the model schema.
     """
     # Delegate the actual autocomplete functionality to the utility function and return its result.
-    return autocomplete(user_query, limit)
+    return autocomplete(query, limit)
