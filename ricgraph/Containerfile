@@ -1,16 +1,13 @@
 FROM ghcr.io/utrechtuniversity/ricgraph:latest
 
-RUN mkdir -p /app/ricgraph
+# Install dependencies
+COPY ricgraph/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
+
+# Copy entrypoint
+COPY --chmod=755 ricgraph/ricgraph_entrypoint.sh /usr/local/bin/ricgraph_entrypoint.sh
+
+# Copy application code
 COPY ricgraph/ricgraph_queries.py /app/ricgraph/ricgraph_queries.py
-
-COPY ricgraph/ricgraph_entrypoint.sh /usr/local/bin/ricgraph_entrypoint.sh
-
-# 4. Install the rest of your dependencies
-COPY ricgraph/requirements.txt .
-# IMPORTANT: Use --ignore-installed or remove llama-cpp-python from requirements.txt
-# so it doesn't try to overwrite our GPU version with a CPU version.
-RUN pip install --no-cache-dir -r requirements.txt
-
-RUN chmod +x /app/ricgraph/ricgraph_queries.py /usr/local/bin/ricgraph_entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/ricgraph_entrypoint.sh"]
