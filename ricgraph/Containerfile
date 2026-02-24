@@ -1,9 +1,9 @@
 FROM ghcr.io/utrechtuniversity/ricgraph:latest
 
 RUN mkdir -p /app/ricgraph
-COPY ricgraph/ricgraph-queries.py /app/ricgraph/ricgraph-queries.py
+COPY ricgraph/ricgraph_queries.py /app/ricgraph/ricgraph_queries.py
 
-COPY ricgraph/ricgraph-entrypoint.sh /usr/local/bin/ricgraph-entrypoint.sh
+COPY ricgraph/ricgraph_entrypoint.sh /usr/local/bin/ricgraph_entrypoint.sh
 
 # 4. Install the rest of your dependencies
 COPY ricgraph/requirements.txt .
@@ -11,6 +11,6 @@ COPY ricgraph/requirements.txt .
 # so it doesn't try to overwrite our GPU version with a CPU version.
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN chmod +x /app/ricgraph/ricgraph-queries.py /usr/local/bin/ricgraph-entrypoint.sh
+RUN chmod +x /app/ricgraph/ricgraph_queries.py /usr/local/bin/ricgraph_entrypoint.sh
 
-ENTRYPOINT ["/usr/local/bin/ricgraph-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/ricgraph_entrypoint.sh"]

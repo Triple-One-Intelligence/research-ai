@@ -1,16 +1,16 @@
 #!/bin/sh
 set -eu
 
-SCRIPT=/app/ricgraph/ricgraph-queries.py
+SCRIPT=/app/ricgraph/ricgraph_queries.py
 
 neo4j start
 
 # Run the queries script
 if [ -f "$SCRIPT" ]; then
-  echo "[ricgraph-entrypoint] Running $SCRIPT"
-  python "$SCRIPT" || echo "[ricgraph-entrypoint] $SCRIPT returned non-zero exit code"
+  echo "[ricgraph_entrypoint] Running $SCRIPT"
+  python "$SCRIPT" || echo "[ricgraph_entrypoint] $SCRIPT returned non-zero exit code"
 else
-  echo "[ricgraph-entrypoint] $SCRIPT not present, skipping"
+  echo "[ricgraph_entrypoint] $SCRIPT not present, skipping"
 fi
 
 # Start ricgraph explorer and ricgraph REST API

@@ -14,6 +14,7 @@ app = FastAPI(
     debug=True,
 )
 
+# Credentials are hardcoded for now, this needs to be changed to use environment variables
 NEO4J_URI = "bolt://localhost:7687"
 USERNAME = "neo4j"
 PASSWORD = "dSRj5ewlbDR4"
