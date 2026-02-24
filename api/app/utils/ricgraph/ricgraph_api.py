@@ -59,4 +59,4 @@ def make_ricgraph_request(
 
 def execute_query(query: str, **params) -> List[Dict[str, Any]]:
     """[POST /query] Execute a custom query against the Ricgraph database."""
-    return make_ricgraph_request("POST", "/query", {"query": query, "params": params})
+    return make_ricgraph_request("POST", "/query", body={"query": query, "params": params})
