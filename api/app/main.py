@@ -22,6 +22,8 @@ app = FastAPI(
 )
 app.include_router(ai_router)
 
+cors_env = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+origins = [o.strip() for o in cors_env.split(",")]
 
 app.add_middleware(
     CORSMiddleware,
