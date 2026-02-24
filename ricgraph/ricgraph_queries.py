@@ -1,8 +1,10 @@
 # This file is used to execute queries directly on the ricgraph database, instead of using the API.
 from typing import Any
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
+from typing import cast, LiteralString
 from neo4j import Driver, GraphDatabase, Result
+from pydantic import BaseModel
 
 app = FastAPI(
     title="Ricgraph Query API",
@@ -66,28 +68,17 @@ ensure_fulltext_indexes(graph)
 # auth_=None,
 # result_transformer_=Result.to_eager_result, **kwargs)
 
+class QueryRequest(BaseModel):
+    query: str
+    params: dict[str, Any] = {}
 
-@app.get("/query")
-async def executeQuery(request: Request):
+@app.post("/query")
+async def executeQuery(request: QueryRequest):
+    if not request.query:
+        raise HTTPException(status_code=400, detail="Missing 'query' field")
 
-    # get the 'query' parameter (the word that needs autocompleting)
-    query = request.query_params.get("query")
-    if not query:
-        raise HTTPException(status_code=400, detail="Missing 'query' parameter")
-
-    # build params dict from remaining query params and allow non-str values
-    params: dict[str, Any] = {
-        key: value for key, value in request.query_params.items() if key != "query"
-    }
-
-    # convert numeric-looking values to int where appropriate
-    for key, value in list(params.items()):
-        if isinstance(value, str) and value.isdigit():
-            params[key] = int(value)
-
-    rows = graph.execute_query(query, result_transformer_=Result.data, **params)
+    rows = graph.execute_query(cast(LiteralString, request.query), result_transformer_=Result.data, **request.params)
     return rows
-
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=3030)

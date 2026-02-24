@@ -7,10 +7,10 @@ BASE_URL = "http://localhost:3030/api"
 
 
 def make_ricgraph_request(
-    endpoint: str, params: Dict[str, Any], session: Optional[requests.Session] = None
+    endpoint: str, body: Dict[str, Any], session: Optional[requests.Session] = None
 ) -> Any:
     """
-    Generic function to make a GET request to the Ricgraph API.
+    Generic function to make a POST request to the Ricgraph API.
 
     Returns:
         Any: The JSON response body. Types are relaxed (Any) to accommodate
@@ -18,12 +18,12 @@ def make_ricgraph_request(
     """
     url = f"{BASE_URL}{endpoint}"
 
-    # Remove None values from params to avoid sending empty keys
-    clean_params = {k: v for k, v in params.items() if v is not None}
+    # Remove None values to avoid sending empty keys
+    clean_body = {k: v for k, v in body.items() if v is not None}
 
     http = session or requests.Session()
     try:
-        response = http.get(url, params=clean_params, timeout=30)
+        response = http.post(url, json=clean_body, timeout=30)
         response.raise_for_status()
 
         data = response.json()
@@ -39,5 +39,5 @@ def make_ricgraph_request(
         return []
 
 def execute_query(query: str, **params) -> List[Dict[str, Any]]:
-    """[GET /query] Execute a custom query against the Ricgraph database."""
-    return make_ricgraph_request("/query", {"query": query, **params})
+    """[POST /query] Execute a custom query against the Ricgraph database."""
+    return make_ricgraph_request("/query", {"query": query, "params": params})

@@ -1,5 +1,4 @@
 import re
-
 from app.utils.ricgraph.ricgraph_api import execute_query
 from app.utils.schemas import Suggestions
 
@@ -110,14 +109,18 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
             LIMIT $limit
             """
 
-    rows = execute_query(
-        cypher_query,
-        indexName=FULLTEXT_INDEX_NAME,
-        luceneQuery=lucene_query,
-        firstKeyword=keywords[0],
-        cleanQuery=clean_query,
-        limit=limit,
-    )
+    try:
+        rows = execute_query(
+            cypher_query,
+            indexName=FULLTEXT_INDEX_NAME,
+            luceneQuery=lucene_query,
+            firstKeyword=keywords[0],
+            cleanQuery=clean_query,
+            limit=limit,
+        )
+    except Exception as e:
+        print(f"Autocomplete query failed for query {user_query}: {e}")
+        return Suggestions(persons=[], organizations=[])
 
     # Map to Output Schema
     persons_out = []
