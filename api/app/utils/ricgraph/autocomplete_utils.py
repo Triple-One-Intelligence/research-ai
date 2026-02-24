@@ -97,6 +97,14 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
                  head(collect(name)) AS displayName,
                  max(matchScore) AS bestScore
 
+            // Collapse different nodes that clean to the same
+            // display name (e.g. full_name vs full_name_ascii variants, or duplicate
+            // source nodes). min(id) prefers |full_name over
+            // |full_name_ascii since the former is smaller.
+            WITH displayName, type,
+                 max(bestScore) AS bestScore,
+                 min(id) AS id
+
             RETURN id, displayName, type, bestScore
             ORDER BY bestScore DESC, displayName ASC
             LIMIT $limit
