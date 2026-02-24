@@ -34,12 +34,12 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     clean_query = " ".join(keywords)
 
     cypher_query = """
-            CALL {
+            CALL () {
                 // Persons
                 // Explicitly use the category index if it exists
                 MATCH (p:RicgraphNode)
                 WHERE p.category = 'person'
-                AND ALL(word IN split($keywords, ' ') WHERE toLower(coalesce(p.value, '')) CONTAINS word)
+                AND ALL(word IN split($cleanQuery, ' ') WHERE toLower(coalesce(p.value, '')) CONTAINS word)
 
                 // Sort by length first before cutting.
                 // Shorter names are more likely exact matches.
@@ -57,7 +57,7 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
 
                 WITH p, name,
                      CASE
-                        WHEN dbCleanName = $cleanTerm THEN 100
+                        WHEN dbCleanName = $cleanQuery THEN 100
                         WHEN toLower(name) STARTS WITH $firstKeyword THEN 50
                         ELSE 10
                      END AS matchScore,
@@ -74,7 +74,7 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
                 // Organizations
                 MATCH (o:RicgraphNode)
                 WHERE o.category = 'organization'
-                AND ALL(word IN split($keywords, ' ') WHERE toLower(coalesce(o.value, '')) CONTAINS word)
+                AND ALL(word IN split($cleanQuery, ' ') WHERE toLower(coalesce(o.value, '')) CONTAINS word)
 
                 WITH o
                 ORDER BY size(o.value) ASC
@@ -88,7 +88,7 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
 
                 WITH o, name,
                      CASE
-                        WHEN dbCleanName = $cleanTerm THEN 100 // Fix point 3
+                        WHEN dbCleanName = $cleanQuery THEN 100 // Fix point 3
                         WHEN toLower(name) STARTS WITH $firstKeyword THEN 50
                         ELSE 10
                      END AS matchScore,
@@ -115,9 +115,8 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
 
     rows = execute_query(
         cypher_query,
-        keywords=" ".join(keywords),
         firstKeyword=keywords[0],
-        cleanTerm=clean_query,
+        cleanQuery=clean_query,
         limit=limit
     )
 
