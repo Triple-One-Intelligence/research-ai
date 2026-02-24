@@ -10,7 +10,7 @@ router = APIRouter(prefix="/connections")
 
 @router.get("/entity", response_model=Connections)
 def get_person_connections(entity_id: str, entity_type: str):
-    return Connections(entity_id, entity_type, )
+    return Connections(entity_id=entity_id, entity_type=entity_type)
 
 
 # @router.get("/organization/{organization_id}", response_model=Connections)

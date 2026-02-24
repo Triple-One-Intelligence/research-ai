@@ -91,6 +91,7 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
             CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)
             YIELD node, score AS ftScore
             WHERE node.category IN ['person', 'organization']
+            AND NOT node.name ENDS WITH '-root'
 
             // Use fulltext score for initial ordering, limit early for performance
             WITH node
