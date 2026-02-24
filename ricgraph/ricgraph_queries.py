@@ -34,10 +34,26 @@ def get_graph() -> Driver:
 
 def ensure_fulltext_indexes(driver: Driver) -> None:
     """Create the fulltext index if it doesn't already exist."""
-    driver.execute_query(
-        f"CREATE FULLTEXT INDEX {FULLTEXT_INDEX_NAME} IF NOT EXISTS "
-        f"FOR (n:RicgraphNode) ON EACH [n.value]",
-    )
+    with driver.session() as session:
+        # Check if the index already exists
+        result = session.run(
+            "SHOW FULLTEXT INDEXES YIELD name WHERE name = $name RETURN name",
+            name=FULLTEXT_INDEX_NAME,
+        )
+        if not result.single():
+            # Index does not exist yet, create it
+            session.run(
+                f"CREATE FULLTEXT INDEX {FULLTEXT_INDEX_NAME} "
+                f"FOR (n:RicgraphNode) ON EACH [n.value]"
+            )
+            print(f"Created fulltext index '{FULLTEXT_INDEX_NAME}'.")
+
+        # Wait until the index is online before proceeding
+        session.run(
+            "CALL db.awaitIndex($name)",
+            name=FULLTEXT_INDEX_NAME,
+        )
+        print(f"Fulltext index '{FULLTEXT_INDEX_NAME}' is online.")
 
 graph = get_graph()
 ensure_fulltext_indexes(graph)
