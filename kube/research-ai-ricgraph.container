@@ -14,9 +14,6 @@ Network=container:research-ai-frontend
 
 EnvironmentFile=/etc/research-ai/research-ai-prod.env
 
-# Expose to localhost on the server so the SSH tunnel can reach it
-PublishPort=127.0.0.1:8080:8080
-
 Volume=ricgraph-data:/var/lib/neo4j/data
 
 [Install]
