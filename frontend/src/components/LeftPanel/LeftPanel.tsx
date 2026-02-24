@@ -3,26 +3,23 @@ import EntitySearchBar from './EntitySearchBar';
 import type { EntitySuggestion } from '../../types';
 import './LeftPanel.css';
 
-const LeftPanel = () => {
-  const [selectedEntity, setSelectedEntity] = useState<EntitySuggestion | null>(null);
+interface LeftPanelProps {
+  selectedEntity: EntitySuggestion | null;
+  onEntitySelect: (entity: EntitySuggestion) => void;
+  onEntityClear: () => void;
+}
+
+const LeftPanel = ({ selectedEntity, onEntitySelect, onEntityClear }: LeftPanelProps) => {
   const [customPrompt, setCustomPrompt] = useState('');
-
-  const handleEntitySelect = (entity: EntitySuggestion) => {
-    setSelectedEntity(entity);
-  };
-
-  const handleEntityClear = () => {
-    setSelectedEntity(null);
-  };
 
   return (
     <aside className="left-panel">
-      <EntitySearchBar 
-        onSelect={handleEntitySelect}
-        onClear={handleEntityClear}
+      <EntitySearchBar
+        onSelect={onEntitySelect}
+        onClear={onEntityClear}
         selectedEntity={selectedEntity}
       />
-      
+
       {selectedEntity && (
         <div className="prompt-buttons">
           <button className="prompt-btn">

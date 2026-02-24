@@ -19,3 +19,39 @@ export type PromptTemplate = {
   intent?: string;
   description?: string;
 };
+
+// --- Connections response types ---
+
+export type PersonRef = {
+  author_id: string;
+  name: string;
+};
+
+export type OrganizationRef = {
+  organization_id: string;
+  name: string;
+};
+
+export type Publication = {
+  doi: string;
+  title?: string;
+  publication_rootid?: string;
+  year?: number;
+  category?: string;
+  name?: string;
+};
+
+export type Member = {
+  author_id: string;
+  name: string;
+  role?: string;
+};
+
+export type ConnectionsResponse = {
+  entity_id: string;
+  entity_type: EntityType;
+  collaborators: PersonRef[];
+  publications: Publication[];
+  organizations: OrganizationRef[];
+  members: Member[];
+};

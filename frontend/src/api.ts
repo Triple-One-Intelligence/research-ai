@@ -1,6 +1,6 @@
 
 import axios from 'axios';
-import type { EntitySuggestion } from './types';
+import type { EntitySuggestion, EntityRef, ConnectionsResponse } from './types';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "/api"  
@@ -53,6 +53,19 @@ export const searchEntities = async (
   });
   
   return suggestions;
+};
+
+export const fetchConnections = async (
+  entity: EntityRef
+): Promise<ConnectionsResponse> => {
+  const params = new URLSearchParams();
+  params.append('entity_id', entity.id);
+  params.append('entity_type', entity.type);
+
+  const response = await api.get<ConnectionsResponse>(
+    `/connections/entity?${params.toString()}`
+  );
+  return response.data;
 };
 
 export default api;
