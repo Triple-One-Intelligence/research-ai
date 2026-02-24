@@ -61,72 +61,36 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     lucene_query = build_lucene_query(keywords)
 
     cypher_query = """
-            CALL () {
-                // Persons
-                CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)
-                YIELD node AS p, score AS ftScore
-                WHERE p.category = 'person'
+            CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)
+            YIELD node, score AS ftScore
+            WHERE node.category IN ['person', 'organization']
 
-                // Use fulltext score for initial ordering, limit early for performance
-                WITH p
-                ORDER BY ftScore DESC, size(p.value) ASC
-                LIMIT 500
+            // Use fulltext score for initial ordering, limit early for performance
+            WITH node
+            ORDER BY ftScore DESC, size(node.value) ASC
+            LIMIT 1000
 
-                // Data cleaning (uuid + leading comma)
-                WITH p, trim(split(p.value, '#')[0]) AS rawClean
-                WITH p, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
+            // Data cleaning (uuid + leading comma)
+            WITH node, trim(split(node.value, '#')[0]) AS rawClean
+            WITH node, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
 
-                // Clean the DB name as well for comparison
-                WITH p, name,
-                     toLower(reduce(s = name, char IN [',','.','-'] | replace(s, char, ' '))) AS dbCleanName
+            // Clean the DB name as well for comparison
+            WITH node, name,
+                 toLower(reduce(s = name, char IN [',','.','-'] | replace(s, char, ' '))) AS dbCleanName
 
-                WITH p, name,
-                     CASE
-                        WHEN dbCleanName = $cleanQuery THEN 100
-                        WHEN toLower(name) STARTS WITH $firstKeyword THEN 50
-                        ELSE 10
-                     END AS matchScore,
-                     CASE
-                        WHEN name CONTAINS ',' THEN 3
-                        WHEN name CONTAINS ' ' THEN 2
-                        ELSE 1
-                     END AS formatScore
+            WITH node, name,
+                 CASE
+                    WHEN dbCleanName = $cleanQuery THEN 100
+                    WHEN toLower(name) STARTS WITH $firstKeyword THEN 50
+                    ELSE 10
+                 END AS matchScore,
+                 CASE
+                    WHEN name CONTAINS ',' THEN 3
+                    WHEN name CONTAINS ' ' THEN 2
+                    ELSE 1
+                 END AS formatScore
 
-                RETURN p._key AS id, name, 'person' AS type, matchScore, formatScore
-
-                UNION ALL
-
-                // Organizations
-                CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)
-                YIELD node AS o, score AS ftScore
-                WHERE o.category = 'organization'
-
-                WITH o
-                ORDER BY ftScore DESC, size(o.value) ASC
-                LIMIT 500
-
-                WITH o, trim(split(o.value, '#')[0]) AS rawClean
-                WITH o, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
-
-                WITH o, name,
-                     toLower(reduce(s = name, char IN [',','.','-'] | replace(s, char, ' '))) AS dbCleanName
-
-                WITH o, name,
-                     CASE
-                        WHEN dbCleanName = $cleanQuery THEN 100
-                        WHEN toLower(name) STARTS WITH $firstKeyword THEN 50
-                        ELSE 10
-                     END AS matchScore,
-                     CASE
-                        WHEN name CONTAINS ',' THEN 3
-                        WHEN name CONTAINS ' ' THEN 2
-                        ELSE 1
-                     END AS formatScore
-
-                RETURN o._key AS id, name, 'organization' AS type, matchScore, formatScore
-            }
-
-            WITH id, name, type, matchScore, formatScore
+            WITH node._key AS id, name, node.category AS type, matchScore, formatScore
             ORDER BY formatScore DESC, size(name) DESC
 
             WITH id, type,
