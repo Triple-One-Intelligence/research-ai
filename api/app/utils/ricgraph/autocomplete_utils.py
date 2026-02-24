@@ -106,6 +106,9 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
             WITH node, name,
                  toLower(reduce(s = name, char IN [',','.','-'] | replace(s, char, ' '))) AS dbCleanName
 
+            // Ensure all keywords match the actual name, not the UUID part of the value
+            WHERE all(k IN $keywords WHERE dbCleanName CONTAINS k)
+
             WITH node, name,
                  CASE
                     WHEN dbCleanName = $cleanQuery THEN 100
@@ -143,6 +146,7 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
             cypher_query,
             indexName=FULLTEXT_INDEX_NAME,
             luceneQuery=lucene_query,
+            keywords=keywords,
             firstKeyword=keywords[0],
             cleanQuery=clean_query,
             limit=limit,
