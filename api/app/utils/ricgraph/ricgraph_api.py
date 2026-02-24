@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import requests
 
@@ -6,38 +6,57 @@ import requests
 BASE_URL = "http://localhost:3030/api"
 
 
+def parse_response(data: Any) -> Any:
+    """
+    Unwrap the standard 'results' wrapper if present, otherwise return raw data.
+    """
+    if isinstance(data, dict):
+        return data.get("results", data)
+    return data
+
+
 def make_ricgraph_request(
-    endpoint: str, body: Dict[str, Any], session: Optional[requests.Session] = None
+    method: Literal["GET", "POST"],
+    endpoint: str,
+    params: Optional[Dict[str, Any]] = None,
+    body: Optional[Dict[str, Any]] = None,
+    session: Optional[requests.Session] = None,
 ) -> Any:
     """
-    Generic function to make a POST request to the Ricgraph API.
+    Make a GET or POST request to the Ricgraph API.
+
+    Args:
+        method:   HTTP method, either "GET" or "POST".
+        endpoint: The API endpoint path (e.g. "/persons").
+        params:   Optional query parameters to append to the URL.
+        body:     Optional JSON body (used for POST requests).
+        session:  Optional requests.Session to reuse connections.
 
     Returns:
-        Any: The JSON response body. Types are relaxed (Any) to accommodate
-        endpoints that return lists, dicts, or other structures.
+        Any: The JSON response body, unwrapped from a 'results' key when present.
+             Returns an empty list on failure.
     """
     url = f"{BASE_URL}{endpoint}"
 
-    # Remove None values to avoid sending empty keys
-    clean_body = {k: v for k, v in body.items() if v is not None}
+    clean_params = {k: v for k, v in (params or {}).items() if v is not None}
+    clean_body = {k: v for k, v in (body or {}).items() if v is not None}
 
     http = session or requests.Session()
     try:
-        response = http.post(url, json=clean_body, timeout=30)
+        response = http.request(
+            method,
+            url,
+            params=clean_params or None,
+            json=clean_body or None,
+            timeout=30,
+        )
         response.raise_for_status()
-
-        data = response.json()
-
-        # If the API returns a standard 'results' wrapper, unwrap it.
-        # Otherwise return the raw data (which might be a dict or a list).
-        if isinstance(data, dict):
-            return data.get("results", data)
-        return data
-
+        return parse_response(response.json())
     except requests.RequestException as e:
-        print(f"Request to {endpoint} failed: {e}")
+        print(f"{method} request to {endpoint} failed: {e}")
         return []
+
 
 def execute_query(query: str, **params) -> List[Dict[str, Any]]:
     """[POST /query] Execute a custom query against the Ricgraph database."""
-    return make_ricgraph_request("/query", {"query": query, "params": params})
+    return make_ricgraph_request("POST", "/query", {"query": query, "params": params})
