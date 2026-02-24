@@ -8,7 +8,6 @@ FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
 # Lucene reserved characters that must be escaped
 LUCENE_SPECIAL = re.compile(r'([+\-&|!(){}\[\]^"~*?:\\/])')
 
-
 def escape_lucene(term: str) -> str:
     """Escape Lucene special characters in a search term."""
     return LUCENE_SPECIAL.sub(r'\\\1', term)
@@ -27,10 +26,39 @@ def build_lucene_query(keywords: list[str]) -> str:
     return " AND ".join(parts)
 
 
+def validate_and_clamp_limit(limit) -> int:
+    """
+    Ensure `limit` is an integer and clamp it to the allowed range.
+
+    - If `limit` can be converted to int, use the integer value.
+    - If conversion fails, fall back to DEFAULT_LIMIT.
+    - Clamp to the inclusive range [MIN_LIMIT, MAX_LIMIT].
+    """
+    try:
+        limit_int = int(limit)
+    except Exception:
+        # Non-numeric input; fall back to default
+        return 10
+
+    limit_int = max(1, min(10, limit_int))
+
+    return limit_int
+
+
 def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     """
     Autocomplete search function for Neo4j using a fulltext index.
+
+    Parameters
+    - user_query: the partial text to autocomplete
+    - limit: maximum number of suggestions to return
+
+    Returns
+    - Suggestions pydantic model instance
     """
+
+    # Validate & clamp limit early to avoid passing bad values to the DB
+    limit = validate_and_clamp_limit(limit)
 
     # Input Validation
     user_query = (user_query or "").strip()
