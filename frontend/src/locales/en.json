@@ -9,6 +9,7 @@
     "strengthsGaps": "Strengths & Gaps",
     "promptPlaceholder": "Write your question or instruction for the LLM…",
     "askButton": "Ask",
+    "askButtonGenerating": "Generating...",
     "noResults": "No results found",
     "clearSelection": "Clear selection",
     "searchSuggestions": "Search suggestions",
