@@ -7,7 +7,6 @@ without circular dependencies.
 """
 
 import os
-
 from neo4j import Driver, GraphDatabase
 
 RIC_NEO4J_URL = os.getenv("RIC_NEO4J_URL", "")
@@ -15,7 +14,6 @@ RIC_NEO4J_USER = os.getenv("RIC_NEO4J_USER", "")
 RIC_NEO4J_PASS = os.getenv("RIC_NEO4J_PASS", "")
 
 FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
-
 
 def get_graph() -> Driver:
     """Connect to the Neo4j graph database of ricgraph and return the driver instance."""
@@ -28,7 +26,6 @@ def get_graph() -> Driver:
         exit(1)
 
     return driver
-
 
 def ensure_fulltext_indexes(driver: Driver) -> None:
     """Create the fulltext index if it doesn't already exist."""
@@ -49,7 +46,6 @@ def ensure_fulltext_indexes(driver: Driver) -> None:
             name=FULLTEXT_INDEX_NAME,
         )
         print(f"[database] Fulltext index '{FULLTEXT_INDEX_NAME}' is online.")
-
 
 graph = get_graph()
 ensure_fulltext_indexes(graph)

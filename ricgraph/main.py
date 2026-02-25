@@ -14,13 +14,12 @@ Endpoints
 
 import uvicorn
 from fastapi import FastAPI
-
 from routers import autocomplete
 
 app = FastAPI(
     title="Ricgraph Query API",
     description="API for dedicated ricgraph queries",
-    version="2.0.0",
+    version="1.0.0",
     root_path="/api",
     debug=True,
 )

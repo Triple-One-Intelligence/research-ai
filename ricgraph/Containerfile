@@ -4,10 +4,8 @@ FROM ghcr.io/utrechtuniversity/ricgraph:latest
 COPY ricgraph/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
-# Copy entrypoint
-COPY --chmod=755 ricgraph/ricgraph_entrypoint.sh /usr/local/bin/ricgraph_entrypoint.sh
-
 # Copy application code
-COPY ricgraph/ /app/ricgraph/
+COPY ricgraph/ /work/
+RUN chmod +x /work/ricgraph_entrypoint.sh
 
-ENTRYPOINT ["/usr/local/bin/ricgraph_entrypoint.sh"]
+ENTRYPOINT ["/work/ricgraph_entrypoint.sh"]
