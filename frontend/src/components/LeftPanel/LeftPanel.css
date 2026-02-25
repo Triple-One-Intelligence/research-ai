@@ -94,6 +94,17 @@
   transition: background-color 0.2s;
 }
 
-.ask-btn:hover {
+.ask-btn:hover:not(:disabled) {
   background: #3a7bc8;
+}
+
+.ask-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #7baee0;
+}
+
+.prompt-textarea:disabled {
+  background: #f9fafb;
+  cursor: not-allowed;
 }

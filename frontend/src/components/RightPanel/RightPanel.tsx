@@ -1,44 +1,16 @@
-import { useState, useEffect } from 'react';
-import type { EntitySuggestion, ConnectionsResponse } from '../../types';
-import { fetchConnections } from '../../api';
+import type { ConnectionsResponse } from '../../types';
 import CollapsibleCard from './CollapsibleCard';
 import './RightPanel.css';
 
 interface RightPanelProps {
-  selectedEntity: EntitySuggestion | null;
+  connections: ConnectionsResponse | null;
+  loading: boolean;
+  error: string | null;
+  hasEntity: boolean;
 }
 
-const RightPanel = ({ selectedEntity }: RightPanelProps) => {
-  const [connections, setConnections] = useState<ConnectionsResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!selectedEntity) {
-      setConnections(null);
-      setError(null);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetchConnections(selectedEntity)
-      .then((data) => {
-        if (!cancelled) setConnections(data);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message ?? 'Failed to load connections');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [selectedEntity]);
-
-  if (!selectedEntity) {
+const RightPanel = ({ connections, loading, error, hasEntity }: RightPanelProps) => {
+  if (!hasEntity) {
     return (
       <aside className="right-panel">
         <div className="placeholder-panel">
