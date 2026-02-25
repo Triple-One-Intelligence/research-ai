@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import EntitySearchBar from './EntitySearchBar';
 import type { EntitySuggestion } from '../../types';
 import './LeftPanel.css';
@@ -8,7 +9,7 @@ import './LeftPanel.css';
 //   onAsk – callback triggered when the user clicks the "Ask" button.
 //   isGenerating – flag indicating whether the LLM is currently streaming a response.
 interface LeftPanelProps {
-  t: useTranslation();
+  t: TFunction;
   onAsk: () => void;
   isGenerating: boolean;
 }
@@ -73,7 +74,7 @@ const LeftPanel = ({ t, onAsk, isGenerating }: LeftPanelProps) => {
           disabled={isGenerating} // Disables the button while a response is being generated.
         >
           {/* Changes button text based on generation status. */}
-          {isGenerating ? t('leftPanel.askButtonGenerating')} : t('leftPanel.askButton')}}
+          {isGenerating ? t('leftPanel.askButtonGenerating') : t('leftPanel.askButton')}
         </button>
       </div>
     </aside>

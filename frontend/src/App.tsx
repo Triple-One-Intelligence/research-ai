@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import './App.css';
 import { LeftPanel } from './components/LeftPanel';
@@ -64,7 +65,8 @@ const App = () => {
         setIsGenerating(false);
       }
     );
-  
+  };
+
   const { t, i18n } = useTranslation();
   const language = i18n.language as 'en' | 'nl';
 
@@ -92,7 +94,7 @@ const App = () => {
         </div>
       </header>
       <main className="app-main">
-        <LeftPanel onAsk={handleGenerate} isGenerating={isGenerating} />
+        <LeftPanel t={t} onAsk={handleGenerate} isGenerating={isGenerating} />
         <div className="middle-panel">
           <MiddlePanel text={responseText} isGenerating={isGenerating} />
         </div>
