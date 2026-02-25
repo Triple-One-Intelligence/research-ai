@@ -24,7 +24,7 @@ def make_ricgraph_request(
 
     Args:
         method:   HTTP method, either "GET" or "POST".
-        endpoint: The API endpoint path (e.g. "/persons").
+        endpoint: The API endpoint path (e.g. "/autocomplete").
         params:   Optional query parameters to append to the URL.
         body:     Optional JSON body (used for POST requests).
         session:  Optional requests.Session to reuse connections.
@@ -53,6 +53,15 @@ def make_ricgraph_request(
         print(f"{method} request to {endpoint} failed: {e}")
         return []
 
-def execute_query(query: str, **params) -> List[Dict[str, Any]]:
-    """[POST /query] Execute a custom query against the Ricgraph database."""
-    return make_ricgraph_request("POST", "/query", body={"query": query, "params": params})
+def make_autocomplete_request(query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    [POST /autocomplete] Search for autocomplete suggestions.
+
+    Args:
+        query: The partial text to autocomplete.
+        limit: Maximum number of suggestions to return (1-100, default 10).
+
+    Returns:
+        A list of dicts with keys: id, displayName, type, bestScore.
+    """
+    return make_ricgraph_request("POST", "/autocomplete", body={"query": query, "limit": limit})

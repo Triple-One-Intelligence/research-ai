@@ -8,6 +8,6 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.
 COPY --chmod=755 ricgraph/ricgraph_entrypoint.sh /usr/local/bin/ricgraph_entrypoint.sh
 
 # Copy application code
-COPY ricgraph/ricgraph_queries.py /app/ricgraph/ricgraph_queries.py
+COPY ricgraph/ /app/ricgraph/
 
 ENTRYPOINT ["/usr/local/bin/ricgraph_entrypoint.sh"]

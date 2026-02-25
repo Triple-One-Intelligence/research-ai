@@ -1,53 +1,22 @@
-import re
-from app.utils.ricgraph.ricgraph_api import execute_query
+"""
+Autocomplete utilities.
+
+This module provides the ``autocomplete`` helper used by the autocomplete
+router. This module is responsible only for
+calling that dedicated endpoint and mapping the raw rows into the
+``Suggestions`` pydantic model consumed by the API layer.
+"""
+
+from app.utils.ricgraph.ricgraph_api import autocomplete_search
 from app.utils.schemas import Suggestions
-
-# Must match the index name created in ricgraph_queries.py
-FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
-
-# Lucene reserved characters that must be escaped
-LUCENE_SPECIAL = re.compile(r'([+\-&|!(){}\[\]^"~*?:\\/])')
-
-def escape_lucene(term: str) -> str:
-    """Escape Lucene special characters in a search term."""
-    return LUCENE_SPECIAL.sub(r'\\\1', term)
-
-
-def build_lucene_query(keywords: list[str]) -> str:
-    """
-    Build a Lucene query string for autocomplete.
-
-    Every keyword gets a wildcard suffix so partial input matches.
-    All keywords are AND-joined so every term must be present.
-
-    Example: ["henk", "boer"] -> "henk* AND boer*"
-    """
-    parts = [f"{escape_lucene(keyword)}*" for keyword in keywords]
-    return " AND ".join(parts)
-
-
-def validate_and_clamp_limit(limit) -> int:
-    """
-    Ensure `limit` is an integer and clamp it to the allowed range.
-
-    - If `limit` can be converted to int, use the integer value.
-    - If conversion fails, fall back to DEFAULT_LIMIT.
-    - Clamp to the inclusive range [MIN_LIMIT, MAX_LIMIT].
-    """
-    try:
-        limit_int = int(limit)
-    except Exception:
-        # Non-numeric input; fall back to default
-        return 10
-
-    limit_int = max(1, min(10, limit_int))
-
-    return limit_int
 
 
 def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     """
-    Autocomplete search function for Neo4j using a fulltext index.
+    Autocomplete search function.
+
+    Calls ``/autocomplete`` endpoint, then maps the returned
+    rows into the ``Suggestions`` response model.
 
     Parameters
     - user_query: the partial text to autocomplete
@@ -56,122 +25,25 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     Returns
     - Suggestions pydantic model instance
     """
-
-    # Validate & clamp limit early to avoid passing bad values to the DB
-    limit = validate_and_clamp_limit(limit)
-
-    # Input Validation
-    user_query = (user_query or "").strip()
-    if len(user_query) < 2:
-        return Suggestions(persons=[], organizations=[])
-
-    # Input Cleaning
-    # Tokenization alignment: the fulltext index analyzer splits on punctuation,
-    # so we do the same here to ensure each keyword maps to an indexed token.
-    user_query = re.sub(r'[^\w\s]', ' ', user_query)
-
-    # Create tokens (all lowercase, remove empty tokens)
-    # "Boer  Henk" -> ["boer", "henk"]
-    keywords = [
-        keyword.lower()
-        for keyword in user_query.split()
-        if keyword.strip()
-    ]
-
-    if not keywords:
-        return Suggestions(persons=[], organizations=[])
-
-    # Create a clean string for the exact match score (100 points)
-    clean_query = " ".join(keywords)
-
-    # Build the Lucene query with prefix wildcards for autocomplete
-    lucene_query = build_lucene_query(keywords)
-
-    cypher_query = """
-            CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)
-            YIELD node, score AS ftScore
-            WHERE node.category IN ['person', 'organization']
-            AND NOT node.name ENDS WITH '-root'
-
-            // Use fulltext score for initial ordering, limit early for performance
-            WITH node
-            ORDER BY ftScore DESC, size(node.value) ASC
-            LIMIT 1000
-
-            // Data cleaning (uuid + leading comma)
-            WITH node, trim(split(node.value, '#')[0]) AS rawClean
-            WITH node, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
-
-            // Clean the DB name as well for comparison
-            WITH node, name,
-                 toLower(reduce(s = name, char IN [',','.','-'] | replace(s, char, ' '))) AS dbCleanName
-
-            // Ensure all keywords match the actual name, not the UUID part of the value
-            WHERE all(k IN $keywords WHERE dbCleanName CONTAINS k)
-
-            WITH node, name,
-                 CASE
-                    WHEN dbCleanName = $cleanQuery THEN 100
-                    WHEN toLower(name) STARTS WITH $firstKeyword THEN 50
-                    ELSE 10
-                 END AS matchScore,
-                 CASE
-                    WHEN name CONTAINS ',' THEN 3
-                    WHEN name CONTAINS ' ' THEN 2
-                    ELSE 1
-                 END AS formatScore
-
-            WITH node._key AS id, name, node.category AS type, matchScore, formatScore
-            ORDER BY formatScore DESC, size(name) DESC
-
-            WITH id, type,
-                 head(collect(name)) AS displayName,
-                 max(matchScore) AS bestScore
-
-            // Collapse different nodes that clean to the same
-            // display name (e.g. full_name vs full_name_ascii variants, or duplicate
-            // source nodes). min(id) prefers |full_name over
-            // |full_name_ascii since the former is smaller.
-            WITH displayName, type,
-                 max(bestScore) AS bestScore,
-                 min(id) AS id
-
-            RETURN id, displayName, type, bestScore
-            ORDER BY bestScore DESC, displayName ASC
-            LIMIT $limit
-            """
-
     try:
-        rows = execute_query(
-            cypher_query,
-            indexName=FULLTEXT_INDEX_NAME,
-            luceneQuery=lucene_query,
-            keywords=keywords,
-            firstKeyword=keywords[0],
-            cleanQuery=clean_query,
-            limit=limit,
-        )
+        rows = autocomplete_search(query=user_query, limit=limit)
     except Exception as e:
-        print(f"Autocomplete query failed for query {user_query}: {e}")
+        print(f"Autocomplete search failed for query '{user_query}': {e}")
         return Suggestions(persons=[], organizations=[])
 
-    # Map to Output Schema
     persons_out = []
     orgs_out = []
 
     for row in rows:
-        # row["id"] contains the _key from Neo4j
-        # row["displayName"] contains the cleaned name
-
-        if row["type"] == "person":
+        if row.get("type") == "person":
             persons_out.append({
                 "author_id": row["id"],
-                "name": row["displayName"]
+                "name": row["displayName"],
             })
-        elif row["type"] == "organization":
+        elif row.get("type") == "organization":
             orgs_out.append({
                 "organization_id": row["id"],
-                "name": row["displayName"]
+                "name": row["displayName"],
             })
 
     return Suggestions(persons=persons_out, organizations=orgs_out)

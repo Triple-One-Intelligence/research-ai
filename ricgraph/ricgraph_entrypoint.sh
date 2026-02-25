@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-SCRIPT=/app/ricgraph/ricgraph_queries.py
+SCRIPT=/app/ricgraph/main.py
 
 # Gracefully stop Neo4j when the container is stopped
 cleanup() {
