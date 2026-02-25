@@ -1,17 +1,12 @@
 name: Claude Code Review
 
 on:
-  # Auto-review when a PR is opened or updated
   pull_request:
     types: [opened, synchronize, reopened]
-
-  # Respond to @claude mentions in PR comments and issue comments
   issue_comment:
     types: [created]
   pull_request_review_comment:
     types: [created]
-
-  # Manual trigger - review without a PR
   workflow_dispatch:
     inputs:
       review_scope:
@@ -33,25 +28,32 @@ on:
         required: false
         type: string
 
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-
 jobs:
   # ──────────────────────────────────────────────
   # Auto code review on PR open / push / reopen
   # ──────────────────────────────────────────────
   pr-review:
-    if: github.event_name == 'pull_request'
+    if: >
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' &&
+       contains(github.event.comment.body, '@claude'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Clean up old Claude review comments so the PR stays clean on re-review
       - name: Clean up previous Claude review comments
+        if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -59,21 +61,16 @@ jobs:
           REPO=${{ github.repository }}
 
           echo "Cleaning up old inline review comments..."
-          # Delete old inline review comments made by github-actions bot
           gh api "repos/${REPO}/pulls/${PR_NUMBER}/comments" --paginate --jq \
             '.[] | select(.user.login == "github-actions[bot]" or .user.type == "Bot") | .id' | \
           while read -r comment_id; do
-            echo "  Deleting inline comment ${comment_id}"
             gh api -X DELETE "repos/${REPO}/pulls/${PR_NUMBER}/comments/${comment_id}" || true
           done
 
           echo "Collapsing old summary comments..."
-          # Minimize old issue-level comments (summary comments) by replacing with collapsed version
           gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate --jq \
             '.[] | select((.user.login == "github-actions[bot]" or .user.type == "Bot") and (.body | test("Claude|Review|review|🔴|🟡|🔵|🧪"))) | "\(.id)|\(.node_id)"' | \
           while IFS='|' read -r comment_id node_id; do
-            echo "  Minimizing summary comment ${comment_id}"
-            # Use GraphQL to minimize the comment as "outdated"
             gh api graphql -f query='
               mutation {
                 minimizeComment(input: {subjectId: "'"${node_id}"'", classifier: OUTDATED}) {
@@ -85,27 +82,31 @@ jobs:
 
           echo "Cleanup complete."
 
-      - uses: anthropics/claude-code-action@v1
+      - name: Run Claude Code Review
+        uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: claude-opus-4-6
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: "--model claude-opus-4-6 --allowedTools Bash(gh pr diff:*) Bash(gh pr view:*) Bash(gh pr comment:*) Bash(git diff:*) Bash(git log:*) Read Glob Grep"
+          trigger_phrase: "@claude"
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 
-          direct_prompt: |
             You are a code reviewer for the research-ai project (FastAPI + React + Neo4j/Ricgraph).
-            Review the changes in this pull request diff.
 
-            ## Scope
-            - Review ALL files changed in this PR diff. Do not skip any file.
-            - You MAY read other files in the codebase when you need context to understand the changes
-              (e.g., imported modules, base classes, related interfaces, schemas).
-            - Do NOT review files outside the diff unless needed for context.
+            IMPORTANT: Only review the CHANGED files in this PR. Do NOT review the entire codebase.
+
+            ## Steps
+            1. Run `gh pr diff ${{ github.event.pull_request.number || github.event.issue.number }}` to see exactly what changed
+            2. Run `gh pr view ${{ github.event.pull_request.number || github.event.issue.number }}` to read the PR description
+            3. Review ONLY the changes shown in the diff
+            4. If a change looks like it could break something, you may read related files for context — but do not review files that are not affected by the PR
+            5. Post your review as a PR comment using `gh pr comment`
 
             ## MANDATORY Review Categories
             You MUST check EVERY category below for EVERY file in the diff. Do NOT skip any category.
-            If a category has no issues for a file, that is fine — but you must still check it.
 
             ### 1. Security — ALWAYS CHECK
-            Scan every changed line for:
             - Hardcoded secrets, API keys, credentials, tokens, or passwords
             - SQL / Cypher / NoSQL injection vulnerabilities
             - Command injection (subprocess, os.system, eval, exec)
@@ -113,13 +114,12 @@ jobs:
             - Insecure CORS configurations
             - Missing input validation or sanitization on user-facing inputs
             - Path traversal or directory traversal risks
-            - Sensitive data exposure in logs, responses, error messages, or comments
+            - Sensitive data exposure in logs, responses, error messages
             - Authentication or authorization bypass risks
             - Insecure deserialization
             - Missing rate limiting on public endpoints
 
             ### 2. Syntax and Bugs — ALWAYS CHECK
-            Scan every changed line for:
             - Syntax errors, typos, or malformed code
             - Logic errors, off-by-one mistakes, wrong comparisons
             - Race conditions or concurrency issues
@@ -127,126 +127,47 @@ jobs:
             - Unhandled exceptions or missing error propagation
             - Null/undefined reference risks
             - Type mismatches or incorrect type annotations
-            - Unreachable code or impossible conditions
             - Resource leaks (unclosed files, connections, streams)
             - Incorrect async/await usage
 
             ### 3. Code Quality — ALWAYS CHECK
-            Scan every changed line for:
             - Unclear or inconsistent naming conventions
             - DRY violations (duplicated logic that should be extracted)
             - Missing or inadequate error handling (bare except, swallowed errors)
             - Unused imports, dead code, or unreachable code paths
-            - Performance anti-patterns (N+1 queries, unbounded data fetching, blocking calls in async code)
-            - Breaking changes to existing public interfaces or API contracts
+            - Performance anti-patterns (N+1 queries, unbounded data fetching, blocking in async)
+            - Breaking changes to existing interfaces or contracts
             - Overly complex logic that could be simplified
-            - Missing or misleading comments on non-obvious logic
-            - Inconsistent patterns compared to the rest of the codebase
 
             ### 4. Test Coverage — ALWAYS CHECK FOR BACKEND CODE
             For any new or modified Python code under `api/`:
-            - Identify every new or modified function, method, class, and endpoint
-            - Suggest specific unit tests for each (with example test code using pytest)
+            - Suggest specific unit tests with example pytest code
             - Suggest integration tests for new or modified API endpoints
             - Identify untested edge cases, error paths, and boundary conditions
-            - If test files already exist, check whether they cover the new changes
             For frontend code:
-            - Note if critical logic (data transformations, state management) lacks tests
+            - Note if critical logic lacks tests
 
             ## Comment Format
-            Post ONE separate inline review comment per issue, placed on the exact line in the diff where the issue occurs.
-
-            Each comment MUST follow this exact format:
-            ```
-            **{SEVERITY}** {Category}
-
-            **Issue:** {Clear one-line description of what is wrong}
-
-            **Why:** {Brief explanation of why this is a problem — security risk, bug potential, etc.}
-
-            **Fix:**
-            ```{language}
-            {The corrected code that solves the issue}
-            ```
-            ```
-
-            Severity labels (use exactly these):
-            - 🔴 **Critical** — Must fix before merge (security vulnerabilities, data loss, breaking bugs)
-            - 🟡 **Warning** — Should fix (potential bugs, missing error handling, performance issues)
-            - 🔵 **Suggestion** — Consider fixing (code quality, readability, best practices)
-            - 🧪 **Test** — Missing test coverage (include example pytest code in the fix)
-
-            ## Summary Comment
-            After all inline comments, post ONE summary comment with:
-
-            1. **Issues found** — count per severity (🔴 x | 🟡 x | 🔵 x | 🧪 x)
-            2. **Verdict** — one of:
-               - ✅ **APPROVE** — No critical or warning issues
-               - ⚠️ **REQUEST CHANGES** — Critical issues that must be fixed
-               - 💬 **COMMENT** — Warnings or suggestions only
-            3. **Files reviewed** — list every file in the diff and confirm it was reviewed
-            4. **Categories checked per file** — for each file, confirm: Security ✓ | Syntax ✓ | Quality ✓ | Tests ✓ (or Tests N/A if not backend)
-            5. **Test suggestions** — consolidated list of all suggested test cases with example code
-
-            ## Absolute Rules
-            - Do NOT skip ANY category for ANY file. Every file gets all 4 checks.
-            - Do NOT modify any files, create commits, or push any code.
-            - Do NOT use the Edit, Write, NotebookEdit, or Bash tools.
-            - Do NOT flag purely subjective style preferences (quotes, trailing commas) unless they violate existing project conventions.
-            - Every comment MUST include a concrete fix, not just a description of the problem.
-            - If you find zero issues in a file, still confirm you reviewed it in the summary.
-
-          allowed_tools: "Read,Glob,Grep"
-
-  # ──────────────────────────────────────────────
-  # Interactive: respond to @claude in PR or issue comments
-  # ──────────────────────────────────────────────
-  respond-to-comment:
-    if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: claude-opus-4-6
-          trigger_phrase: "@claude"
-
-          prompt: |
-            You are a code reviewer and assistant for the research-ai project (FastAPI + React + Neo4j/Ricgraph).
-
-            ## What you can do
-            - Review specific files, functions, or code sections when asked
-            - Explain code behavior or architecture
-            - Suggest improvements, fixes, or test cases
-            - Answer questions about the PR changes or codebase
-            - Re-run a full review if asked (use the same mandatory checklist as the auto-review)
-
-            ## When reviewing, always check ALL of these (never skip any):
-            1. **Security** — secrets, injection, XSS, CORS, auth, input validation, data exposure
-            2. **Syntax & Bugs** — errors, logic bugs, type issues, unhandled exceptions, race conditions
-            3. **Code Quality** — naming, DRY, error handling, dead code, performance, complexity
-            4. **Tests** — suggest pytest tests for any backend code (api/), note missing coverage
-
-            ## Comment format for issues
-            Each issue gets its own comment:
+            Post ONE comment per issue found. Each comment must include:
             - Severity: 🔴 Critical | 🟡 Warning | 🔵 Suggestion | 🧪 Test
+            - The file and line number
             - What is wrong and why
-            - Concrete fix with code
+            - The fix with corrected code
+
+            ## Summary
+            End your review with a summary:
+            1. Issues found by severity (🔴 x | 🟡 x | 🔵 x | 🧪 x)
+            2. Verdict: ✅ APPROVE | ⚠️ REQUEST CHANGES | 💬 COMMENT
+            3. Files reviewed with categories checked per file: Security ✓ | Syntax ✓ | Quality ✓ | Tests ✓ (or N/A)
+            4. Consolidated test suggestions with example code
 
             ## Rules
-            - Do NOT modify any files, create commits, or push any code unless the user EXPLICITLY asks you to.
-            - Do NOT use Edit, Write, or NotebookEdit tools unless the user explicitly asks for changes.
-            - If on a PR, focus on the diff unless the user asks about other files.
-            - If on an issue (not a PR), review any files the user references.
-            - Be concise and actionable. Every comment must include a fix.
-
-          allowed_tools: "Read,Glob,Grep"
+            - Do NOT modify any files, create commits, or push code.
+            - Do NOT skip any review category for any file.
+            - Do NOT flag subjective style preferences unless they violate project conventions.
+            - Every issue MUST include a concrete fix with code.
+            - If a file has zero issues, confirm you reviewed it in the summary.
+            - If the PR is trivial (typo, config change), say so briefly and approve.
 
   # ──────────────────────────────────────────────
   # Manual trigger: review files without a PR
@@ -254,71 +175,44 @@ jobs:
   manual-review:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.branch || github.ref }}
           fetch-depth: 0
 
-      - uses: anthropics/claude-code-action@v1
+      - name: Run Claude Manual Review
+        uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: claude-opus-4-6
-
-          direct_prompt: |
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: "--model claude-opus-4-6 --allowedTools Bash(git diff:*) Bash(git log:*) Read Glob Grep"
+          prompt: |
             You are a code reviewer for the research-ai project (FastAPI + React + Neo4j/Ricgraph).
 
-            ## Task
             Review the following files/directories: ${{ github.event.inputs.review_scope }}
             Focus area: ${{ github.event.inputs.review_focus }}
 
             ## Instructions by focus area
 
-            ### If focus is "full-review":
-            You MUST check ALL 4 categories for every file. Do not skip any.
+            If focus is "full-review": check all 4 categories (security, syntax, quality, tests).
+            If focus is "security-only": deep-dive on hardcoded secrets, injection, XSS, CORS, auth, validation, data exposure.
+            If focus is "test-suggestions": suggest pytest tests for every function/endpoint, identify untested edge cases.
+            If focus is "code-quality": check naming, DRY, error handling, dead code, performance, complexity.
 
-            ### If focus is "security-only":
-            Deep-dive security scan:
-            - Hardcoded secrets, API keys, credentials
-            - All injection types (SQL, Cypher, command, XSS, path traversal)
-            - Auth/authz gaps, insecure CORS, missing input validation
-            - Data exposure in logs, responses, error messages
-            - Insecure deserialization, missing rate limiting
-
-            ### If focus is "test-suggestions":
-            For all Python files in scope:
-            - Suggest unit tests for every function/method with example pytest code
-            - Suggest integration tests for API endpoints with example pytest code
-            - Identify untested edge cases, error paths, boundary conditions
-            - Prioritize by risk (security-related code first)
-
-            ### If focus is "code-quality":
-            Deep-dive code quality:
-            - Naming, readability, consistency with project patterns
-            - DRY violations, dead code, unused imports
-            - Error handling completeness, type safety
-            - Performance anti-patterns (N+1, unbounded fetches, blocking in async)
-            - Complexity and maintainability
-
-            ## Full Review Checklist (mandatory for "full-review")
-            1. **Security** — secrets, injection, XSS, CORS, auth, validation, data exposure
-            2. **Syntax & Bugs** — errors, logic bugs, types, exceptions, race conditions
-            3. **Code Quality** — naming, DRY, error handling, dead code, performance
-            4. **Tests** — pytest suggestions for all backend (api/) code
-
-            ## Comment format
-            Each issue gets its own entry:
+            ## Output
+            One comment per issue:
             - Severity: 🔴 Critical | 🟡 Warning | 🔵 Suggestion | 🧪 Test
-            - File and line
-            - What is wrong and why
-            - Concrete fix with code snippet
+            - File and line, what is wrong and why, concrete fix with code
 
-            End with a summary: issue counts by severity, files reviewed, categories checked.
+            End with summary: issue counts by severity, files reviewed, categories checked.
 
             ## Rules
-            - Do NOT modify any files or push any code.
-            - Do NOT use Edit, Write, NotebookEdit, or Bash tools.
+            - Do NOT modify any files or push code.
             - Only review the specified scope.
-            - Every issue must include a concrete fix with code.
-
-          allowed_tools: "Read,Glob,Grep"
+            - Every issue must include a concrete fix.
