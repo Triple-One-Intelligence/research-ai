@@ -8,13 +8,13 @@ import './LeftPanel.css';
 //   onAsk – callback triggered when the user clicks the "Ask" button.
 //   isGenerating – flag indicating whether the LLM is currently streaming a response.
 interface LeftPanelProps {
-  t: useTranslation;
   onAsk: () => void;
   isGenerating: boolean;
 }
 
 // Main functional component. Destructures props for easy access.
-const LeftPanel = ({ t, onAsk, isGenerating }: LeftPanelProps) => {
+const LeftPanel = ({ onAsk, isGenerating }: LeftPanelProps) => {
+  const { t } = useTranslation();
     // State to keep track of the currently selected entity from the search bar.
   const [selectedEntity, setSelectedEntity] = useState<EntitySuggestion | null>(null);
   // State for the free‑form custom prompt the user can type.
