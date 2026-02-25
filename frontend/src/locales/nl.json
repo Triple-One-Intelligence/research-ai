@@ -9,6 +9,7 @@
     "strengthsGaps": "Sterke punten & Zwakke punten",
     "promptPlaceholder": "Schrijf je vraag of instructie voor de LLM…",
     "askButton": "Vraag",
+    "askButtonGenerating": "Genereren...",
     "noResults": "Geen resultaten gevonden",
     "clearSelection": "Selectie wissen",
     "searchSuggestions": "Zoeksuggesties",
