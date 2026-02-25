@@ -1,0 +1,218 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      review_scope:
+        description: "Files or directories to review (e.g., 'api/app/routers/' or 'api/app/main.py')"
+        required: true
+        type: string
+      review_focus:
+        description: "What to focus on"
+        required: false
+        type: choice
+        options:
+          - full-review
+          - security-only
+          - test-suggestions
+          - code-quality
+        default: full-review
+      branch:
+        description: "Branch to review (defaults to current default branch)"
+        required: false
+        type: string
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Auto code review on PR open / push / reopen
+  # ──────────────────────────────────────────────
+  pr-review:
+    if: >
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' &&
+       contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Clean up previous Claude review comments
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+
+          echo "Cleaning up old inline review comments..."
+          gh api "repos/${REPO}/pulls/${PR_NUMBER}/comments" --paginate --jq \
+            '.[] | select(.user.login == "github-actions[bot]" or .user.type == "Bot") | .id' | \
+          while read -r comment_id; do
+            gh api -X DELETE "repos/${REPO}/pulls/${PR_NUMBER}/comments/${comment_id}" || true
+          done
+
+          echo "Collapsing old summary comments..."
+          gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate --jq \
+            '.[] | select((.user.login == "github-actions[bot]" or .user.type == "Bot") and (.body | test("Claude|Review|review|🔴|🟡|🔵|🧪"))) | "\(.id)|\(.node_id)"' | \
+          while IFS='|' read -r comment_id node_id; do
+            gh api graphql -f query='
+              mutation {
+                minimizeComment(input: {subjectId: "'"${node_id}"'", classifier: OUTDATED}) {
+                  minimizedComment { isMinimized }
+                }
+              }
+            ' || true
+          done
+
+          echo "Cleanup complete."
+
+      - name: Run Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: "--model claude-opus-4-6 --allowedTools Bash(gh pr diff:*) Bash(gh pr view:*) Bash(gh pr comment:*) Bash(git diff:*) Bash(git log:*) Read Glob Grep"
+          trigger_phrase: "@claude"
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+
+            You are a code reviewer for the research-ai project (FastAPI + React + Neo4j/Ricgraph).
+
+            IMPORTANT: Only review the CHANGED files in this PR. Do NOT review the entire codebase.
+
+            ## Steps
+            1. Run `gh pr diff ${{ github.event.pull_request.number || github.event.issue.number }}` to see exactly what changed
+            2. Run `gh pr view ${{ github.event.pull_request.number || github.event.issue.number }}` to read the PR description
+            3. Review ONLY the changes shown in the diff
+            4. If a change looks like it could break something, you may read related files for context — but do not review files that are not affected by the PR
+            5. Post your review as a PR comment using `gh pr comment`
+
+            ## MANDATORY Review Categories
+            You MUST check EVERY category below for EVERY file in the diff. Do NOT skip any category.
+
+            ### 1. Security — ALWAYS CHECK
+            - Hardcoded secrets, API keys, credentials, tokens, or passwords
+            - SQL / Cypher / NoSQL injection vulnerabilities
+            - Command injection (subprocess, os.system, eval, exec)
+            - Cross-site scripting (XSS) in frontend code
+            - Insecure CORS configurations
+            - Missing input validation or sanitization on user-facing inputs
+            - Path traversal or directory traversal risks
+            - Sensitive data exposure in logs, responses, error messages
+            - Authentication or authorization bypass risks
+            - Insecure deserialization
+            - Missing rate limiting on public endpoints
+
+            ### 2. Syntax and Bugs — ALWAYS CHECK
+            - Syntax errors, typos, or malformed code
+            - Logic errors, off-by-one mistakes, wrong comparisons
+            - Race conditions or concurrency issues
+            - Incorrect use of APIs, libraries, or framework features
+            - Unhandled exceptions or missing error propagation
+            - Null/undefined reference risks
+            - Type mismatches or incorrect type annotations
+            - Resource leaks (unclosed files, connections, streams)
+            - Incorrect async/await usage
+
+            ### 3. Code Quality — ALWAYS CHECK
+            - Unclear or inconsistent naming conventions
+            - DRY violations (duplicated logic that should be extracted)
+            - Missing or inadequate error handling (bare except, swallowed errors)
+            - Unused imports, dead code, or unreachable code paths
+            - Performance anti-patterns (N+1 queries, unbounded data fetching, blocking in async)
+            - Breaking changes to existing interfaces or contracts
+            - Overly complex logic that could be simplified
+
+            ### 4. Test Coverage — ALWAYS CHECK FOR BACKEND CODE
+            For any new or modified Python code under `api/`:
+            - Suggest specific unit tests with example pytest code
+            - Suggest integration tests for new or modified API endpoints
+            - Identify untested edge cases, error paths, and boundary conditions
+            For frontend code:
+            - Note if critical logic lacks tests
+
+            ## Comment Format
+            Post ONE comment per issue found. Each comment must include:
+            - Severity: 🔴 Critical | 🟡 Warning | 🔵 Suggestion | 🧪 Test
+            - The file and line number
+            - What is wrong and why
+            - The fix with corrected code
+
+            ## Summary
+            End your review with a summary:
+            1. Issues found by severity (🔴 x | 🟡 x | 🔵 x | 🧪 x)
+            2. Verdict: ✅ APPROVE | ⚠️ REQUEST CHANGES | 💬 COMMENT
+            3. Files reviewed with categories checked per file: Security ✓ | Syntax ✓ | Quality ✓ | Tests ✓ (or N/A)
+            4. Consolidated test suggestions with example code
+
+            ## Rules
+            - Do NOT modify any files, create commits, or push code.
+            - Do NOT skip any review category for any file.
+            - Do NOT flag subjective style preferences unless they violate project conventions.
+            - Every issue MUST include a concrete fix with code.
+            - If a file has zero issues, confirm you reviewed it in the summary.
+            - If the PR is trivial (typo, config change), say so briefly and approve.
+
+  # ──────────────────────────────────────────────
+  # Manual trigger: review files without a PR
+  # ──────────────────────────────────────────────
+  manual-review:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+          fetch-depth: 0
+
+      - name: Run Claude Manual Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: "--model claude-opus-4-6 --allowedTools Bash(git diff:*) Bash(git log:*) Read Glob Grep"
+          prompt: |
+            You are a code reviewer for the research-ai project (FastAPI + React + Neo4j/Ricgraph).
+
+            Review the following files/directories: ${{ github.event.inputs.review_scope }}
+            Focus area: ${{ github.event.inputs.review_focus }}
+
+            ## Instructions by focus area
+
+            If focus is "full-review": check all 4 categories (security, syntax, quality, tests).
+            If focus is "security-only": deep-dive on hardcoded secrets, injection, XSS, CORS, auth, validation, data exposure.
+            If focus is "test-suggestions": suggest pytest tests for every function/endpoint, identify untested edge cases.
+            If focus is "code-quality": check naming, DRY, error handling, dead code, performance, complexity.
+
+            ## Output
+            One comment per issue:
+            - Severity: 🔴 Critical | 🟡 Warning | 🔵 Suggestion | 🧪 Test
+            - File and line, what is wrong and why, concrete fix with code
+
+            End with summary: issue counts by severity, files reviewed, categories checked.
+
+            ## Rules
+            - Do NOT modify any files or push code.
+            - Only review the specified scope.
+            - Every issue must include a concrete fix.
