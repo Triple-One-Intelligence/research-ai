@@ -1,0 +1,33 @@
+{
+  "header": {
+    "title": "Research AI Assistant"
+  },
+  "leftPanel": {
+    "searchLabel": "Search organisation or person",
+    "searchPlaceholder": "Type a name or organisation…",
+    "executiveSummary": "Executive Summary",
+    "strengthsGaps": "Strengths & Gaps",
+    "promptPlaceholder": "Write your question or instruction for the LLM…",
+    "askButton": "Ask",
+    "askButtonGenerating": "Generating...",
+    "noResults": "No results found",
+    "clearSelection": "Clear selection",
+    "searchSuggestions": "Search suggestions",
+    "loading": "Loading"
+  },
+  "middlePanel": {
+    "header": "AI Output",
+    "outputPlaceholder": "Use the Ask button in the left panel to generate a response"
+  },
+  "rightPanel": {
+    "selectEntity": "Select a person or organization in the left column to see connections",
+    "loadingConnections": "Loading connections...",
+    "loadFailed": "Failed to load connections.",
+    "loadFailedFallback": "Failed to load connections",
+    "title": "Connections",
+    "collaborators": "Collaborators",
+    "publications": "Publications",
+    "organizations": "Organizations",
+    "members": "Members"
+  }
+}

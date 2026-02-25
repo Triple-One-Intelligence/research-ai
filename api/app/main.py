@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 from app.ai import router as ai_router
+from app.routers import connections, autocomplete
 
 class Fruit(BaseModel):
     name: str
@@ -33,13 +34,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(connections.router)
+app.include_router(autocomplete.router)
+
 memory_db = {"fruits": []}
 
 @app.get("/health")
 def health():
     return {
         "status": "ok",
-        "service": "Research-AI Baacensd",
+        "service": "ResearchAI API",
         "time": datetime.now().isoformat(),
         "fruit_count": len(memory_db["fruits"]),
     }

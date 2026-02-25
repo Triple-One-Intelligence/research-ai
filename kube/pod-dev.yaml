@@ -3,7 +3,13 @@ kind: ConfigMap
 metadata:
   name: research-ai-env
 data:
-  VITE_API_URL: ${VITE_API_URL}"
+  VITE_API_URL: "${VITE_API_URL}"
+
+  RICGRAPH_URL: "${RICGRAPH_URL}"
+
+  RIC_NEO4J_URL: "${RIC_NEO4J_URL}"
+  RIC_NEO4J_USER: "${RIC_NEO4J_USER}"
+  RIC_NEO4J_PASS: "${RIC_NEO4J_PASS}"
 
 ---
 apiVersion: v1
@@ -73,7 +79,7 @@ spec:
           subPath: Caddyfile.dev
           readOnly: true
 
-  volumes:        
+  volumes:
     - name: api-src
       hostPath:
         path: ./api

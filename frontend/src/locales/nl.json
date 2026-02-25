@@ -1,0 +1,33 @@
+{
+  "header": {
+    "title": "Research AI Assistant"
+  },
+  "leftPanel": {
+    "searchLabel": "Zoek organisatie of persoon",
+    "searchPlaceholder": "Typ een naam of organisatie…",
+    "executiveSummary": "Samenvatting",
+    "strengthsGaps": "Sterke punten & Zwakke punten",
+    "promptPlaceholder": "Schrijf je vraag of instructie voor de LLM…",
+    "askButton": "Vraag",
+    "askButtonGenerating": "Genereren...",
+    "noResults": "Geen resultaten gevonden",
+    "clearSelection": "Selectie wissen",
+    "searchSuggestions": "Zoeksuggesties",
+    "loading": "Laden"
+  },
+  "middlePanel": {
+    "header": "AI Output",
+    "outputPlaceholder": "Gebruik de Vraag knop in het linkerpaneel om een uitvoer te genereren"
+  },
+  "rightPanel": {
+    "selectEntity": "Selecteer een persoon of organisatie in de linkerkolom om connecties te bekijken",
+    "loadingConnections": "Connecties laden...",
+    "loadFailed": "Connecties laden mislukt.",
+    "loadFailedFallback": "Connecties laden mislukt",
+    "title": "Connecties",
+    "collaborators": "Medewerkers",
+    "publications": "Publicaties",
+    "organizations": "Organisaties",
+    "members": "Leden"
+  }
+}
