@@ -13,11 +13,11 @@ nuke:
 up:
 	podman build -t research-ai-api:dev -f ./api/Containerfile .
 	mkdir -p .caddy/data .caddy/config
-	set -a; . ./kube/research-ai.env; set +a; \
+	set -a; . ./kube/research-ai-dev.env; set +a; \
 	envsubst < kube/pod-dev.yaml | podman kube play -
 
 down:
-	set -a; . ./kube/research-ai.env; set +a; \
+	set -a; . ./kube/research-ai-dev.env; set +a; \
 	envsubst < kube/pod-dev.yaml | podman kube down -
 
 # relabel files to allow mapping to containers.
@@ -40,6 +40,7 @@ wui:
 deploy:
 	podman build -t research-ai-api:prod -f ./api/Containerfile .
 	podman build -t research-ai-frontend:prod -f ./frontend/Containerfile .
+	podman build -t research-ai-ricgraph:prod -f ./ricgraph/Containerfile .
 
 	mkdir -p /etc/containers/systemd
 	install -m 0644 -D kube/research-ai-api.container /etc/containers/systemd/research-ai-api.container
@@ -47,7 +48,7 @@ deploy:
 	install -m 0644 -D kube/research-ai-ricgraph.container /etc/containers/systemd/research-ai-ricgraph.container
 
 	mkdir -p /etc/research-ai
-	install -m 0644 -D kube/research-ai.env /etc/research-ai/research-ai.env
+	install -m 0644 -D kube/research-ai-prod.env /etc/research-ai/research-ai-prod.env
 
 	podman volume create caddy-data || true
 	podman volume create caddy-config || true
@@ -63,7 +64,7 @@ undeploy:
 	systemctl stop research-ai-api.service 2>/dev/null || true
 	systemctl stop research-ai-frontend.service 2>/dev/null || true
 
-	rm -f /etc/research-ai/research-ai.env
+	rm -f /etc/research-ai/research-ai-prod.env
 
 	rm -f /etc/containers/systemd/research-ai-api.container
 	rm -f /etc/containers/systemd/research-ai-frontend.container

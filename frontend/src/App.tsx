@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import './App.css';
 import { LeftPanel } from './components/LeftPanel';
 import { MiddlePanel } from './components/MiddlePanel';
@@ -47,7 +47,6 @@ End of simulated response.`;
 
 // Main App component – orchestrates state and renders the three‑panel layout.
 const App = () => {
-  const [language, setLanguage] = useState<'nl' | 'en'>('nl');
   const [responseText, setResponseText] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
@@ -65,22 +64,28 @@ const App = () => {
         setIsGenerating(false);
       }
     );
+  
+  const { t, i18n } = useTranslation();
+  const language = i18n.language as 'en' | 'nl';
+
+  const changeLanguage = (lng: 'en' | 'nl') => {
+    i18n.changeLanguage(lng);
   };
 
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>Research AI Assistant</h1>
+        <h1>{t('header.title')}</h1>
         <div className="language-buttons">
           <button 
             className={`lang-btn ${language === 'nl' ? 'active' : ''}`}
-            onClick={() => setLanguage('nl')}
+            onClick={() => changeLanguage('nl')}
           >
             NL
           </button>
           <button 
             className={`lang-btn ${language === 'en' ? 'active' : ''}`}
-            onClick={() => setLanguage('en')}
+            onClick={() => changeLanguage('en')}
           >
             EN
           </button>
@@ -94,7 +99,7 @@ const App = () => {
         <div className="right-panel">
           {/* Todo: Connections panel */}
           <div className="placeholder-panel">
-            <p>Right column - Connections panel</p>
+            <p>{t('rightPanel.placeholder')}</p>
           </div>
         </div>
       </main>
