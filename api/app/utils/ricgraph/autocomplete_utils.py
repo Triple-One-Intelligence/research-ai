@@ -1,196 +1,49 @@
-from app.utils.ricgraph.RicgraphAPI import execute_query
+"""
+Autocomplete utilities.
+
+This module provides the ``autocomplete`` helper used by the autocomplete
+router. This module is responsible only for
+calling that dedicated endpoint and mapping the raw rows into the
+``Suggestions`` pydantic model consumed by the API layer.
+"""
+
+from app.utils.ricgraph.ricgraph_api import make_autocomplete_request
 from app.utils.schemas import Suggestions
 
-def clean_label(raw) -> str:
-    """Remove trailing #uuid fragments and tidy whitespace/leading commas."""
-    if not raw or not isinstance(raw, str):
-        return ""
 
-    # Remove trailing #... fragment
-    idx = raw.find("#")
-    res = raw[:idx] if idx != -1 else raw
+def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
+    """
+    Autocomplete search function.
 
-    # Trim whitespace and strip a leading comma if present
-    res = res.strip()
-    if res.startswith(","):
-        res = res.lstrip(",").strip()
+    Calls ``/autocomplete`` endpoint, then maps the returned
+    rows into the ``Suggestions`` response model.
 
-    return res
+    Parameters
+    - user_query: the partial text to autocomplete
+    - limit: maximum number of suggestions to return
 
-def choose_better_label(a: str, b: str) -> str:
-    """Choose the 'best' display name: prefer the variant with a comma (last name, initials),
-    otherwise the longest."""
-    a = a or ""
-    b = b or ""
+    Returns
+    - Suggestions pydantic model instance
+    """
+    try:
+        rows = make_autocomplete_request(query=user_query, limit=limit)
+    except Exception as e:
+        print(f"Autocomplete search failed for query '{user_query}': {e}")
+        return Suggestions(persons=[], organizations=[])
 
-    if ("," in a) != ("," in b):
-        return a if "," in a else b
+    persons_out = []
+    orgs_out = []
 
-    return a if len(a) >= len(b) else b
-
-def pack(rows, category: str):
-    out = []
     for row in rows:
-        node = row.get("node") or {}
-        # Require a _key, skip nodes without it
-        key = node.get("_key")
-        if not key:
-            continue
-
-        # In Ricgraph, node.name is the property type (e.g. "FULL_NAME", "SCOPUS_AUTHOR_ID")
-        # node.value is the actual value (e.g. "John Doe", "12345")
-        # So the label must be based on node.value, not node.name.
-        raw_value = node.get("value")
-
-        label = clean_label(str(raw_value))
-
-        if not label:
-            continue
-
-        out.append(
-            {
-                "value": key,
-                "label": label,
-                "category": category,
-                "score": row.get("score", 1.0),
-            }
-        )
-    return out
-
-def search_prefix_persons(term, limit):
-    query = """
-    MATCH (n:RicgraphNode {category:'person'})
-    WHERE toLower(n.value) STARTS WITH toLower($term)
-    RETURN n AS node, 1.0 AS score
-    ORDER BY n.value
-    LIMIT $lim
-    """
-    rows = execute_query(query, term=term, lim=limit)
-    return pack(rows, "person")
-
-def prefix_orgs(term, limit):
-    query = """
-    MATCH (n:RicgraphNode {category:'organization'})
-    WHERE toLower(n.value) STARTS WITH toLower($term)
-    RETURN n AS node, 1.0 AS score
-    ORDER BY n.value
-    LIMIT $lim
-    """
-    rows = execute_query(query, term=term, lim=limit)
-    return pack(rows, "organization")
-
-def parse_persons(persons: list, limit: int) -> list:
-    """Merge persons with the same value (_key), clean label, choose best label."""
-    values = {}
-    for person in persons:
-        value = person.get("value")
-        if not value:
-            continue
-
-        label = clean_label(person.get("label") or "")
-        if value in values:
-            current_person = values[value]
-            current_person["label"] = choose_better_label(current_person.get("label"), label)
-            current_person["score"] = max(current_person.get("score", 0), person.get("score", 0))
-        else:
-            new_person = dict(person)
-            new_person["label"] = label
-            values[value] = new_person
-
-    # Sort: Highest score first, then alphabetically
-    merged = sorted(values.values(), key=lambda x: (-x.get("score", 0), x.get("label") or ""))
-    return merged[:limit]
-
-def search_persons(term: str, limit: int = 10):
-    persons = search_prefix_persons(term, limit)
-    persons = parse_persons(persons, limit)
-
-    remain = max(0, limit - len(persons))
-    if remain > 0:
-        excludes = [p["value"] for p in persons if p.get("value")]
-
-        base_query = """
-        MATCH (n:RicgraphNode {category:'person'})
-        WHERE toLower(n.value) CONTAINS toLower($term)
-        RETURN n AS node, 1.0 AS score
-        ORDER BY n.value
-        LIMIT $lim
-        """
-
-        query_with_excludes = """
-        MATCH (n:RicgraphNode {category:'person'})
-        WHERE toLower(n.value) CONTAINS toLower($term)
-          AND NOT (n._key IN $excludes)
-        RETURN n AS node, 1.0 AS score
-        ORDER BY n.value
-        LIMIT $lim
-        """
-
-        if excludes:
-            extra = execute_query(query_with_excludes, term=term, excludes=excludes, lim=remain)
-        else:
-            extra = execute_query(base_query, term=term, lim=remain)
-
-        persons += pack(extra, "person")
-
-    persons = parse_persons(persons, limit)
-    return persons
-
-def search_organizations(term: str, limit: int = 10):
-    orgs = prefix_orgs(term, limit)
-
-    remain = max(0, limit - len(orgs))
-    if remain > 0:
-        excludes = [o["value"] for o in orgs if o.get("value")]
-
-        base_query = """
-        MATCH (n:RicgraphNode {category:'organization'})
-        WHERE toLower(n.value) CONTAINS toLower($term)
-        RETURN n AS node, 1.0 AS score
-        ORDER BY n.value
-        LIMIT $lim
-        """
-
-        query_with_excludes = """
-        MATCH (n:RicgraphNode {category:'organization'})
-        WHERE toLower(n.value) CONTAINS toLower($term)
-          AND NOT (n._key IN $excludes)
-        RETURN n AS node, 1.0 AS score
-        ORDER BY n.value
-        LIMIT $lim
-        """
-
-        if excludes:
-            extra = execute_query(query_with_excludes, term=term, excludes=excludes, lim=remain)
-        else:
-            extra = execute_query(base_query, term=term, lim=remain)
-
-        orgs += pack(extra, "organization")
-
-    return orgs
-
-def format_for_api(items: list, id_field_name: str) -> list:
-    """Generic formatter converting internal items to the API schema:
-    items are expected to have 'value' and 'label'. The id_field_name should be
-    either 'author_id' or 'organization_id' depending on the schema required.
-    """
-    return [
-        {id_field_name: item["value"], "name": item["label"]}
-        for item in items
-        if item.get("value") and item.get("label")
-    ]
-
-def autocomplete(query: str, limit: int = 10):
-    """Searches for persons and organizations matching the query. Combines prefix search and fulltext search."""
-
-    term = (query or "").strip()
-    if len(term) < 2:
-        return []
-
-    persons = search_persons(term, limit)
-    organizations = search_organizations(term, limit)
-
-    persons_out = format_for_api(persons, "author_id")
-    orgs_out = format_for_api(organizations, "organization_id")
+        if row.get("type") == "person":
+            persons_out.append({
+                "author_id": row["id"],
+                "name": row["displayName"],
+            })
+        elif row.get("type") == "organization":
+            orgs_out.append({
+                "organization_id": row["id"],
+                "name": row["displayName"],
+            })
 
     return Suggestions(persons=persons_out, organizations=orgs_out)

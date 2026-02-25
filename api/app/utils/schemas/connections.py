@@ -23,6 +23,9 @@ class ConnectionsResponse(BaseModel):
 
 # Kept for backward compatibility with existing /connections/person/{id} endpoint
 class Connections(BaseModel):
-    persons: List[Person]
+    entity_id: str
+    entity_type: str
+    collaborators: List[Person]
     publications: List[Publication]
     organizations: List[Organization]
+    members: List[Member]

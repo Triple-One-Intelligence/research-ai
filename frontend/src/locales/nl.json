@@ -1,0 +1,24 @@
+{
+  "header": {
+    "title": "Research AI Assistant"
+  },
+  "leftPanel": {
+    "searchLabel": "Zoek organisatie of persoon",
+    "searchPlaceholder": "Typ een naam of organisatie…",
+    "executiveSummary": "Samenvatting",
+    "strengthsGaps": "Sterke punten & Zwakke punten",
+    "promptPlaceholder": "Schrijf je vraag of instructie voor de LLM…",
+    "askButton": "Vraag",
+    "askButtonGenerating": "Genereren...",
+    "noResults": "Geen resultaten gevonden",
+    "clearSelection": "Selectie wissen",
+    "searchSuggestions": "Zoeksuggesties",
+    "loading": "Laden"
+  },
+  "middlePanel": {
+    "placeholder": "Middelste kolom - Antwoordpaneel"
+  },
+  "rightPanel": {
+    "placeholder": "Rechter kolom - Connectiepaneel"
+  }
+}

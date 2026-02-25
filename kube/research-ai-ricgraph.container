@@ -1,12 +1,18 @@
 [Unit]
 Description=Research AI Ricgraph
-Requires=research-ai-frontend.service
-After=research-ai-frontend.service
+
+[Service]
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=0
+StartLimitBurst=0
 
 [Container]
 ContainerName=research-ai-ricgraph
 Image=research-ai-ricgraph:prod
 Network=container:research-ai-frontend
+
+EnvironmentFile=/etc/research-ai/research-ai-prod.env
 
 Volume=ricgraph-data:/var/lib/neo4j/data
 

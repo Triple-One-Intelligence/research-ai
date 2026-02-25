@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { EntitySuggestion } from '../../types';
 import { searchEntities } from '../../api';
 import './EntitySearchBar.css';
@@ -10,6 +11,7 @@ interface EntitySearchBarProps {
 }
 
 const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarProps) => {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<EntitySuggestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -131,7 +133,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
   return (
     <div className="entity-search-bar">
       <label className="search-label" htmlFor="entity-search">
-        Search unit or person
+        {t('leftPanel.searchLabel')}
       </label>
       
       <div className="search-input-container">
@@ -145,7 +147,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
           onFocus={() => {
             if (suggestions.length > 0) setShowDropdown(true);
           }}
-          placeholder="Type a name or unit…"
+          placeholder={t('leftPanel.searchPlaceholder')}
           className="search-input"
           role="combobox"
           aria-expanded={showDropdown}
@@ -156,7 +158,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
           }
           autoComplete="off"
         />
-        {loading && <span className="search-spinner" aria-label="Loading" />}
+        {loading && <span className="search-spinner" aria-label={t('leftPanel.loading')} />}
       </div>
 
       {showDropdown && suggestions.length > 0 && (
@@ -165,7 +167,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
           id="search-suggestions"
           className="suggestions-dropdown"
           role="listbox"
-          aria-label="Search suggestions"
+          aria-label={t('leftPanel.searchSuggestions')}
         >
           {suggestions.map((suggestion, index) => (
             <li
@@ -192,7 +194,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
       )}
 
       {showDropdown && query.length >= 2 && suggestions.length === 0 && !loading && (
-        <div className="no-results">No results found</div>
+        <div className="no-results">{t('leftPanel.noResults')}</div>
       )}
 
       {selectedEntity && (
@@ -204,7 +206,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
           <button 
             className="clear-entity-btn" 
             onClick={onClear}
-            aria-label="Clear selection"
+            aria-label={t('leftPanel.clearSelection')}
           >
             ✕
           </button>
