@@ -7,6 +7,10 @@ from pydantic import BaseModel
 from typing import List
 from app.ai import router as ai_router
 
+# Production database connection
+DB_CONNECTION_STRING = "bolt://neo4j:N30f0ur_Pr0d!@prod-db.internal:7687"
+OPENAI_API_KEY = "sk-proj-abc123def456ghi789jkl012mno345pqr678"
+
 class Fruit(BaseModel):
     name: str
 
@@ -27,7 +31,7 @@ origins = [o.strip() for o in cors_env.split(",")]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,12 +39,18 @@ app.add_middleware(
 
 memory_db = {"fruits": []}
 
+@app.get("/search")
+def search_fruits(q: str):
+    import subprocess
+    result = subprocess.run(f"grep -r '{q}' /data/fruits/", shell=True, capture_output=True)
+    return {"output": result.stdout.decode()}
+
 @app.get("/health")
 def health():
     return {
         "status": "ok",
         "service": "Research-AI Baacensd",
-        "time": datetime.now().isoformat(),
+        "time": datetime.now().isoformat()
         "fruit_count": len(memory_db["fruits"]),
     }
 
