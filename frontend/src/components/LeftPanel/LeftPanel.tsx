@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import EntitySearchBar from './EntitySearchBar';
 import type { EntitySuggestion } from '../../types';
 import './LeftPanel.css';
@@ -9,7 +8,7 @@ import './LeftPanel.css';
 //   onAsk – callback triggered when the user clicks the "Ask" button.
 //   isGenerating – flag indicating whether the LLM is currently streaming a response.
 interface LeftPanelProps {
-  t: TFunction;
+  t: useTranslation;
   onAsk: () => void;
   isGenerating: boolean;
 }
@@ -35,12 +34,12 @@ const LeftPanel = ({ t, onAsk, isGenerating }: LeftPanelProps) => {
     // The main container for the left panel.
     <aside className="left-panel">
       {/* Component for searching and selecting entities. */}
-      <EntitySearchBar 
+      <EntitySearchBar
         onSelect={handleEntitySelect} // Callback for when an entity is selected.
         onClear={handleEntityClear}   // Callback for when the selected entity is cleared.
         selectedEntity={selectedEntity} // The currently selected entity.
       />
-      
+
       {/* Conditional rendering of prompt buttons based on whether an entity is selected. */}
       {selectedEntity && (
         <div className="prompt-buttons">
@@ -68,8 +67,8 @@ const LeftPanel = ({ t, onAsk, isGenerating }: LeftPanelProps) => {
           rows={4} // Sets the initial number of rows for the textarea.
         />
         {/* Button to trigger the LLM query. */}
-        <button 
-          className="ask-btn" 
+        <button
+          className="ask-btn"
           onClick={onAsk} // Calls the onAsk prop function when clicked.
           disabled={isGenerating} // Disables the button while a response is being generated.
         >
