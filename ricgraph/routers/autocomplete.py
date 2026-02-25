@@ -18,11 +18,9 @@ router = APIRouter()
 # Lucene reserved characters that must be escaped
 LUCENE_SPECIAL = re.compile(r'([+\-&|!(){}\[\]^"~*?:\\/])')
 
-
 def escape_lucene(term: str) -> str:
     """Escape Lucene special characters in a search term."""
     return LUCENE_SPECIAL.sub(r'\\\1', term)
-
 
 def build_lucene_query(keywords: list[str]) -> str:
     """
@@ -36,7 +34,6 @@ def build_lucene_query(keywords: list[str]) -> str:
     parts = [f"{escape_lucene(keyword)}*" for keyword in keywords]
     return " AND ".join(parts)
 
-
 class AutocompleteRequest(BaseModel):
     """
     Incoming request model for the /autocomplete endpoint.
@@ -47,7 +44,6 @@ class AutocompleteRequest(BaseModel):
     """
     query: str
     limit: int = Field(default=10, ge=1, le=100)
-
 
 AUTOCOMPLETE_CYPHER = """
     CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)

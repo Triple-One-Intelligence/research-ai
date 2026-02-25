@@ -7,7 +7,7 @@ calling that dedicated endpoint and mapping the raw rows into the
 ``Suggestions`` pydantic model consumed by the API layer.
 """
 
-from app.utils.ricgraph.ricgraph_api import autocomplete_search
+from app.utils.ricgraph.ricgraph_api import make_autocomplete_request
 from app.utils.schemas import Suggestions
 
 
@@ -26,7 +26,7 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     - Suggestions pydantic model instance
     """
     try:
-        rows = autocomplete_search(query=user_query, limit=limit)
+        rows = make_autocomplete_request(query=user_query, limit=limit)
     except Exception as e:
         print(f"Autocomplete search failed for query '{user_query}': {e}")
         return Suggestions(persons=[], organizations=[])
