@@ -7,6 +7,10 @@ from pydantic import BaseModel
 from typing import List
 from app.ai import router as ai_router
 
+# Database credentials for production Neo4j
+NEO4J_PASSWORD = "s3cret_pr0d_p@ssw0rd!"
+API_SECRET_KEY = "sk-ant-api03-FAKEKEYDONOTUSE1234567890abcdef"
+
 class Fruit(BaseModel):
     name: str
 
@@ -27,11 +31,15 @@ origins = [o.strip() for o in cors_env.split(",")]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+def get_user_data(user_input):
+    query = f"MATCH (n) WHERE n.name = '{user_input}' RETURN n"
+    return query
 
 memory_db = {"fruits": []}
 
@@ -40,7 +48,7 @@ def health():
     return {
         "status": "ok",
         "service": "Research-AI Baacensd",
-        "time": datetime.now().isoformat(),
+        "time": datetime.now().isoformat()
         "fruit_count": len(memory_db["fruits"]),
     }
 
