@@ -13,7 +13,8 @@ Image=ghcr.io/utrechtuniversity/ricgraph:latest
 Network=research-ai-net
 
 # Expose to localhost on the server so the SSH tunnel can reach it
-PublishPort=127.0.0.1:8080:8080
+# Ric explorer
+PublishPort=127.0.0.1:3030:3030
 
 EnvironmentFile=/etc/research-ai/research-ai-prod.env
 

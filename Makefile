@@ -28,6 +28,7 @@ tunnel:
 		-L 7687:localhost:7687 \
 		-L 7474:localhost:7474 \
 		-L 8080:localhost:8080 \
+		-L 3030:localhost:3030 \
 		-L 11434:localhost:11434 \
 		$$REMOTE_SERVER
 
@@ -50,7 +51,8 @@ wui:
 # prod rules:
 deploy:
 	podman build -t research-ai-api:prod -f ./api/Containerfile .
-	
+	podman build -t research-ai-ric:prod -f ./ricgraph/Containerfile .
+
 	set -a; . ./kube/research-ai-prod.env; set +a; \
 	podman build -t research-ai-frontend:prod -f ./frontend/Containerfile . --build-arg VITE_API_URL=$$VITE_API_URL
 
