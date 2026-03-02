@@ -1,6 +1,6 @@
-0xai.nl {
+{$CADDY_HOSTNAME} {
     handle_path /api/* {
-        reverse_proxy localhost:8000
+        reverse_proxy research-ai-api:8000
     }
 
     handle {

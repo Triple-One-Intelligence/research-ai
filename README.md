@@ -8,9 +8,14 @@ To set this up:
 
 1.  **Copy the example file:**
     ```bash
-    cp kube/research-ai.env.example kube/research-ai.env
+    cp kube/research-ai-dev.env.example kube/research-ai-dev.env
     ```
-2.  **Add credentials:** Open the newly created `kube/research-ai.env` and fill in your specific values/credentials.
+    or
+    ```bash
+    cp kube/research-ai-prod.env.example kube/research-ai-prod.env
+    ```
+    for production
+2.  **Add credentials:** Open the newly created `.env` file and fill in your specific values/credentials.
 
 ## Makefile Usage
 
@@ -19,13 +24,14 @@ Use `make` to manage the application lifecycle.
 | Command | Description |
 | --- | --- |
 | **Development** |  |
-| `make up` | Builds dev images and deploys the pod using values from `.env`. |
+| `make tunnel` | Establishes an SSH tunnel to the remote server, forwarding the remote Neo4j, Ricgraph, and AI ports securely to your localhost. |
+| `make up` | Builds dev images and deploys the local development pod using values from kube/research-ai-dev.env. |
 | `make down` | Stops and removes the local pod. |
 | `make watch` | Tails logs for the entire pod. |
 | `make wapi` / `wui` | Tails logs for the API or Frontend specifically. |
 | `make labelSELinux` | Relabels files for OSes running a security-hardened Linux kernel. |
 | **Production** |  |
-| `make deploy` | Builds prod images and installs Systemd Quadlet units. |
+| `make deploy` | Builds prod images, creates the isolated Podman network, and installs the Systemd Quadlet units using kube/research-ai-prod.env. |
 | `make undeploy` | Stops services and removes Quadlet units/env files. |
 | `make logs` | Tails combined systemd journals for all services. |
 | `make logs-api` | Tails journals for the API service only. |
