@@ -30,16 +30,10 @@ on:
 
 jobs:
   # ──────────────────────────────────────────────
-  # Auto code review on PR open / push / reopen
+  # Auto code review on PR open / reopen
   # ──────────────────────────────────────────────
   pr-review:
-    if: >
-      (github.event_name == 'pull_request') ||
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.pull_request &&
-       contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' &&
-       contains(github.event.comment.body, '@claude'))
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -53,7 +47,6 @@ jobs:
           fetch-depth: 0
 
       - name: Clean up previous Claude review comments
-        if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -87,18 +80,17 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: "--model claude-opus-4-6 --allowedTools Bash Read Glob Grep"
-          trigger_phrase: "@claude"
           prompt: |
             REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
 
             You are a code reviewer for the research-ai project (FastAPI + React + Neo4j/Ricgraph).
 
             IMPORTANT: Only review the CHANGED files in this PR. Do NOT review the entire codebase.
 
             ## Steps
-            1. Run `gh pr view ${{ github.event.pull_request.number || github.event.issue.number }}` to get the PR details and HEAD commit SHA
-            2. Run `gh pr diff ${{ github.event.pull_request.number || github.event.issue.number }}` to see exactly what changed
+            1. Run `gh pr view ${{ github.event.pull_request.number }}` to get the PR details and HEAD commit SHA
+            2. Run `gh pr diff ${{ github.event.pull_request.number }}` to see exactly what changed
             3. Review ONLY the changes shown in the diff
             4. If a change looks like it could break something, you may read related files for context — but do not review files not affected by the PR
             5. For EACH issue found, post a SEPARATE comment using `gh pr comment` (one `gh pr comment` call per issue)
@@ -215,6 +207,53 @@ jobs:
             - Every location MUST be a clickable GitHub link.
             - If a file has zero issues, confirm you reviewed it in the summary.
             - If the PR is trivial (typo, config change), post one comment saying so and approve.
+
+  # ──────────────────────────────────────────────
+  # @claude mention — do whatever the person asks
+  # ──────────────────────────────────────────────
+  claude-mention:
+    if: >
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' &&
+       contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude on @mention
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: "--model claude-opus-4-6 --allowedTools Bash Read Glob Grep"
+          trigger_phrase: "@claude"
+          prompt: |
+            You are Claude, an AI assistant for the research-ai project (FastAPI + React + Neo4j/Ricgraph).
+
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+
+            A team member mentioned you in a PR comment. Do exactly what they asked — nothing more, nothing less.
+            You have full access to read the codebase, the PR diff, and any files.
+
+            Some examples of what they might ask:
+            - "Review the full codebase" → read and review all relevant files, not just the diff
+            - "Check only security" → focus only on security issues
+            - "Explain this function" → explain it
+            - "Is this approach okay?" → give your opinion
+            - "Review just the diff" → review only the PR diff
+
+            Always respond by posting a comment on the PR using `gh pr comment`.
+            Do NOT modify any files, create commits, or push code unless explicitly asked to.
 
   # ──────────────────────────────────────────────
   # Manual trigger: review files without a PR
