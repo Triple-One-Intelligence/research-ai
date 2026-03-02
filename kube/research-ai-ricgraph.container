@@ -9,7 +9,7 @@ StartLimitBurst=0
 
 [Container]
 ContainerName=research-ai-ricgraph
-Image=ghcr.io/utrechtuniversity/ricgraph:latest
+Image=research-ai-ric:prod
 Network=research-ai-net
 
 # Expose to localhost on the server so the SSH tunnel can reach it

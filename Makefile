@@ -51,7 +51,8 @@ wui:
 # prod rules:
 deploy:
 	podman build -t research-ai-api:prod -f ./api/Containerfile .
-	
+	podman build -t research-ai-ric:prod -f ./ricgraph/Containerfile .
+
 	set -a; . ./kube/research-ai-prod.env; set +a; \
 	podman build -t research-ai-frontend:prod -f ./frontend/Containerfile . --build-arg VITE_API_URL=$$VITE_API_URL
 
