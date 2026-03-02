@@ -2,4 +2,4 @@
 Description=Research AI Internal Network
 
 [Network]
-Name=research-ai-net
+NetworkName=research-ai-net
