@@ -86,7 +86,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--model claude-opus-4-6 --allowedTools Bash(gh pr diff:*) Bash(gh pr view:*) Bash(gh pr comment:*) Bash(git diff:*) Bash(git log:*) Read Glob Grep"
+          claude_args: "--model claude-opus-4-6 --allowedTools Bash Read Glob Grep"
           trigger_phrase: "@claude"
           prompt: |
             REPO: ${{ github.repository }}
@@ -97,11 +97,12 @@ jobs:
             IMPORTANT: Only review the CHANGED files in this PR. Do NOT review the entire codebase.
 
             ## Steps
-            1. Run `gh pr diff ${{ github.event.pull_request.number || github.event.issue.number }}` to see exactly what changed
-            2. Run `gh pr view ${{ github.event.pull_request.number || github.event.issue.number }}` to read the PR description
+            1. Run `gh pr view ${{ github.event.pull_request.number || github.event.issue.number }}` to get the PR details and HEAD commit SHA
+            2. Run `gh pr diff ${{ github.event.pull_request.number || github.event.issue.number }}` to see exactly what changed
             3. Review ONLY the changes shown in the diff
-            4. If a change looks like it could break something, you may read related files for context — but do not review files that are not affected by the PR
-            5. Post your review as a PR comment using `gh pr comment`
+            4. If a change looks like it could break something, you may read related files for context — but do not review files not affected by the PR
+            5. For EACH issue found, post a SEPARATE comment using `gh pr comment` (one `gh pr comment` call per issue)
+            6. After all issue comments, post ONE final summary comment using `gh pr comment`
 
             ## MANDATORY Review Categories
             You MUST check EVERY category below for EVERY file in the diff. Do NOT skip any category.
@@ -147,27 +148,73 @@ jobs:
             For frontend code:
             - Note if critical logic lacks tests
 
-            ## Comment Format
-            Post ONE comment per issue found. Each comment must include:
-            - Severity: 🔴 Critical | 🟡 Warning | 🔵 Suggestion | 🧪 Test
-            - The file and line number
-            - What is wrong and why
-            - The fix with corrected code
+            ## Comment Format — EACH ISSUE IS A SEPARATE COMMENT
+            For every issue you find, post a SEPARATE `gh pr comment` so each one can be discussed independently.
 
-            ## Summary
-            End your review with a summary:
-            1. Issues found by severity (🔴 x | 🟡 x | 🔵 x | 🧪 x)
-            2. Verdict: ✅ APPROVE | ⚠️ REQUEST CHANGES | 💬 COMMENT
-            3. Files reviewed with categories checked per file: Security ✓ | Syntax ✓ | Quality ✓ | Tests ✓ (or N/A)
-            4. Consolidated test suggestions with example code
+            Each issue comment MUST follow this exact format:
+
+            {SEVERITY_EMOJI} **{Severity}** — {Category}
+
+            📍 **Location:** [`{filepath}` L{start}-L{end}](https://github.com/${{ github.repository }}/blob/{HEAD_SHA}/{filepath}#L{start}-L{end})
+
+            **Current code (what's wrong):**
+            ```{language}
+            {the exact problematic code from the diff}
+            ```
+
+            **Issue:** {one-line description of the problem}
+
+            **Why this matters:** {brief explanation of the risk or impact}
+
+            **Fix — replace with:**
+            ```{language}
+            {the corrected code}
+            ```
+
+            ---
+
+            Use these severity emojis exactly:
+            - 🔴 **Critical** — Must fix before merge (security vulnerabilities, data loss, breaking bugs)
+            - 🟡 **Warning** — Should fix (potential bugs, missing error handling, performance issues)
+            - 🔵 **Suggestion** — Consider fixing (code quality, readability, best practices)
+            - 🧪 **Test** — Missing test coverage (include example pytest code in the fix)
+
+            IMPORTANT for the location link:
+            - Get the HEAD commit SHA from `gh pr view` output
+            - Build the GitHub link as: https://github.com/${{ github.repository }}/blob/{SHA}/{filepath}#L{start}-L{end}
+            - This makes the location clickable so the reviewer can jump straight to the code
+
+            ## Summary Comment — POST LAST, AS A SINGLE COMMENT
+            After ALL individual issue comments, post ONE final summary comment:
+
+            ## 📋 Code Review Summary
+
+            | Severity | Count |
+            |----------|-------|
+            | 🔴 Critical | {n} |
+            | 🟡 Warning | {n} |
+            | 🔵 Suggestion | {n} |
+            | 🧪 Test | {n} |
+
+            **Verdict:** {✅ APPROVE | ⚠️ REQUEST CHANGES | 💬 COMMENT}
+
+            **Files reviewed:**
+            | File | Security | Syntax | Quality | Tests |
+            |------|----------|--------|---------|-------|
+            | [`{filepath}`](link) | ✓ | ✓ | ✓ | ✓ / N/A |
+
+            **Test suggestions:** (consolidated list with example code)
 
             ## Rules
+            - Post each issue as a SEPARATE comment using `gh pr comment`. Do NOT combine issues into one comment.
+            - The summary is the ONLY comment that combines multiple things.
             - Do NOT modify any files, create commits, or push code.
             - Do NOT skip any review category for any file.
             - Do NOT flag subjective style preferences unless they violate project conventions.
-            - Every issue MUST include a concrete fix with code.
+            - Every issue MUST show the current wrong code AND the fix.
+            - Every location MUST be a clickable GitHub link.
             - If a file has zero issues, confirm you reviewed it in the summary.
-            - If the PR is trivial (typo, config change), say so briefly and approve.
+            - If the PR is trivial (typo, config change), post one comment saying so and approve.
 
   # ──────────────────────────────────────────────
   # Manual trigger: review files without a PR
@@ -191,7 +238,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--model claude-opus-4-6 --allowedTools Bash(git diff:*) Bash(git log:*) Read Glob Grep"
+          claude_args: "--model claude-opus-4-6 --allowedTools Bash Read Glob Grep"
           prompt: |
             You are a code reviewer for the research-ai project (FastAPI + React + Neo4j/Ricgraph).
 
