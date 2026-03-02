@@ -1,7 +1,6 @@
 0xai.nl {
-
     handle_path /api/* {
-        reverse_proxy api:8000
+        reverse_proxy localhost:8000
     }
 
     handle {
