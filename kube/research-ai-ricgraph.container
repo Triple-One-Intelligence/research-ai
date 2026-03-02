@@ -9,8 +9,11 @@ StartLimitBurst=0
 
 [Container]
 ContainerName=research-ai-ricgraph
-Image=research-ai-ricgraph:prod
-Network=container:research-ai-frontend
+Image=ghcr.io/utrechtuniversity/ricgraph:latest
+Network=research-ai-net.network
+
+# Expose to localhost on the server so the SSH tunnel can reach it
+PublishPort=127.0.0.1:8080:8080
 
 EnvironmentFile=/etc/research-ai/research-ai-prod.env
 

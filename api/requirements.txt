@@ -3,3 +3,6 @@ uvicorn
 pydantic
 huggingface_hub
 requests
+pyjwt
+httpx
+python-multipart
