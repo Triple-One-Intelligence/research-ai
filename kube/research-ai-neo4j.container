@@ -10,7 +10,7 @@ StartLimitBurst=0
 [Container]
 ContainerName=research-ai-neo4j
 Image=docker.io/library/neo4j:5
-Network=research-ai-net.network
+Network=research-ai-net
 
 EnvironmentFile=/etc/research-ai/research-ai-prod.env
 

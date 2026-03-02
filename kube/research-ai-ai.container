@@ -10,7 +10,7 @@ StartLimitBurst=0
 [Container]
 ContainerName=research-ai-ai
 Image=docker.io/ollama/ollama:latest
-Network=research-ai-net.network
+Network=research-ai-net
 
 Environment=NVIDIA_VISIBLE_DEVICES=all
 Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
