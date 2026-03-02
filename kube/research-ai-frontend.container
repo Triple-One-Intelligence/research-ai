@@ -10,7 +10,7 @@ StartLimitBurst=0
 [Container]
 ContainerName=research-ai-frontend
 Image=research-ai-frontend:prod
-Network=research-ai-net.network
+Network=research-ai-net
 
 EnvironmentFile=/etc/research-ai/research-ai-prod.env
 

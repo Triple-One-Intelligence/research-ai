@@ -72,6 +72,7 @@ deploy:
 	podman volume create ai-data || true
 
 	systemctl daemon-reload
+	systemctl restart --now research-ai-net-network.service
 	systemctl restart --now research-ai-frontend.service
 	systemctl restart --now research-ai-api.service
 	systemctl restart --now research-ai-ricgraph.service
@@ -84,6 +85,7 @@ undeploy:
 	systemctl stop research-ai-ricgraph.service 2>/dev/null || true
 	systemctl stop research-ai-neo4j.service 2>/dev/null || true
 	systemctl stop research-ai-ai.service 2>/dev/null || true
+	systemctl stop research-ai-net-network.service 2>/dev/null || true
 
 	rm -f /etc/research-ai/research-ai-prod.env
 
