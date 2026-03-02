@@ -4,6 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.ai import router as ai_router
+from app.routers import connections, autocomplete
 
 app = FastAPI(
     title="Research AI API",
@@ -24,6 +25,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(connections.router)
+app.include_router(autocomplete.router)
+
+memory_db = {"fruits": []}
 
 @app.get("/health")
 def health():

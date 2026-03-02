@@ -85,7 +85,7 @@ spec:
           subPath: Caddyfile.dev
           readOnly: true
 
-  volumes:        
+  volumes:
     - name: api-src
       hostPath:
         path: ./api
