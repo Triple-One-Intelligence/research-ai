@@ -1,84 +1,73 @@
-import gc
-import sys
-from typing import List, Optional
-from fastapi import APIRouter
+import os
+import httpx
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
 
-try:
-    from llama_cpp import Llama
-    AI_AVAILABLE = True
-    print("✅ GPU/CUDA libraries found. AI features enabled.")
-except Exception as e:
-    AI_AVAILABLE = False
-    Llama = None
-    print(f"❌ AI initialization failed: {e}", file=sys.stderr)
+router = APIRouter()
 
-router = APIRouter(prefix="/ai", tags=["AI Models"])
+# Get the Ollama URL from the environment
+AI_SERVICE_URL = os.getenv("AI_SERVICE_URL")
 
-CURRENT_LLM = None
-CURRENT_MODEL_ID = ""
+if not AI_SERVICE_URL:
+    raise RuntimeError("AI_SERVICE_URL environment variable is not set")
 
-def load_model(repo_id, filename, embedding):
-    global CURRENT_LLM, CURRENT_MODEL_ID
-    
-    if not AI_AVAILABLE:
-        return None
-
-    new_id = f"{repo_id}-{filename}-{embedding}"
-    
-    if CURRENT_LLM and CURRENT_MODEL_ID == new_id:
-        return CURRENT_LLM
-
-    if CURRENT_LLM:
-        del CURRENT_LLM
-        gc.collect()
-
-    CURRENT_LLM = Llama.from_pretrained(
-        repo_id=repo_id,
-        filename=filename,
-        n_gpu_layers=-1,
-        embedding=embedding,
-        verbose=True
-    )
-    CURRENT_MODEL_ID = new_id
-    return CURRENT_LLM
+# --- Pydantic Models ---
+class Message(BaseModel):
+    role: str
+    content: str
 
 class ChatRequest(BaseModel):
-    repo_id: str
-    filename: str
-    prompt: str
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "repo_id": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
-                "filename": "*q8_0.gguf",
-                "prompt": "Explain 3 benefits of running AI locally."
-            }
-        }
+    model: str = "llama3" # Replace with your preferred default model
+    messages: List[Message]
+    stream: bool = False  # Set to True if you want to stream tokens back
+    options: Optional[Dict[str, Any]] = None
 
 class EmbedRequest(BaseModel):
-    repo_id: str
-    filename: str
-    texts: List[str]
+    model: str = "nomic-embed-text" # Standard embedding model
+    prompt: str
 
+# --- Endpoints ---
 @router.post("/chat")
-def chat(req: ChatRequest):
-    if not AI_AVAILABLE:
-        return {"text": "MOCK RESPONSE: No GPU found, but the API works!"}
+async def chat(req: ChatRequest):
+    """
+    Sends a chat request to the Ollama container.
+    """
+    url = f"{AI_SERVICE_URL}/api/chat"
+    
+    # We use httpx.AsyncClient to prevent blocking the FastAPI event loop
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                url, 
+                json=req.model_dump(exclude_none=True),
+                timeout=60.0 # LLMs can take a moment to respond
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Error connecting to AI service: {e}")
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(status_code=response.status_code, detail=f"AI service error: {response.text}")
 
-    llm = load_model(req.repo_id, req.filename, embedding=False)
-    output = llm.create_completion(prompt=req.prompt, max_tokens=256)
-    return {"text": output["choices"][0]["text"]}
 
 @router.post("/embed")
-def embed(req: EmbedRequest):
-    if not AI_AVAILABLE:
-        return {"embeddings": [[0.1, 0.2, 0.3] for _ in req.texts]}
-
-    llm = load_model(req.repo_id, req.filename, embedding=True)
-    results = []
-    for text in req.texts:
-        res = llm.create_embedding(text)
-        results.append(res["data"][0]["embedding"])
-    return {"embeddings": results}
+async def embed(req: EmbedRequest):
+    """
+    Sends an embedding request to the Ollama container.
+    """
+    url = f"{AI_SERVICE_URL}/api/embeddings"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                url, 
+                json=req.model_dump(exclude_none=True),
+                timeout=30.0
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Error connecting to AI service: {e}")
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(status_code=response.status_code, detail=f"AI service error: {response.text}")

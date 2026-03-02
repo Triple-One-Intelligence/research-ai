@@ -1,17 +1,18 @@
 [Unit]
-Description=Research AI API (GPU)
-Requires=research-ai-frontend.service
-After=research-ai-frontend.service
+Description=Research AI API
+
+[Service]
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=0
+StartLimitBurst=0
 
 [Container]
 ContainerName=research-ai-api
 Image=research-ai-api:prod
-Network=container:research-ai-frontend
+Network=research-ai-net.network
 
-EnvironmentFile=/etc/research-ai/research-ai.env
-Environment=NVIDIA_VISIBLE_DEVICES=all
-Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
-AddDevice=nvidia.com/gpu=all
+EnvironmentFile=/etc/research-ai/research-ai-prod.env
 
 [Install]
 WantedBy=multi-user.target

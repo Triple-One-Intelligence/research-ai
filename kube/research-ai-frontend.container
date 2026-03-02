@@ -1,11 +1,23 @@
 [Unit]
 Description=Research AI Frontend
 
+[Service]
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=0
+StartLimitBurst=0
+
 [Container]
 ContainerName=research-ai-frontend
 Image=research-ai-frontend:prod
+Network=research-ai-net.network
+
+EnvironmentFile=/etc/research-ai/research-ai-prod.env
+
+# Public port for caddy
 PublishPort=80:80
 PublishPort=443:443
+
 Volume=caddy-data:/data
 Volume=caddy-config:/config
 
