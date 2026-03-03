@@ -2,7 +2,7 @@ import os
 import re
 from neo4j import Driver, GraphDatabase
 
-RIC_NEO4J_URL  = "bolt://research-ai-ricgraph:7687"
+RIC_NEO4J_URL  = "bolt://research-ai-ricgraph:7688"
 RIC_NEO4J_USER = os.getenv("RIC_NEO4J_USER", "neo4j")
 RIC_NEO4J_PASS = os.getenv("RIC_NEO4J_PASS", "neo4j")
 FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
