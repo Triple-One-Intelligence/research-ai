@@ -6,3 +6,4 @@ requests
 pyjwt
 httpx
 python-multipart
+neo4j
