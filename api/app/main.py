@@ -7,7 +7,7 @@ from app.ai import router as ai_router
 from app.routers import connections, autocomplete
 
 from contextlib import asynccontextmanager
-import utils.ricgraph_utils.query_utils as query_utils
+import app.utils.ricgraph_utils.query_utils as query_utils
 
 # responsible for start up and shut down tasks
 @asynccontextmanager
