@@ -11,8 +11,8 @@ Endpoint
   - response: Suggestions  -- pydantic model defined in `app.utils.schemas`
 """
 
-from fastapi import APIRouter, Query
-from app.utils.ricgraph.autocomplete_utils import autocomplete
+from fastapi import APIRouter, Query, HTTPException
+from app.utils.ricgraph_utils.autocomplete_utils import autocomplete
 # Import the pydantic response model used by FastAPI to serialize responses
 from app.utils.schemas import Suggestions
 
@@ -35,4 +35,9 @@ def suggest(query: str, limit: int = Query(10, ge=1, le=100, description="Maximu
       returned object into JSON according to the model schema.
     """
     # Delegate the actual autocomplete functionality to the utility function and return its result.
-    return autocomplete(query, limit)
+    try:
+        suggestions = autocomplete(query, limit)
+        return suggestions
+    except Exception as e:
+        print(f"error when trying to autocomplete: {e}")
+        raise HTTPException(status_code=503, detail="could not suggest any autocompletions")
