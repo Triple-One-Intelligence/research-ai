@@ -6,4 +6,3 @@ requests
 pyjwt
 httpx
 python-multipart
-contextlib
