@@ -18,7 +18,6 @@ from app.utils.schemas import Suggestions
 
 router = APIRouter(prefix="/autocomplete")
 
-
 @router.get("", response_model=Suggestions)
 def suggest(query: str, limit: int = Query(10, ge=1, le=100, description="Maximum number of suggestions to return (1-100)")):
     """

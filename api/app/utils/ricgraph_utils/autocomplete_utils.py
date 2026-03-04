@@ -2,8 +2,6 @@ import app.utils.ricgraph_utils.query_utils as query_utils
 from neo4j import Result
 from app.utils.schemas import Suggestions, Person, Organization
 
-
-
 AUTOCOMPLETE_CYPHER = """
     CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)
     YIELD node, score AS ftScore
@@ -90,7 +88,6 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
 
     clean_query = " ".join(keywords)
     lucene_query = query_utils.build_lucene_query(keywords)
-
 
     rows = query_utils.graph.execute_query(
         AUTOCOMPLETE_CYPHER,

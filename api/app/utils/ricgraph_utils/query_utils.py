@@ -2,19 +2,19 @@ import os
 import re
 from neo4j import Driver, GraphDatabase
 
-RIC_NEO4J_URL  = "bolt://research-ai-ricgraph:7688"
-RIC_NEO4J_USER = os.getenv("RIC_NEO4J_USER", "neo4j")
-RIC_NEO4J_PASS = os.getenv("RIC_NEO4J_PASS", "neo4j")
+REMOTE_NEO4J_URL  = os.getenv("REMOTE_NEO4J_URL")
+REMOTE_NEO4J_USER = os.getenv("REMOTE_NEO4J_USER")
+REMOTE_NEO4J_PASS = os.getenv("REMOTE_NEO4J_PASS")
 FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
 
 graph = None # the graph database driver instance will live here once connect_to_database is called
 
 def connect_to_database() -> None:
     """Connect to the Neo4j graph database of ricgraph and return the driver instance."""
-    driver = GraphDatabase.driver(RIC_NEO4J_URL, auth=(RIC_NEO4J_USER, RIC_NEO4J_PASS))
+    driver = GraphDatabase.driver(REMOTE_NEO4J_URL, auth=(REMOTE_NEO4J_USER, REMOTE_NEO4J_PASS))
     driver.verify_connectivity()
 
-    global graph 
+    global graph
     graph = driver
 
 def ensure_fulltext_indexes(driver: Driver) -> None:
