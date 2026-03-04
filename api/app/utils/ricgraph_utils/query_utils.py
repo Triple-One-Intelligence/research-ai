@@ -7,15 +7,25 @@ REMOTE_NEO4J_USER = os.getenv("REMOTE_NEO4J_USER")
 REMOTE_NEO4J_PASS = os.getenv("REMOTE_NEO4J_PASS")
 FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
 
-graph = None # the graph database driver instance will live here once connect_to_database is called
+# Validate index name to prevent Cypher injection in DDL statements
+if not re.fullmatch(r'[A-Za-z_]\w*', FULLTEXT_INDEX_NAME):
+    raise ValueError(f"Invalid index name: {FULLTEXT_INDEX_NAME!r}")
+
+_graph: Driver | None = None
 
 def connect_to_database() -> None:
-    """Connect to the Neo4j graph database of ricgraph and return the driver instance."""
+    """Connect to the Neo4j graph database of ricgraph."""
     driver = GraphDatabase.driver(REMOTE_NEO4J_URL, auth=(REMOTE_NEO4J_USER, REMOTE_NEO4J_PASS))
     driver.verify_connectivity()
 
-    global graph
-    graph = driver
+    global _graph
+    _graph = driver
+
+def get_graph() -> Driver:
+    """Return the Neo4j driver, raising a clear error if not yet connected."""
+    if _graph is None:
+        raise RuntimeError("Neo4j driver not initialized — was connect_to_database() called?")
+    return _graph
 
 def ensure_fulltext_indexes(driver: Driver) -> None:
     """Create the fulltext index if it doesn't already exist."""

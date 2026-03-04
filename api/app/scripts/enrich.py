@@ -8,6 +8,7 @@ Run inside the API container:
 
 import argparse
 import os
+import re
 import sys
 import time
 
@@ -26,6 +27,10 @@ EMBED_DIMENSIONS = int(os.getenv("EMBED_DIMENSIONS", "768"))
 OPENALEX_MAILTO = os.getenv("OPENALEX_MAILTO", "")
 
 VECTOR_INDEX_NAME = "publicationEmbeddingIndex"
+
+# Validate index name to prevent Cypher injection in DDL statements
+if not re.fullmatch(r'[A-Za-z_]\w*', VECTOR_INDEX_NAME):
+    raise ValueError(f"Invalid index name: {VECTOR_INDEX_NAME!r}")
 
 
 def get_driver():

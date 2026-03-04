@@ -1,4 +1,4 @@
-.PHONY: up down nuke labelSELinux watch wapi wui deploy undeploy logs logs-api logs-ui logs-ric enrich enrich-force harvest
+.PHONY: dev up down nuke labelSELinux watch wapi wui deploy undeploy logs logs-api logs-ui logs-ric enrich enrich-force harvest tunnel setup-wsl-ssh
 
 REMOTE_SERVER ?= root@0xai.nl
 
@@ -12,19 +12,25 @@ nuke:
 	podman system prune -a -f --volumes
 
 # dev rules:
-up:
-	podman build -t research-ai-api:dev -f ./api/Containerfile .
-	mkdir -p .caddy/data .caddy/config
-	set -a; . ./kube/research-ai-dev.env; set +a; \
-	envsubst < kube/pod-dev.yaml | podman kube play -
-	@echo "Pod started. Harvest + enrich will run in background..."
-	@(sleep 10 && $(MAKE) harvest 2>&1 | tee harvest.log && $(MAKE) enrich 2>&1 | tee -a harvest.log &)
 
-down:
-	set -a; . ./kube/research-ai-dev.env; set +a; \
-	envsubst < kube/pod-dev.yaml | podman kube down -
+# Symlink Windows SSH keys into WSL if running under WSL and ~/.ssh is missing
+setup-wsl-ssh:
+	@if grep -qi microsoft /proc/version 2>/dev/null; then \
+		WIN_USER=$$(cmd.exe /C "echo %USERNAME%" 2>/dev/null | tr -d '\r'); \
+		WIN_SSH="/mnt/c/Users/$$WIN_USER/.ssh"; \
+		if [ ! -d "$$HOME/.ssh" ] && [ -d "$$WIN_SSH" ]; then \
+			ln -s "$$WIN_SSH" "$$HOME/.ssh"; \
+			echo "Linked $$WIN_SSH -> $$HOME/.ssh"; \
+		elif [ -d "$$HOME/.ssh" ]; then \
+			echo "$$HOME/.ssh already exists, skipping symlink"; \
+		else \
+			echo "Windows SSH keys not found at $$WIN_SSH"; \
+		fi; \
+	else \
+		echo "Not running in WSL, skipping SSH key setup"; \
+	fi
 
-tunnel:
+tunnel: setup-wsl-ssh
 	set -a; . ./kube/research-ai-dev.env; set +a; \
 	ssh -N \
 		-L 7687:localhost:7687 \
@@ -33,6 +39,20 @@ tunnel:
 		-L 3030:localhost:3030 \
 		-L 11434:localhost:11434 \
 		$$REMOTE_SERVER
+
+up:
+	podman build -t research-ai-api:dev -f ./api/Containerfile .
+	mkdir -p .caddy/data .caddy/config
+	set -a; . ./kube/research-ai-dev.env; set +a; \
+	envsubst < kube/pod-dev.yaml | podman kube play -
+
+dev: up
+	@echo "Starting SSH tunnel to prod server (Ctrl+C to stop)..."
+	@$(MAKE) tunnel
+
+down:
+	set -a; . ./kube/research-ai-dev.env; set +a; \
+	envsubst < kube/pod-dev.yaml | podman kube down -
 
 # relabel files to allow mapping to containers.
 # only for development on OSes running a security-hardened Linux kernel
@@ -86,11 +106,14 @@ deploy:
 
 	systemctl daemon-reload
 	systemctl restart --now research-ai-net-network.service
-	systemctl restart --now research-ai-frontend.service
-	systemctl restart --now research-ai-api.service
-	systemctl restart --now research-ai-ricgraph.service
 	systemctl restart --now research-ai-neo4j.service
 	systemctl restart --now research-ai-ai.service
+	systemctl restart --now research-ai-ricgraph.service
+	systemctl restart --now research-ai-api.service
+	systemctl restart --now research-ai-frontend.service
+
+	@echo "Services started. Enrich will run in background after startup..."
+	@(sleep 30 && $(MAKE) enrich 2>&1 | tee enrich.log &)
 
 undeploy:
 	systemctl stop research-ai-frontend.service 2>/dev/null || true

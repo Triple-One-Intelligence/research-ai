@@ -89,7 +89,7 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     clean_query = " ".join(keywords)
     lucene_query = query_utils.build_lucene_query(keywords)
 
-    rows = query_utils.graph.execute_query(
+    rows = query_utils.get_graph().execute_query(
         AUTOCOMPLETE_CYPHER,
         result_transformer_=Result.data,
         indexName=query_utils.FULLTEXT_INDEX_NAME,

@@ -18,17 +18,19 @@ async def lifespan(app: FastAPI):
         query_utils.connect_to_database()
     except Exception as e:
         print(f"couldn't connect to ricgraph database: {e}")
-        if query_utils.graph is not None:
-            query_utils.graph.close()
-        raise  # indicate that startup failed
+        try:
+            query_utils.get_graph().close()
+        except RuntimeError:
+            pass
+        raise
     print("connected to ricgraph database")
-    query_utils.ensure_fulltext_indexes(query_utils.graph)
+    query_utils.ensure_fulltext_indexes(query_utils.get_graph())
     print("API start up complete")
 
     yield
 
     print("Shutting down API...")
-    query_utils.graph.close()
+    query_utils.get_graph().close()
     print("disconnected from ricgraph database")
     print("API shut down complete")
 
