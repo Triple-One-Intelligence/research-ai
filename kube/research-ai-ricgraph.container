@@ -15,7 +15,6 @@ Network=research-ai-net
 # Expose to localhost on the server so the SSH tunnel can reach it
 # Ric explorer
 PublishPort=127.0.0.1:3030:3030
-PublishPort=0.0.0.0:7688:7687
 
 EnvironmentFile=/etc/research-ai/research-ai-prod.env
 
