@@ -51,13 +51,13 @@ wui:
 	podman logs -f research-ai-dev-frontend
 
 enrich:
-	podman exec -it research-ai-api python -m app.scripts.enrich
+	podman exec research-ai-api python -m app.scripts.enrich
 
 enrich-force:
-	podman exec -it research-ai-api python -m app.scripts.enrich --force
+	podman exec research-ai-api python -m app.scripts.enrich --force
 
 harvest:
-	podman exec -it research-ai-ricgraph make run_bash_script
+	podman exec research-ai-ricgraph make run_bash_script
 
 # prod rules:
 deploy:
@@ -76,7 +76,8 @@ deploy:
 
 	mkdir -p /etc/research-ai
 	install -m 0644 -D kube/research-ai-prod.env /etc/research-ai/research-ai-prod.env
-	install -m 0644 -D kube/ricgraph.ini /etc/research-ai/ricgraph.ini
+	set -a; . ./kube/research-ai-prod.env; set +a; \
+	envsubst < kube/ricgraph.ini > /etc/research-ai/ricgraph.ini && chmod 0644 /etc/research-ai/ricgraph.ini
 
 	podman volume create caddy-data || true
 	podman volume create caddy-config || true

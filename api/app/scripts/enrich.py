@@ -183,49 +183,50 @@ def store_enrichment(driver, doi: str, abstract: str, embedding: list[float]):
 
 def run(force: bool = False, batch_size: int = 50):
     driver = get_driver()
-    ensure_vector_index(driver)
+    try:
+        ensure_vector_index(driver)
 
-    dois = find_publication_dois(driver, force)
-    total = len(dois)
-    if total == 0:
-        print("[enrich] No publications to enrich. Done.")
+        dois = find_publication_dois(driver, force)
+        total = len(dois)
+        if total == 0:
+            print("[enrich] No publications to enrich. Done.")
+            return
+
+        print(f"[enrich] Found {total} publication(s) to enrich.")
+        enriched = 0
+        skipped = 0
+
+        with httpx.Client() as client:
+            for i, doi in enumerate(dois, 1):
+                print(f"  [{i}/{total}] {doi}")
+
+                abstract = fetch_abstract(doi, client)
+                if not abstract:
+                    print("    -> No abstract found, skipping.")
+                    skipped += 1
+                    continue
+
+                embedding = generate_embedding(abstract, client)
+                if not embedding:
+                    print("    -> Embedding failed, skipping.")
+                    skipped += 1
+                    continue
+
+                store_enrichment(driver, doi, abstract, embedding)
+                enriched += 1
+                print(f"    -> OK ({len(abstract)} chars, {len(embedding)}d vector)")
+
+                # Be polite to OpenAlex (they ask for <10 req/s)
+                if i % batch_size == 0:
+                    print(f"  [batch] Processed {i}/{total}, pausing briefly...")
+                    time.sleep(1)
+
+        print(
+            f"[enrich] Done. Enriched: {enriched}, Skipped: {skipped}, "
+            f"Total: {total}"
+        )
+    finally:
         driver.close()
-        return
-
-    print(f"[enrich] Found {total} publication(s) to enrich.")
-    enriched = 0
-    skipped = 0
-
-    with httpx.Client() as client:
-        for i, doi in enumerate(dois, 1):
-            print(f"  [{i}/{total}] {doi}")
-
-            abstract = fetch_abstract(doi, client)
-            if not abstract:
-                print("    -> No abstract found, skipping.")
-                skipped += 1
-                continue
-
-            embedding = generate_embedding(abstract, client)
-            if not embedding:
-                print("    -> Embedding failed, skipping.")
-                skipped += 1
-                continue
-
-            store_enrichment(driver, doi, abstract, embedding)
-            enriched += 1
-            print(f"    -> OK ({len(abstract)} chars, {len(embedding)}d vector)")
-
-            # Be polite to OpenAlex (they ask for <10 req/s)
-            if i % batch_size == 0:
-                print(f"  [batch] Processed {i}/{total}, pausing briefly...")
-                time.sleep(1)
-
-    driver.close()
-    print(
-        f"[enrich] Done. Enriched: {enriched}, Skipped: {skipped}, "
-        f"Total: {total}"
-    )
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────────
