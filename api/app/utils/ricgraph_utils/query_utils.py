@@ -23,8 +23,8 @@ def connect_to_database(max_retries: int = 10, retry_delay: float = 3.0) -> None
         except Exception as e:
             if attempt == max_retries:
                 raise
-            print(f"[connect_to_database] Attempt {attempt}/{max_retries} failed: {e}")
-            print(f"[connect_to_database] Retrying in {retry_delay}s...")
+            print(f"[query_utils] Attempt {attempt}/{max_retries} failed: {e}")
+            print(f"[query_utils] Retrying in {retry_delay}s...")
             time.sleep(retry_delay)
 
 def startup() -> None:
