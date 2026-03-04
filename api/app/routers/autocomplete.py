@@ -38,5 +38,5 @@ def suggest(query: str, limit: int = Query(10, ge=1, le=100, description="Maximu
         suggestions = autocomplete(query, limit)
         return suggestions
     except Exception as e:
-        print(f"error when trying to autocomplete: {e}")
+        print(f"[autocomplete] Error when trying to autocomplete: {e}")
         raise HTTPException(status_code=503, detail="could not suggest any autocompletions")

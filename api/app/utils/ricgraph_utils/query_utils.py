@@ -2,9 +2,9 @@ import os
 import re
 from neo4j import Driver, GraphDatabase
 
-REMOTE_NEO4J_URL  = os.getenv("REMOTE_NEO4J_URL")
-REMOTE_NEO4J_USER = os.getenv("REMOTE_NEO4J_USER")
-REMOTE_NEO4J_PASS = os.getenv("REMOTE_NEO4J_PASS")
+REMOTE_NEO4J_URL  = os.environ["REMOTE_NEO4J_URL"]
+REMOTE_NEO4J_USER = os.environ["REMOTE_NEO4J_USER"]
+REMOTE_NEO4J_PASS = os.environ["REMOTE_NEO4J_PASS"]
 FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
 
 graph = None # the graph database driver instance will live here once connect_to_database is called
@@ -29,13 +29,13 @@ def ensure_fulltext_indexes(driver: Driver) -> None:
                 f"CREATE FULLTEXT INDEX {FULLTEXT_INDEX_NAME} "
                 f"FOR (n:RicgraphNode) ON EACH [n.value]"
             )
-            print(f"[database] Created fulltext index '{FULLTEXT_INDEX_NAME}'.")
+            print(f"[query_utils] Created fulltext index '{FULLTEXT_INDEX_NAME}'.")
 
         session.run(
             "CALL db.awaitIndex($name)",
             name=FULLTEXT_INDEX_NAME,
         )
-        print(f"[database] Fulltext index '{FULLTEXT_INDEX_NAME}' is online.")
+        print(f"[query_utils] Fulltext index '{FULLTEXT_INDEX_NAME}' is online.")
 
 # Lucene reserved characters that must be escaped
 LUCENE_SPECIAL = re.compile(r'([+\-&|!(){}\[\]^"~*?:\\/])')
