@@ -97,7 +97,7 @@ deploy:
 	mkdir -p /etc/research-ai
 	install -m 0644 -D kube/research-ai-prod.env /etc/research-ai/research-ai-prod.env
 	set -a; . ./kube/research-ai-prod.env; set +a; \
-	envsubst < kube/ricgraph.ini > /etc/research-ai/ricgraph.ini && chmod 0644 /etc/research-ai/ricgraph.ini
+	envsubst < kube/ricgraph.ini > /etc/research-ai/ricgraph.ini && chmod 0640 /etc/research-ai/ricgraph.ini
 
 	podman volume create caddy-data || true
 	podman volume create caddy-config || true
@@ -113,7 +113,7 @@ deploy:
 	systemctl restart --now research-ai-frontend.service
 
 	@echo "Services started. Enrich will run in background after startup..."
-	@(sleep 30 && $(MAKE) enrich 2>&1 | tee enrich.log &)
+	@(sleep 30 && $(MAKE) enrich 2>&1 | tee enrich.log || echo "[enrich] FAILED" >> enrich.log &)
 
 undeploy:
 	systemctl stop research-ai-frontend.service 2>/dev/null || true

@@ -86,10 +86,6 @@ def fetch_abstract(doi: str, client: httpx.Client) -> str | None:
 
 def generate_embedding(text: str, client: httpx.Client) -> list[float] | None:
     """Generate an embedding vector via Ollama."""
-    if not AI_SERVICE_URL:
-        print("[enrich] ERROR: AI_SERVICE_URL env var must be set.")
-        sys.exit(1)
-
     url = f"{AI_SERVICE_URL}/api/embeddings"
     try:
         resp = client.post(
@@ -187,6 +183,10 @@ def store_enrichment(driver, doi: str, abstract: str, embedding: list[float]):
 
 
 def run(force: bool = False, batch_size: int = 50):
+    if not AI_SERVICE_URL:
+        print("[enrich] ERROR: AI_SERVICE_URL env var must be set.")
+        sys.exit(1)
+
     driver = get_driver()
     try:
         ensure_vector_index(driver)
@@ -222,6 +222,7 @@ def run(force: bool = False, batch_size: int = 50):
                 print(f"    -> OK ({len(abstract)} chars, {len(embedding)}d vector)")
 
                 # Be polite to OpenAlex (they ask for <10 req/s)
+                time.sleep(0.15)
                 if i % batch_size == 0:
                     print(f"  [batch] Processed {i}/{total}, pausing briefly...")
                     time.sleep(1)

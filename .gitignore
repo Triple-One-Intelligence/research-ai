@@ -5,6 +5,7 @@ kube/research-ai-prod.env
 
 # --- Logs ---
 harvest.log
+enrich.log
 
 # --- Python Artifacts ---
 __pycache__/
