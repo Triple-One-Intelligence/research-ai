@@ -18,7 +18,5 @@ PublishPort=127.0.0.1:3030:3030
 
 EnvironmentFile=/etc/research-ai/research-ai-prod.env
 
-Volume=ricgraph-data:/var/lib/neo4j/data
-
 [Install]
 WantedBy=multi-user.target

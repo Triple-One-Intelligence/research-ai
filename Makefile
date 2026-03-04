@@ -1,4 +1,4 @@
-.PHONY: up down nuke labelSELinux watch wapi wui deploy undeploy logs logs-api logs-ui logs-ric
+.PHONY: up down nuke labelSELinux watch wapi wui deploy undeploy logs logs-api logs-ui logs-ric enrich enrich-force harvest
 
 REMOTE_SERVER ?= root@0xai.nl
 
@@ -17,6 +17,8 @@ up:
 	mkdir -p .caddy/data .caddy/config
 	set -a; . ./kube/research-ai-dev.env; set +a; \
 	envsubst < kube/pod-dev.yaml | podman kube play -
+	@echo "Pod started. Harvest + enrich will run in background..."
+	@(sleep 10 && $(MAKE) harvest 2>&1 | tee harvest.log && $(MAKE) enrich 2>&1 | tee -a harvest.log &)
 
 down:
 	set -a; . ./kube/research-ai-dev.env; set +a; \
@@ -48,6 +50,15 @@ wapi:
 wui:
 	podman logs -f research-ai-dev-frontend
 
+enrich:
+	podman exec -it research-ai-dev-api python -m app.scripts.enrich
+
+enrich-force:
+	podman exec -it research-ai-dev-api python -m app.scripts.enrich --force
+
+harvest:
+	podman exec -it research-ai-dev-ricgraph make run_bash_script
+
 # prod rules:
 deploy:
 	podman build -t research-ai-api:prod -f ./api/Containerfile .
@@ -68,7 +79,6 @@ deploy:
 
 	podman volume create caddy-data || true
 	podman volume create caddy-config || true
-	podman volume create ricgraph-data || true
 	podman volume create neo4j-data || true
 	podman volume create ai-data || true
 
