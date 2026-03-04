@@ -3,5 +3,8 @@
 kube/research-ai-dev.env
 kube/research-ai-prod.env
 
+# --- Logs ---
+harvest.log
+
 # --- Python Artifacts ---
 __pycache__/
