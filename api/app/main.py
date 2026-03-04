@@ -12,26 +12,9 @@ import app.utils.ricgraph_utils.query_utils as query_utils
 # responsible for start up and shut down tasks
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Starting API...")
-    # connect directly to ricgraph neo4j database for custom queries
-    try:
-        query_utils.connect_to_database()
-    except Exception as e:
-        print(f"[main] Couldn't connect to Ricgraph database: {e}")
-        if query_utils.graph is not None:
-            query_utils.graph.close()
-        raise  # indicate that startup failed
-
-    print("[main] Connected to ricgraph database.")
-    query_utils.ensure_fulltext_indexes(query_utils.graph)
-    print("[main] API start up complete.")
-
+    query_utils.startup()
     yield
-
-    print("[main] Shutting down API...")
-    query_utils.graph.close()
-    print("[main] Disconnected from ricgraph database.")
-    print("[main] API shut down complete.")
+    query_utils.shutdown()
 
 
 app = FastAPI(

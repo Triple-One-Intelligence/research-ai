@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from neo4j import Driver, GraphDatabase
 
 REMOTE_NEO4J_URL  = os.environ["REMOTE_NEO4J_URL"]
@@ -9,13 +10,45 @@ FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
 
 graph = None # the graph database driver instance will live here once connect_to_database is called
 
-def connect_to_database() -> None:
+def connect_to_database(max_retries: int = 10, retry_delay: float = 3.0) -> None:
     """Connect to the Neo4j graph database of ricgraph and return the driver instance."""
-    driver = GraphDatabase.driver(REMOTE_NEO4J_URL, auth=(REMOTE_NEO4J_USER, REMOTE_NEO4J_PASS))
-    driver.verify_connectivity()
+    for attempt in range(1, max_retries + 1):
+        try:
+            driver = GraphDatabase.driver(REMOTE_NEO4J_URL, auth=(REMOTE_NEO4J_USER, REMOTE_NEO4J_PASS))
+            driver.verify_connectivity()
 
+            global graph
+            graph = driver
+            return
+        except Exception as e:
+            if attempt == max_retries:
+                raise
+            print(f"[connect_to_database] Attempt {attempt}/{max_retries} failed: {e}")
+            print(f"[connect_to_database] Retrying in {retry_delay}s...")
+            time.sleep(retry_delay)
+
+def startup() -> None:
+    """Connect to the Ricgraph Neo4j database and ensure indexes are ready."""
+    try:
+        connect_to_database()
+    except Exception as e:
+        print(f"[query_utils] Couldn't connect to Ricgraph database: {e}")
+        if graph is not None:
+            graph.close()
+        raise
+
+    print("[query_utils] Connected to Ricgraph database.")
+    assert graph is not None
+    ensure_fulltext_indexes(graph)
+    print("[query_utils] Startup complete.")
+
+def shutdown() -> None:
+    """Close the Ricgraph Neo4j database connection."""
     global graph
-    graph = driver
+    if graph is not None:
+        graph.close()
+        graph = None
+    print("[query_utils] Disconnected from Ricgraph database.")
 
 def ensure_fulltext_indexes(driver: Driver) -> None:
     """Create the fulltext index if it doesn't already exist."""
