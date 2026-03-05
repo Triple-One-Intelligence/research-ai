@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { EntitySuggestion, ConnectionsResponse } from '../../types';
-import { fetchConnections } from '../../api';
+import { fetchConnections } from '../../apiconnection/api';
 import CollapsibleCard from './CollapsibleCard';
 import './RightPanel.css';
 import { useTranslation } from 'react-i18next';

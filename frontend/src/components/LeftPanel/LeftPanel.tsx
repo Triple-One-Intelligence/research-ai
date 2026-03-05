@@ -13,6 +13,7 @@ interface LeftPanelProps {
   selectedEntity: EntitySuggestion | null;
   onEntitySelect: (entity: EntitySuggestion) => void;
   onEntityClear: () => void;
+  
 }
 
 // Main functional component. Destructures props for easy access.

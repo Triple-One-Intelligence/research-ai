@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../api';
+import api from '../apiconnection/api';
 import AddFruitForm from './AddFruitForm';
 
 interface Fruit {
