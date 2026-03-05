@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EntitySuggestion } from '../../types';
-import { searchEntities } from '../../api';
+import { searchEntities } from '../../apiconnection/api';
 import './EntitySearchBar.css';
 
 interface EntitySearchBarProps {

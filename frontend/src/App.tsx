@@ -4,7 +4,8 @@ import './App.css';
 import { LeftPanel } from './components/LeftPanel';
 import { MiddlePanel } from './components/MiddlePanel';
 import { RightPanel } from './components/RightPanel';
-import type { EntitySuggestion } from './types';
+import {promptTheAI} from './apiconnection/ai';
+import type { EntitySuggestion, ChatMessage } from './types';
 
 /*
    Mock function that returns predefined text simulating an LLM streaming response.
@@ -48,6 +49,8 @@ End of simulated response.`;
 };
 
 
+
+
 // Main App component – orchestrates state and renders the three‑panel layout.
 const App = () => {
   const [selectedEntity, setSelectedEntity] = useState<EntitySuggestion | null>(null);
@@ -68,6 +71,24 @@ const App = () => {
         setIsGenerating(false);
       }
     );
+  };
+
+  const sendCustomPrompt = async () => {
+    const userMsg: ChatMessage = { role: 'user', content: 'write me a short joke' };
+    const msgs = [userMsg];
+    setResponseText('');
+    setIsGenerating(true);
+    try {
+      const reply = await promptTheAI(msgs);
+      setResponseText(reply);
+      
+    } catch (err: any) {
+      console.error(err);
+      // show user-friendly error
+      setResponseText('Error: ' + (err.response?.data?.detail ?? err.message));
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const { t, i18n } = useTranslation();
@@ -99,7 +120,7 @@ const App = () => {
       <main className="app-main">
         <LeftPanel
           selectedEntity={selectedEntity}
-          onAsk={handleGenerate}
+          onAsk={sendCustomPrompt}
           isGenerating={isGenerating}
           onEntitySelect={setSelectedEntity}
           onEntityClear={() => setSelectedEntity(null)}
