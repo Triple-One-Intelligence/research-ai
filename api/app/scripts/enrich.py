@@ -8,39 +8,16 @@ Run inside the API container:
 
 import argparse
 import os
-import re
 import sys
 import time
 
 import httpx
-from neo4j import GraphDatabase
+import app.utils.database_utils.database_utils as database_utils
 
-# ── Configuration from environment ──────────────────────────────────────────
-
-NEO4J_URL = os.getenv("REMOTE_NEO4J_URL")
-NEO4J_USER = os.getenv("REMOTE_NEO4J_USER")
-NEO4J_PASS = os.getenv("REMOTE_NEO4J_PASS")
-AI_SERVICE_URL = os.getenv("AI_SERVICE_URL")
-
+AI_SERVICE_URL = os.environ["AI_SERVICE_URL"]
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 EMBED_DIMENSIONS = int(os.getenv("EMBED_DIMENSIONS", "768"))
 OPENALEX_MAILTO = os.getenv("OPENALEX_MAILTO", "")
-
-VECTOR_INDEX_NAME = "publicationEmbeddingIndex"
-
-# Validate index name to prevent Cypher injection in DDL statements
-if not re.fullmatch(r'[A-Za-z_]\w*', VECTOR_INDEX_NAME):
-    raise ValueError(f"Invalid index name: {VECTOR_INDEX_NAME!r}")
-
-
-def get_driver():
-    if not all([NEO4J_URL, NEO4J_USER, NEO4J_PASS]):
-        print("[enrich] ERROR: REMOTE_NEO4J_URL/USER/PASS env vars must be set.")
-        sys.exit(1)
-    driver = GraphDatabase.driver(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASS))
-    driver.verify_connectivity()
-    print(f"[enrich] Connected to Neo4j at {NEO4J_URL}")
-    return driver
 
 
 # ── OpenAlex ────────────────────────────────────────────────────────────────
@@ -67,6 +44,7 @@ def fetch_abstract(doi: str, client: httpx.Client) -> str | None:
     try:
         resp = client.get(url, params=params, timeout=15.0)
         if resp.status_code == 404:
+            print(f"  [openalex] Could not find the given DOI: {doi}")
             return None
         resp.raise_for_status()
         data = resp.json()
@@ -76,6 +54,7 @@ def fetch_abstract(doi: str, client: httpx.Client) -> str | None:
         if inv_idx:
             return reconstruct_abstract(inv_idx)
 
+        print(f"  [openalex] Abstract was not in the inverted index format, DOI: {doi}")
         return None
     except httpx.HTTPError as e:
         print(f"  [openalex] Error fetching {doi}: {e}")
@@ -98,53 +77,6 @@ def generate_embedding(text: str, client: httpx.Client) -> list[float] | None:
     except httpx.HTTPError as e:
         print(f"  [ollama] Embedding error: {e}")
         return None
-
-
-# ── Neo4j vector index ──────────────────────────────────────────────────────
-
-def ensure_vector_index(driver) -> None:
-    """Create or recreate the vector index with the configured dimensions."""
-    with driver.session() as session:
-        # Check if index exists and has correct dimensions
-        result = session.run(
-            "SHOW VECTOR INDEXES YIELD name, options "
-            "WHERE name = $name RETURN options",
-            name=VECTOR_INDEX_NAME,
-        )
-        record = result.single()
-
-        if record:
-            existing_dims = (
-                record["options"]
-                .get("indexConfig", {})
-                .get("vector.dimensions", 0)
-            )
-            if existing_dims == EMBED_DIMENSIONS:
-                print(
-                    f"[enrich] Vector index '{VECTOR_INDEX_NAME}' exists "
-                    f"with {EMBED_DIMENSIONS} dimensions – OK."
-                )
-                return
-            # Dimensions mismatch – drop and recreate
-            print(
-                f"[enrich] Dimension mismatch ({existing_dims} vs "
-                f"{EMBED_DIMENSIONS}). Recreating index..."
-            )
-            session.run(f"DROP INDEX {VECTOR_INDEX_NAME}")
-
-        # Create index
-        session.run(
-            f"CREATE VECTOR INDEX {VECTOR_INDEX_NAME} "
-            f"FOR (n:RicgraphNode) ON (n.embedding) "
-            f"OPTIONS {{indexConfig: {{"
-            f"  `vector.dimensions`: {EMBED_DIMENSIONS},"
-            f"  `vector.similarity_function`: 'cosine'"
-            f"}}}}"
-        )
-        print(
-            f"[enrich] Created vector index '{VECTOR_INDEX_NAME}' "
-            f"({EMBED_DIMENSIONS} dimensions)."
-        )
 
 
 # ── Main enrichment loop ───────────────────────────────────────────────────
@@ -187,9 +119,9 @@ def run(force: bool = False, batch_size: int = 50):
         print("[enrich] ERROR: AI_SERVICE_URL env var must be set.")
         sys.exit(1)
 
-    driver = get_driver()
+    driver = database_utils.get_graph()
     try:
-        ensure_vector_index(driver)
+        database_utils.ensure_vector_index(driver, EMBED_DIMENSIONS)
 
         dois = find_publication_dois(driver, force)
         total = len(dois)
