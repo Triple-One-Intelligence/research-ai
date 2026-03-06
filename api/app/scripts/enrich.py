@@ -119,6 +119,7 @@ def run(force: bool = False, batch_size: int = 50):
         print("[enrich] ERROR: AI_SERVICE_URL env var must be set.")
         sys.exit(1)
 
+    database_utils.connect_to_database()
     driver = database_utils.get_graph()
     try:
         database_utils.ensure_vector_index(driver, EMBED_DIMENSIONS)
