@@ -7,7 +7,7 @@ parts of the database.
 import os
 import re
 import time
-from neo4j import Driver, GraphDatabase, LiteralString
+from neo4j import Driver, GraphDatabase
 from typing import cast
 
 REMOTE_NEO4J_URL  = os.environ["REMOTE_NEO4J_URL"]
@@ -129,8 +129,8 @@ def ensure_vector_index(driver: Driver, embed_dimensions: int) -> None:
             )
             session.run(f"DROP INDEX {VECTOR_INDEX_NAME}")
 
-        # Create index (we first the query to a literalstring because session.run expects a literalstring and will complain otherwise)
-        cypher = cast(LiteralString,
+        # Create index
+        session.run(
             f"CREATE VECTOR INDEX {VECTOR_INDEX_NAME} "
             f"FOR (n:RicgraphNode) ON (n.embedding) "
             f"OPTIONS {{indexConfig: {{"
@@ -138,7 +138,6 @@ def ensure_vector_index(driver: Driver, embed_dimensions: int) -> None:
             f"  `vector.similarity_function`: 'cosine'"
             f"}}}}"
         )
-        session.run(cypher)
         print(
             f"[database_utils] Created vector index '{VECTOR_INDEX_NAME}' "
             f"({embed_dimensions} dimensions)."
