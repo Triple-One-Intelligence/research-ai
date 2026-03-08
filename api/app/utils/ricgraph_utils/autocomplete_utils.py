@@ -15,6 +15,7 @@ AUTOCOMPLETE_CYPHER = """
         ELSE node
     END AS target
     ORDER BY score DESC
+    LIMIT 200
     
     // (implicitly) sorts by target, makes a list out of all nodes which share a root and gets the first
     // also takes the best score among these variants
