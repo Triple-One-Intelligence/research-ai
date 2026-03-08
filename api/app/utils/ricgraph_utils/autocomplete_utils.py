@@ -71,9 +71,6 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
         result_transformer_=Result.data,
         indexName=database_utils.FULLTEXT_INDEX_NAME,
         luceneQuery=lucene_query,
-        keywords=keywords,
-        firstKeyword=keywords[0],
-        cleanQuery=clean_query,
         limit=limit,
     )
 
