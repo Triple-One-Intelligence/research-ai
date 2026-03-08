@@ -23,8 +23,8 @@ AUTOCOMPLETE_CYPHER = """
         max(score) AS bestScore
 
     // Data cleaning (uuid + leading comma)
-    WITH target, bestNode, trim(split(bestNode.value, '#')[0]) AS rawClean
-    WITH target, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
+    WITH target, bestNode, bestScore, trim(split(bestNode.value, '#')[0]) AS rawClean
+    WITH target, bestScore, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
 
     // find the id
     WITH target, name, bestScore, target.value AS id
