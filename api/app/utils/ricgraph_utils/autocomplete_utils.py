@@ -76,8 +76,8 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
 
     for row in rows:
         if row.get("type") == "person":
-            persons_out.append( Person(author_id=row["id"], name=row["displayName"]))
+            persons_out.append( Person(author_id=row["id"], name=row["name"]))
         elif row.get("type") == "organization":
-            orgs_out.append( Organization(organization_id= row["id"],name= row["displayName"]))
+            orgs_out.append( Organization(organization_id= row["id"],name= row["name"]))
 
     return Suggestions(persons=persons_out, organizations=orgs_out)
