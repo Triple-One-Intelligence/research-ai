@@ -77,6 +77,7 @@ const App = () => {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
   const handleGenerate = (prompt: string) => {
+    console.log('handleGenerate called with:', prompt);
     if (isGenerating) return;
 
     setResponseText('');
