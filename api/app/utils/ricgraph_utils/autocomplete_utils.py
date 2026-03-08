@@ -30,7 +30,7 @@ AUTOCOMPLETE_CYPHER = """
     // find the id
     WITH target, name, bestScore, target.value AS id, target.category AS type
 
-    RETURN id, name, bestScore
+    RETURN id, name, bestScore, type
     ORDER BY bestScore DESC, name ASC
     LIMIT $limit
 """
