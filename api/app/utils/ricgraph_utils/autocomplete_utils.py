@@ -3,7 +3,7 @@ from neo4j import Result
 from app.utils.schemas import Suggestions, Person, Organization
 
 AUTOCOMPLETE_CYPHER = """
-    CALL db.index.fulltext.queryNodes($indexName, $luceneQuery, 200) // limit number of results to a manageable 200
+    CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)
     YIELD node, score
     WHERE node.name IN ['FULL_NAME', 'FULL_NAME_ASCII', 'ORGANIZATION_NAME']
     OPTIONAL MATCH (root {name: 'person-root'})--(node)
@@ -15,7 +15,7 @@ AUTOCOMPLETE_CYPHER = """
         ELSE node
     END AS target
     ORDER BY score DESC
-    LIMIT 200
+    LIMIT 200    // limit number of results to a manageable 200
     
     // (implicitly) sorts by target, makes a list out of all nodes which share a root and gets the first
     // also takes the best score among these variants
