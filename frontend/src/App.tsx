@@ -5,6 +5,7 @@ import { LeftPanel } from './components/LeftPanel';
 import { MiddlePanel } from './components/MiddlePanel';
 import { RightPanel } from './components/RightPanel';
 import type { EntitySuggestion } from './types';
+import api from './api';
 
 /*
    Mock function that returns predefined text simulating an LLM streaming response.
@@ -47,6 +48,27 @@ End of simulated response.`;
   return () => clearInterval(intervalId); // Return cleanup function
 };
 
+const generateResponse = async (
+  prompt: string, 
+  onChunk: (chunk: string) => void, 
+  onComplete: () => void
+) => {
+  try {
+    const response = await api.post('/chat', {
+      model: 'llama3',
+      messages: [{ role: 'user', content: prompt }],
+      stream: false,
+    });
+  
+    const text = response.data?.message?.content ?? '';
+    onChunk(text);
+    onComplete();
+  } catch (error) {
+    onChunk('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    onComplete();
+  }
+};
+
 
 // Main App component – orchestrates state and renders the three‑panel layout.
 const App = () => {
@@ -54,19 +76,25 @@ const App = () => {
   const [responseText, setResponseText] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
-  const handleGenerate = () => {
+  const handleGenerate = (prompt: string) => {
     if (isGenerating) return;
 
     setResponseText('');
     setIsGenerating(true);
 
-    mockGenerateResponse(
-      (chunk) => {
-        setResponseText((prev) => prev + chunk);
-      },
-      () => {
-        setIsGenerating(false);
-      }
+    // mockGenerateResponse(
+    //   (chunk) => {
+    //     setResponseText((prev) => prev + chunk);
+    //   },
+    //   () => {
+    //     setIsGenerating(false);
+    //   }
+    // );
+
+    generateResponse(
+      prompt,
+      (chunk) => setResponseText((prev) => prev + chunk),
+      () => setIsGenerating(false)
     );
   };
 
