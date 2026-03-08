@@ -3,56 +3,34 @@ from neo4j import Result
 from app.utils.schemas import Suggestions, Person, Organization
 
 AUTOCOMPLETE_CYPHER = """
-    CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)
-    YIELD node, score AS ftScore
-    WHERE node.category IN ['person', 'organization']
-    AND NOT node.name ENDS WITH '-root'
-
-    // Use fulltext score for initial ordering, limit early for performance
-    WITH node
-    ORDER BY ftScore DESC, size(node.value) ASC
-    LIMIT 1000
+    CALL db.index.fulltext.queryNodes($indexName, $luceneQuery, 200) // limit number of results to a manageable 200
+    YIELD node, score
+    WHERE node.name IN ['FULL_NAME', 'FULL_NAME_ASCII', 'ORGANIZATION_NAME']
+    OPTIONAL MATCH (root {name: 'person-root'})--(node)
+    
+    // find the target/root node (for orgs just the name node, but for persons the root node)
+    WITH node, score,
+    CASE node.category 
+        WHEN 'person' THEN root
+        ELSE node
+    END AS target
+    ORDER BY score DESC
+    
+    // (implicitly) sorts by target, makes a list out of all nodes which share a root and gets the first
+    // also takes the best score among these variants
+    WITH target,
+        head(collect(node)) AS bestNode,
+        max(score) AS bestScore
 
     // Data cleaning (uuid + leading comma)
-    WITH node, trim(split(node.value, '#')[0]) AS rawClean
-    WITH node, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
+    WITH target, bestNode, trim(split(bestNode.value, '#')[0]) AS rawClean
+    WITH target, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
 
-    // Clean the DB name as well for comparison
-    WITH node, name,
-         toLower(reduce(s = name, char IN [',','.','-'] | replace(s, char, ' '))) AS dbCleanName
+    // find the id
+    WITH target, name, bestScore, target.value AS id
 
-    // Ensure all keywords match the actual name, not the UUID part of the value
-    WHERE all(k IN $keywords WHERE dbCleanName CONTAINS k)
-
-    WITH node, name,
-         CASE
-            WHEN dbCleanName = $cleanQuery THEN 100
-            WHEN toLower(name) STARTS WITH $firstKeyword THEN 50
-            ELSE 10
-         END AS matchScore,
-         CASE
-            WHEN name CONTAINS ',' THEN 3
-            WHEN name CONTAINS ' ' THEN 2
-            ELSE 1
-         END AS formatScore
-
-    WITH node._key AS id, name, node.category AS type, matchScore, formatScore
-    ORDER BY formatScore DESC, size(name) DESC
-
-    WITH id, type,
-         head(collect(name)) AS displayName,
-         max(matchScore) AS bestScore
-
-    // Collapse different nodes that clean to the same
-    // display name (e.g. full_name vs full_name_ascii variants, or duplicate
-    // source nodes). min(id) prefers |full_name over
-    // |full_name_ascii since the former is smaller.
-    WITH displayName, type,
-         max(bestScore) AS bestScore,
-         min(id) AS id
-
-    RETURN id, displayName, type, bestScore
-    ORDER BY bestScore DESC, displayName ASC
+    RETURN id, name, bestScore
+    ORDER BY bestScore DESC, name ASC
     LIMIT $limit
 """
 
