@@ -28,7 +28,7 @@ AUTOCOMPLETE_CYPHER = """
     WITH target, bestScore, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
 
     // find the id
-    WITH target, name, bestScore, target.value AS id
+    WITH target, name, bestScore, target.value AS id, target.category AS type
 
     RETURN id, name, bestScore
     ORDER BY bestScore DESC, name ASC
