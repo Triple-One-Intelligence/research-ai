@@ -141,8 +141,6 @@ def get_connections(entity_id: str, entity_type: str, max_publications: int = 50
         if entity_type == "person":
             return person_connections(entity_id, max_publications, max_collaborators, max_organizations)
         return organization_connections(entity_id, max_publications, max_organizations, max_members)
-    except InvalidEntityTypeError:
-        raise
     except Exception as exc:
-        print(f"Connections query failed for entity_id='{entity_id}'")
+        print(f"Connections query failed for entity_id={entity_id!r}")
         raise ConnectionsError("Connections query failed") from exc

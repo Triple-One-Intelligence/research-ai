@@ -37,8 +37,8 @@ def get_entity_connections(
     except InvalidEntityTypeError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except ConnectionsError:
-        print(f"Connections service error for entity_id={entity_id}")
+        print(f"Connections service error for entity_id={entity_id!r}")
         raise HTTPException(status_code=500, detail="Connections query failed")
     except Exception:
-        print(f"Unexpected error while handling connections for entity_id={entity_id}")
+        print(f"Unexpected error while handling connections for entity_id={entity_id!r}")
         raise HTTPException(status_code=500, detail="Connections query failed")
