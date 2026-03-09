@@ -1,4 +1,32 @@
-# Project Setup
+# Research AI
+
+A research publication discovery platform that combines [Ricgraph](https://github.com/UtrechtUniversity/ricgraph) with AI-powered semantic search. It harvests research metadata into a Neo4j graph database, enriches publications with abstracts and vector embeddings, and exposes a search API with a web frontend.
+
+## Architecture
+
+```
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│   Frontend   │◄──►│   API        │◄──►│   Neo4j      │
+│   (Vue/Vite) │    │   (FastAPI)  │    │   (Graph DB)  │
+└──────────────┘    └──────┬───────┘    └──────▲───────┘
+                           │                    │
+                    ┌──────▼───────┐    ┌───────┴──────┐
+                    │   Ollama     │    │   Ricgraph   │
+                    │   (AI/LLM)   │    │  (Harvester) │
+                    └──────────────┘    └──────────────┘
+```
+
+- **Frontend** — Vue.js SPA for searching and browsing researchers and publications
+- **API** — FastAPI backend handling search queries, autocomplete, and the enrichment pipeline
+- **Neo4j** — Graph database storing all Ricgraph nodes (researchers, publications, DOIs, etc.) and vector embeddings
+- **Ricgraph** — Harvests research metadata from external sources (e.g. Pure, OpenAlex) into Neo4j
+- **Ollama** — Local AI service for generating text embeddings and powering semantic search
+
+### Data Pipeline
+
+1. **Harvest** — Ricgraph harvests researcher and publication metadata into Neo4j
+2. **Enrich** — The enrichment script (`make enrich`) fetches abstracts from OpenAlex for each DOI, generates vector embeddings via Ollama, and stores them on the Neo4j nodes
+3. **Search** — The API supports both fulltext search (exact/fuzzy matching) and vector similarity search (semantic meaning)
 
 ## Configuration
 
@@ -16,6 +44,28 @@ To set this up:
     ```
     for production
 2.  **Add credentials:** Open the newly created `.env` file and fill in your specific values/credentials.
+
+## Development
+
+### Prerequisites
+
+- [Podman](https://podman.io/) (used instead of Docker)
+- SSH access to the remote server (for `make tunnel` / `make dev`)
+
+### Getting Started
+
+```bash
+# 1. Copy and fill in your environment config
+cp kube/research-ai-dev.env.example kube/research-ai-dev.env
+
+# 2. Start the dev pod + SSH tunnel to the remote Neo4j/Ollama
+make dev
+
+# 3. (Optional) Run the enrichment pipeline to generate embeddings
+make enrich
+```
+
+On **WSL**, `make dev` automatically symlinks your Windows SSH keys so the tunnel works. On native Linux this step is skipped.
 
 ## Makefile Usage
 
@@ -37,8 +87,12 @@ Use `make` to manage the application lifecycle.
 | `make logs-api` | Tails journals for the API service only. |
 | `make logs-ui` | Tails journals for the frontend service only. |
 | `make logs-ric` | Tails journals for the ricgraph service only. |
+| `make enrich` | Runs the enrichment pipeline: fetches abstracts from OpenAlex and generates vector embeddings for publication nodes in Neo4j. |
+| `make enrich-force` | Same as `enrich`, but re-enriches all publications including those that already have abstracts. |
+| `make harvest` | Triggers a Ricgraph harvest inside the Ricgraph container. |
 | **Maintenance** |  |
 | `make nuke` | **The Nuclear Option:** Wipes all containers, pods, volumes, and images. |
+| `make setup-wsl-ssh` | (WSL only) Symlinks Windows SSH keys into WSL so the SSH tunnel works. No-op on native Linux. |
 
 
 ## Deployment Workflow
