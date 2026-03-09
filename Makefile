@@ -1,4 +1,4 @@
-.PHONY: dev up down nuke labelSELinux watch wapi wui deploy undeploy logs logs-api logs-ui logs-ric enrich enrich-force harvest tunnel setup-wsl-ssh
+.PHONY: dev up down nuke labelSELinux watch wapi wui deploy undeploy logs logs-api logs-ui logs-ric enrich enrich-force harvest tunnel tunnel-stop tunnel-status setup-wsl-ssh test test-unit test-dev test-deploy
 
 REMOTE_SERVER ?= root@0xai.nl
 
@@ -31,14 +31,33 @@ setup-wsl-ssh:
 	fi
 
 tunnel: setup-wsl-ssh
-	set -a; . ./kube/research-ai-dev.env; set +a; \
-	ssh -N \
+	@set -a; . ./kube/research-ai-dev.env; set +a; \
+	ssh -f -N -o ExitOnForwardFailure=yes \
 		-L 7687:localhost:7687 \
 		-L 7474:localhost:7474 \
-		-L 8080:localhost:8080 \
 		-L 3030:localhost:3030 \
 		-L 11434:localhost:11434 \
-		$$REMOTE_SERVER
+		$$REMOTE_SERVER \
+	&& echo "[tunnel] SSH tunnel running in background (PID $$(pgrep -f 'ssh -f -N.*$$REMOTE_SERVER' | tail -1))" \
+	|| (echo "[tunnel] ERROR: Failed to establish SSH tunnel. Is the remote server reachable?" && exit 1)
+
+tunnel-stop:
+	@set -a; . ./kube/research-ai-dev.env; set +a; \
+	PIDS=$$(pgrep -f "ssh -f -N.*$$REMOTE_SERVER" 2>/dev/null); \
+	if [ -n "$$PIDS" ]; then \
+		kill $$PIDS && echo "[tunnel] Stopped SSH tunnel (PID $$PIDS)"; \
+	else \
+		echo "[tunnel] No active tunnel found."; \
+	fi
+
+tunnel-status:
+	@set -a; . ./kube/research-ai-dev.env; set +a; \
+	PIDS=$$(pgrep -f "ssh -f -N.*$$REMOTE_SERVER" 2>/dev/null); \
+	if [ -n "$$PIDS" ]; then \
+		echo "[tunnel] Running (PID $$PIDS)"; \
+	else \
+		echo "[tunnel] Not running"; \
+	fi
 
 up:
 	podman build -t research-ai-api:dev -f ./api/Containerfile .
@@ -46,9 +65,8 @@ up:
 	set -a; . ./kube/research-ai-dev.env; set +a; \
 	envsubst < kube/pod-dev.yaml | podman kube play -
 
-dev: up
-	@echo "Starting SSH tunnel to prod server (Ctrl+C to stop)..."
-	@$(MAKE) tunnel
+dev: up tunnel
+	@echo "[dev] Pod and SSH tunnel are running. Use 'make tunnel-status' to check tunnel."
 
 down:
 	set -a; . ./kube/research-ai-dev.env; set +a; \
@@ -148,3 +166,25 @@ logs-ui:
 
 logs-ric:
 	journalctl -u research-ai-ricgraph.service -f
+
+# test rules:
+
+# Run all unit tests (no running services needed)
+test-unit:
+	cd api && pip install -q -r requirements-dev.txt && python -m pytest tests/test_query_utils.py tests/test_database_utils.py tests/test_autocomplete_utils.py tests/test_enrich.py tests/test_schemas.py tests/test_api_endpoints.py tests/test_connections_endpoint.py -v
+
+# Run dev smoke + integration tests (requires: make dev + make tunnel)
+test-dev:
+	cd api && pip install -q -r requirements-dev.txt && python -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=long
+
+# Run prod deployment tests (run ON the production server after make deploy)
+test-deploy:
+	cd api && pip install -q -r requirements-dev.txt && python -m pytest tests/test_smoke_deploy.py -v --tb=long
+
+# Run everything: unit tests first, then dev integration if pod is running
+test: test-unit
+	@echo ""
+	@echo "=== Unit tests passed. Running dev integration tests... ==="
+	@echo "(tests will skip automatically if the dev pod is not running)"
+	@echo ""
+	cd api && python -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=long
