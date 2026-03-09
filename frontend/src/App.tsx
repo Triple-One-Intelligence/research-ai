@@ -4,7 +4,7 @@ import './App.css';
 import { LeftPanel } from './components/LeftPanel';
 import { MiddlePanel } from './components/MiddlePanel';
 import { RightPanel } from './components/RightPanel';
-import {promptTheAI} from './apiconnection/ai';
+import {promptTheAI, promptTheAIStream} from './apiconnection/ai';
 import type { EntitySuggestion, ChatMessage } from './types';
 
 /*
@@ -73,7 +73,7 @@ const App = () => {
     );
   };
 
-  const sendCustomPrompt = async (prompt: string) => {
+  const sendCustomPrompt = async (prompt: string) => { // non-streaming version, deprecated
     const userMsg: ChatMessage = { role: 'user', content: prompt };
     const msgs = [userMsg];
     setResponseText('');
@@ -90,6 +90,28 @@ const App = () => {
       setIsGenerating(false);
     }
   };
+
+  const sendCustomPromptStream = async (prompt: string) => {
+    const userMsg: ChatMessage = { role: 'user', content: prompt };
+    const msgs = [userMsg];
+    setResponseText('');
+    setIsGenerating(true);
+    try {
+      await promptTheAIStream(msgs, (chunk: string) => {
+        setResponseText((prev) => prev + chunk);
+      }, () => {
+        setIsGenerating(false);
+      });
+    } catch (err: any) {
+      console.error(err);
+      // show user-friendly error
+      setResponseText('Error: ' + (err.response?.data?.detail ?? err.message));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+
 
   const { t, i18n } = useTranslation();
   const language = i18n.language as 'en' | 'nl';
@@ -120,7 +142,7 @@ const App = () => {
       <main className="app-main">
         <LeftPanel
           selectedEntity={selectedEntity}
-          onAsk={sendCustomPrompt}
+          onAsk={sendCustomPromptStream}
           isGenerating={isGenerating}
           onEntitySelect={setSelectedEntity}
           onEntityClear={() => setSelectedEntity(null)}
