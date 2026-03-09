@@ -122,7 +122,6 @@ def ensure_vector_index(driver: Driver, embed_dimensions: int) -> None:
                 f"{embed_dimensions}). Recreating index..."
             )
             session.run(cast_string(f"DROP INDEX {VECTOR_INDEX_NAME}"))
-            session.run(cast_string(f"DROP INDEX {VECTOR_INDEX_NAME}"))
 
         # Create index
         session.run(
