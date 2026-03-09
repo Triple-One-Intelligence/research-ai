@@ -8,7 +8,7 @@ import './LeftPanel.css';
 //   onAsk – callback triggered when the user clicks the "Ask" button.
 //   isGenerating – flag indicating whether the LLM is currently streaming a response.
 interface LeftPanelProps {
-  onAsk: (prompt: string) => void;
+  onAsk: (prompt: string, entity: EntitySuggestion | null) => void;
   isGenerating: boolean;
   selectedEntity: EntitySuggestion | null;
   onEntitySelect: (entity: EntitySuggestion) => void;
@@ -61,7 +61,7 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
         {/* Button to trigger the LLM query. */}
         <button
           className="ask-btn"
-          onClick={() => onAsk(customPrompt.trim())} // Calls the onAsk prop function when clicked.
+          onClick={() => onAsk(customPrompt.trim(), selectedEntity)} // Calls the onAsk prop function when clicked.
           disabled={isGenerating} // Disables the button while a response is being generated.
         >
           {/* Changes button text based on generation status. */}
