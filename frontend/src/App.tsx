@@ -55,7 +55,6 @@ const generateResponse = async (
 ) => {
   try {
     const response = await api.post('/chat', {
-      model: 'llama3',
       messages: [{ role: 'user', content: prompt }],
       stream: false,
     });
