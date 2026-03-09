@@ -73,7 +73,7 @@ const App = () => {
     );
   };
 
-  const sendCustomPrompt = async (prompt: string) => { // non-streaming version, deprecated
+  const sendCustomPrompt = async (prompt: string) => { // non-streaming version, deprecated 
     const userMsg: ChatMessage = { role: 'user', content: prompt };
     const msgs = [userMsg];
     setResponseText('');
