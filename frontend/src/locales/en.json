@@ -13,7 +13,9 @@
     "noResults": "No results found",
     "clearSelection": "Clear selection",
     "searchSuggestions": "Search suggestions",
-    "loading": "Loading"
+    "loading": "Loading",
+    "executiveSummaryPrompt": "Generate an executive summary for this entity.",
+    "strengthsGapsPrompt": "Analyse the strengths and gaps for this entity."
   },
   "middlePanel": {
     "header": "AI Output",

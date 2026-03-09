@@ -4,6 +4,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
+CHAT_MODEL = os.getenv("CHAT_MODEL", "tinyllama")
+
 router = APIRouter()
 
 # Get the Ollama URL from the environment
@@ -18,7 +20,7 @@ class Message(BaseModel):
     content: str
 
 class ChatRequest(BaseModel):
-    model: str = "llama3" # Replace with your preferred default model
+    model: str = CHAT_MODEL # Replace with your preferred default model
     messages: List[Message]
     stream: bool = False  # Set to True if you want to stream tokens back
     options: Optional[Dict[str, Any]] = None

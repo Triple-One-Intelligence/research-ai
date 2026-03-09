@@ -8,7 +8,7 @@ import './LeftPanel.css';
 //   onAsk – callback triggered when the user clicks the "Ask" button.
 //   isGenerating – flag indicating whether the LLM is currently streaming a response.
 interface LeftPanelProps {
-  onAsk: () => void;
+  onAsk: (prompt: string) => void;
   isGenerating: boolean;
   selectedEntity: EntitySuggestion | null;
   onEntitySelect: (entity: EntitySuggestion) => void;
@@ -35,12 +35,18 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
       {selectedEntity && (
         <div className="prompt-buttons">
           {/* Button for generating an executive summary. */}
-          <button className="prompt-btn">
+          <button 
+            className="prompt-btn"
+            onClick={() => onAsk(t('leftPanel.executiveSummaryPrompt'))}
+          >
             <span className="prompt-icon">📄</span>
             {t('leftPanel.executiveSummary')}
           </button>
           {/* Button for generating strengths and gaps analysis. */}
-          <button className="prompt-btn">
+          <button 
+            className="prompt-btn"
+            onClick={() => onAsk(t('leftPanel.strengthsGapsPrompt'))}
+          >
             <span className="prompt-icon">💪</span>
             {t('leftPanel.strengthsGaps')}
           </button>
@@ -60,8 +66,8 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
         {/* Button to trigger the LLM query. */}
         <button
           className="ask-btn"
-          onClick={onAsk} // Calls the onAsk prop function when clicked.
-          disabled={isGenerating} // Disables the button while a response is being generated.
+          onClick={() => onAsk(customPrompt)} // Calls the onAsk prop function when clicked.
+          disabled={isGenerating || !customPrompt.trim()} // Disables the button while a response is being generated.
         >
           {/* Changes button text based on generation status. */}
           {isGenerating ? t('leftPanel.askButtonGenerating') : t('leftPanel.askButton')}
