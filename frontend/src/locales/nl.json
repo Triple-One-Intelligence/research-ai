@@ -13,7 +13,9 @@
     "noResults": "Geen resultaten gevonden",
     "clearSelection": "Selectie wissen",
     "searchSuggestions": "Zoeksuggesties",
-    "loading": "Laden"
+    "loading": "Laden",
+    "executiveSummaryPrompt": "Genereer een samenvatting voor deze entiteit.",
+    "strengthsGapsPrompt": "Analyseer de sterke punten en zwakke punten voor deze entiteit."
   },
   "middlePanel": {
     "header": "AI Output",

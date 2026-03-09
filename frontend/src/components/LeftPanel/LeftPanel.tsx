@@ -37,7 +37,7 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
           {/* Button for generating an executive summary. */}
           <button 
             className="prompt-btn"
-            onClick={() => onAsk('Generate an executive summary for this entity.')}
+            onClick={() => onAsk(t('leftPanel.executiveSummaryPrompt'))}
           >
             <span className="prompt-icon">📄</span>
             {t('leftPanel.executiveSummary')}
@@ -45,7 +45,7 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
           {/* Button for generating strengths and gaps analysis. */}
           <button 
             className="prompt-btn"
-            onClick={() => onAsk('Analyse the strengths and gaps for this entity.')}
+            onClick={() => onAsk(t('leftPanel.strengthsGapsPrompt'))}
           >
             <span className="prompt-icon">💪</span>
             {t('leftPanel.strengthsGaps')}
@@ -67,7 +67,7 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
         <button
           className="ask-btn"
           onClick={() => onAsk(customPrompt)} // Calls the onAsk prop function when clicked.
-          disabled={isGenerating} // Disables the button while a response is being generated.
+          disabled={isGenerating || !customPrompt.trim()} // Disables the button while a response is being generated.
         >
           {/* Changes button text based on generation status. */}
           {isGenerating ? t('leftPanel.askButtonGenerating') : t('leftPanel.askButton')}
