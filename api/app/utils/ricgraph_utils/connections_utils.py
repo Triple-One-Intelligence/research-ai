@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 from app.utils.database_utils import database_utils
 from app.utils.schemas import Person, Publication, Organization
 from app.utils.schemas.connections import Member
-from app.utils.ricgraph_utils.queries.connections import (
+from app.utils.ricgraph_utils.queries.connections_queries import (
     RESOLVE_PERSON_ROOT, PERSON_PUBLICATIONS, PERSON_COLLABORATORS,
     PERSON_ORGANIZATIONS, ORG_MEMBERS, ORG_PUBLICATIONS, ORG_RELATED_ORGS,
 )
@@ -84,35 +84,56 @@ def format_publications(rows: List[Dict[str, Any]]) -> List[Publication]:
     return out
 
 def person_connections(entity_id: str, max_publications: int, max_collaborators: int, max_organizations: int) -> Dict[str, Any]:
-    roots = database_utils.get_graph().execute_query(RESOLVE_PERSON_ROOT, entityId=entity_id)
-    root_key = (roots[0].get("rootKey") if roots else None)
-    if not root_key:
-        return { "collaborators": [], "publications": [], "organizations": [], "members": [] }
+    driver = database_utils.get_graph()
+
+    with driver.session() as session:
+        root_record = session.run(RESOLVE_PERSON_ROOT, entityId=entity_id).single()
+        if not root_record:
+            return {"collaborators": [], "publications": [], "organizations": [], "members": []}
+
+        root = root_record.data()
+        root_key = root.get("rootKey")
+        if not root_key:
+            return {"collaborators": [], "publications": [], "organizations": [], "members": []}
+
+        collaborators = session.run(
+            PERSON_COLLABORATORS, rootKey=root_key, excludeCategories=EXCLUDE_CATEGORIES, limit=max_collaborators
+        ).data()
+        publications = session.run(
+            PERSON_PUBLICATIONS, rootKey=root_key, excludeCategories=EXCLUDE_CATEGORIES, limit=max_publications
+        ).data()
+        organizations = session.run(
+            PERSON_ORGANIZATIONS, rootKey=root_key, limit=max_organizations
+        ).data()
 
     return {
-        "collaborators": format_people(
-            database_utils.get_graph().execute_query(PERSON_COLLABORATORS, rootKey=root_key, excludeCategories=EXCLUDE_CATEGORIES, limit=max_collaborators)),
-        "publications": format_publications(
-            database_utils.get_graph().execute_query(PERSON_PUBLICATIONS, rootKey=root_key, excludeCategories=EXCLUDE_CATEGORIES, limit=max_publications)),
-        "organizations": format_organizations(
-            database_utils.get_graph().execute_query(PERSON_ORGANIZATIONS, rootKey=root_key, limit=max_organizations)),
+        "collaborators": format_people(collaborators),
+        "publications": format_publications(publications),
+        "organizations": format_organizations(organizations),
         "members": [],
     }
 
-
 def organization_connections(entity_id: str, max_publications: int, max_organizations: int, max_members: int) -> Dict[str, Any]:
+    driver = database_utils.get_graph()
+    with driver.session() as session:
+        publications = session.run(
+            ORG_PUBLICATIONS, entityId=entity_id, excludeCategories=EXCLUDE_CATEGORIES, limit=max_publications
+        ).data()
+        organizations = session.run(
+            ORG_RELATED_ORGS, entityId=entity_id, limit=max_organizations
+        ).data()
+        members = session.run(
+            ORG_MEMBERS, entityId=entity_id, limit=max_members
+        ).data()
+
     return {
         "collaborators": [],
-        "publications": format_publications(
-            database_utils.get_graph().execute_query(ORG_PUBLICATIONS, entityId=entity_id, excludeCategories=EXCLUDE_CATEGORIES, limit=max_publications)),
-        "organizations": format_organizations(
-            database_utils.get_graph().execute_query(ORG_RELATED_ORGS, entityId=entity_id, limit=max_organizations)),
-        "members": format_people(
-            database_utils.get_graph().execute_query(ORG_MEMBERS, entityId=entity_id, limit=max_members), as_members=True),
+        "publications": format_publications(publications),
+        "organizations": format_organizations(organizations),
+        "members": format_people(members, as_members=True),
     }
 
-
-def get_connections_for_params(entity_id: str, entity_type: str, max_publications: int = 100, max_collaborators: int = 50, max_organizations: int = 50, max_members: int = 200) -> Dict[str, Any]:
+def get_connections(entity_id: str, entity_type: str, max_publications: int = 100, max_collaborators: int = 50, max_organizations: int = 50, max_members: int = 200) -> Dict[str, Any]:
     if entity_type not in ("person", "organization"):
         raise InvalidEntityTypeError("entity_type must be 'person' or 'organization'")
 

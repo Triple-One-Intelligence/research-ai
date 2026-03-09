@@ -1,9 +1,9 @@
 from app.utils.database_utils import query_utils, database_utils
 from neo4j import Result
 from app.utils.schemas import Suggestions, Person, Organization
-from app.utils.ricgraph_utils.queries.autocomplete import AUTOCOMPLETE_CYPHER
+from app.utils.ricgraph_utils.queries.autocomplete_queries import AUTOCOMPLETE_CYPHER
 
-def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
+def get_autocomplete_suggestions(user_query: str, limit: int = 10) -> Suggestions:
     """
     Return autocomplete suggestions for a partial search query.
     The query is tokenized, cleaned, and matched against a Neo4j fulltext
