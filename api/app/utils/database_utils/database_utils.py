@@ -7,7 +7,6 @@ parts of the database.
 import os
 import re
 import time
-from typing import cast, LiteralString
 from neo4j import Driver, GraphDatabase
 
 REMOTE_NEO4J_URL  = os.environ["REMOTE_NEO4J_URL"]
@@ -82,9 +81,8 @@ def ensure_fulltext_indexes(driver: Driver) -> None:
         )
         if not result.single():
             session.run(
-                cast_string(f"CREATE FULLTEXT INDEX {FULLTEXT_INDEX_NAME} "
+                f"CREATE FULLTEXT INDEX {FULLTEXT_INDEX_NAME} "
                 f"FOR (n:RicgraphNode) ON EACH [n.value]")
-            )
             print(f"[database_utils] Created fulltext index '{FULLTEXT_INDEX_NAME}'.")
 
         session.run(
@@ -121,11 +119,11 @@ def ensure_vector_index(driver: Driver, embed_dimensions: int) -> None:
                 f"[database_utils] Dimension mismatch ({existing_dims} vs "
                 f"{embed_dimensions}). Recreating index..."
             )
-            session.run(cast_string(f"DROP INDEX {VECTOR_INDEX_NAME}"))
+            session.run(f"DROP INDEX {VECTOR_INDEX_NAME}")
 
         # Create index
         session.run(
-            cast_string(
+            (
                 f"CREATE VECTOR INDEX {VECTOR_INDEX_NAME} "
                 f"FOR (n:RicgraphNode) ON (n.embedding) "
                 f"OPTIONS {{indexConfig: {{"
@@ -138,8 +136,3 @@ def ensure_vector_index(driver: Driver, embed_dimensions: int) -> None:
             f"[database_utils] Created vector index '{VECTOR_INDEX_NAME}' "
             f"({embed_dimensions} dimensions)."
         )
-
-# Convenience helpers for running Cypher and getting plain Python objects
-def cast_string(statement: str) -> LiteralString:
-    """Cast a query string to LiteralString for driver typing helpers."""
-    return cast(LiteralString, statement)
