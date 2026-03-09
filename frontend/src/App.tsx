@@ -91,9 +91,20 @@ const App = () => {
     }
   };
 
-  const sendCustomPromptStream = async (prompt: string) => {
+  const sendCustomPromptStream = async (prompt: string, entity: EntitySuggestion | null) => {
     const userMsg: ChatMessage = { role: 'user', content: prompt };
-    const msgs = [userMsg];
+    const msgs: ChatMessage[] = [
+      {
+        role: 'system',
+        content: entity
+          ? `You are given a focus entity:\n` +
+            `Type: ${entity.type}\nName: ${entity.label}\nID: ${entity.id}\n` +
+            (entity.extra ? `Extra: ${entity.extra}\n` : '') +
+            `Use this as context when answering.`
+          : 'You are an assistant helping with research-graph questions.',
+      },
+      userMsg,
+    ];
     setResponseText('');
     setIsGenerating(true);
     try {
