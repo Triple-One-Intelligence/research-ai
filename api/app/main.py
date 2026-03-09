@@ -7,14 +7,14 @@ from app.ai import router as ai_router
 from app.routers import connections, autocomplete
 
 from contextlib import asynccontextmanager
-import app.utils.ricgraph_utils.query_utils as query_utils
+import app.utils.database_utils.database_utils as database_utils
 
 # responsible for start up and shut down tasks
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    query_utils.startup()
+    database_utils.startup()
     yield
-    query_utils.shutdown()
+    database_utils.shutdown()
 
 
 app = FastAPI(
