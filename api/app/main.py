@@ -6,14 +6,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.ai import router as ai_router
 from app.routers import connections, autocomplete
 
+from contextlib import asynccontextmanager
+import app.utils.ricgraph_utils.query_utils as query_utils
+
+# responsible for start up and shut down tasks
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    query_utils.startup()
+    yield
+    query_utils.shutdown()
+
+
 app = FastAPI(
     title="Research AI API",
     description="API",
     version="0.0.1",
     root_path="/api",
-    debug=True
+    debug=True,
+    lifespan=lifespan
 )
-app.include_router(ai_router)
 
 cors_env = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
 origins = [o.strip() for o in cors_env.split(",")]
@@ -28,6 +39,7 @@ app.add_middleware(
 
 app.include_router(connections.router)
 app.include_router(autocomplete.router)
+app.include_router(ai_router)
 
 memory_db = {"fruits": []}
 
