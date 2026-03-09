@@ -6,12 +6,12 @@ A research publication discovery platform that combines [Ricgraph](https://githu
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│   Frontend   │◄──►│   API        │◄──►│   Neo4j      │
-│   (Vue/Vite) │    │   (FastAPI)  │    │   (Graph DB)  │
-└──────────────┘    └──────┬───────┘    └───────▲──────┘
-                           │                    │
-                    ┌──────▼───────┐    ┌───────┴──────┐
-                    │   Ollama     │    │   Ricgraph   │
+│   Frontend   │◄──►│     API      │◄──►│    Neo4j     │
+│   (Vue/Vite) │    │   (FastAPI)  │    │  (Graph DB)  │
+└──────────────┘    └──────┬───────┘    └──────▲───────┘
+                           │                   │
+                    ┌──────▼───────┐    ┌──────┴───────┐
+                    │    Ollama    │    │   Ricgraph   │
                     │   (AI/LLM)   │    │  (Harvester) │
                     └──────────────┘    └──────────────┘
 ```
