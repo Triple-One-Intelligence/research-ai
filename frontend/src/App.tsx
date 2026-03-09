@@ -73,8 +73,8 @@ const App = () => {
     );
   };
 
-  const sendCustomPrompt = async () => {
-    const userMsg: ChatMessage = { role: 'user', content: 'write me a short joke' };
+  const sendCustomPrompt = async (prompt: string) => {
+    const userMsg: ChatMessage = { role: 'user', content: prompt };
     const msgs = [userMsg];
     setResponseText('');
     setIsGenerating(true);
