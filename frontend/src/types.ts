@@ -32,6 +32,12 @@ export type OrganizationRef = {
   name: string;
 };
 
+export type PublicationVersion = {
+  doi: string;
+  year?: number;
+  category?: string;
+};
+
 export type Publication = {
   doi: string;
   title?: string;
@@ -39,6 +45,7 @@ export type Publication = {
   year?: number;
   category?: string;
   name?: string;
+  versions?: PublicationVersion[];
 };
 
 export type Member = {

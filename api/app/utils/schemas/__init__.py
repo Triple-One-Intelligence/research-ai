@@ -1,8 +1,7 @@
-from .connections import Connections
+from .connections import Connections, Member
 from .organization import Organization
 from .person import Person
 from .publication import Publication
 from .suggestions import Suggestions
-from .connections import ConnectionsResponse, Member
 
-__all__ = ["Person", "Publication", "Organization", "Connections", "Suggestions", "ConnectionsResponse", "Member"]
+__all__ = ["Person", "Publication", "Organization", "Suggestions", "Connections", "Member"]

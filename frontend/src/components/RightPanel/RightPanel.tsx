@@ -1,9 +1,64 @@
-import { useState, useEffect } from 'react';
-import type { EntitySuggestion, ConnectionsResponse } from '../../types';
+import { useEffect, useState } from 'react';
+import type { EntitySuggestion, ConnectionsResponse, PublicationVersion } from '../../types';
 import { fetchConnections } from '../../api';
 import CollapsibleCard from './CollapsibleCard';
 import './RightPanel.css';
 import { useTranslation } from 'react-i18next';
+
+/* ── Inline sub-component for a single publication ────────────── */
+
+function PublicationItem({ pub }: { pub: ConnectionsResponse['publications'][number] }) {
+  const { t } = useTranslation();
+  const versions = pub.versions;
+  const hasVersions = versions != null && versions.length > 1;
+
+  return (
+    <li className="connection-item publication">
+      <div className="publication-info">
+        <span className="publication-title" title={pub.title ?? pub.doi}>{pub.title ?? pub.doi}</span>
+        <span className="publication-meta">
+          {[pub.year, pub.category].filter(Boolean).join(' \u00b7 ')}
+        </span>
+        {hasVersions ? (
+          <details className="versions-card">
+            <summary className="versions-card-header">
+              <span>{t('rightPanel.versions', { count: versions.length })}</span>
+              <span className="collapsible-card-count">{versions.length}</span>
+            </summary>
+            <ul className="versions-list">
+              {versions.map((v: PublicationVersion) => (
+                <li key={v.doi} className="version-item">
+                  <a
+                    href={`https://doi.org/${v.doi}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="version-doi"
+                  >
+                    {v.doi}
+                  </a>
+                  <span className="publication-meta">
+                    {[v.year, v.category].filter(Boolean).join(' \u00b7 ')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : (
+          <a
+            href={`https://doi.org/${pub.doi}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="version-doi"
+          >
+            {pub.doi}
+          </a>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/* ── Main component ───────────────────────────────────────────── */
 
 interface RightPanelProps {
   selectedEntity: EntitySuggestion | null;
@@ -83,7 +138,7 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
           {connections.collaborators.map((p) => (
             <li key={p.author_id} className="connection-item person">
               <span className="entity-type-badge person">👤</span>
-              <span>{p.name}</span>
+              <span title={p.name}>{p.name}</span>
             </li>
           ))}
         </ul>
@@ -92,14 +147,7 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
       <CollapsibleCard title={t('rightPanel.publications')} count={connections.publications.length} defaultOpen>
         <ul className="connection-list">
           {connections.publications.map((pub) => (
-            <li key={pub.doi} className="connection-item publication">
-              <div className="publication-info">
-                <span className="publication-title">{pub.title ?? pub.doi}</span>
-                <span className="publication-meta">
-                  {[pub.year, pub.category].filter(Boolean).join(' \u00b7 ')}
-                </span>
-              </div>
-            </li>
+            <PublicationItem key={pub.doi} pub={pub} />
           ))}
         </ul>
       </CollapsibleCard>
@@ -109,7 +157,7 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
           {connections.organizations.map((org) => (
             <li key={org.organization_id} className="connection-item organization">
               <span className="entity-type-badge organization">🏛️</span>
-              <span>{org.name}</span>
+              <span title={org.name}>{org.name}</span>
             </li>
           ))}
         </ul>
@@ -121,8 +169,8 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
             <li key={m.author_id} className="connection-item person">
               <span className="entity-type-badge person">👤</span>
               <div className="member-info">
-                <span>{m.name}</span>
-                {m.role && <span className="member-role">{m.role}</span>}
+                <span title={m.name}>{m.name}</span>
+                {m.role && <span className="member-role" title={m.role}>{m.role}</span>}
               </div>
             </li>
           ))}

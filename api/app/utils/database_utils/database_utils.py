@@ -8,7 +8,6 @@ import os
 import re
 import time
 from neo4j import Driver, GraphDatabase
-from typing import cast
 
 REMOTE_NEO4J_URL  = os.environ["REMOTE_NEO4J_URL"]
 REMOTE_NEO4J_USER = os.environ["REMOTE_NEO4J_USER"]
@@ -17,10 +16,6 @@ REMOTE_NEO4J_PASS = os.environ["REMOTE_NEO4J_PASS"]
 FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
 VECTOR_INDEX_NAME = "publicationEmbeddingIndex"
 
-
-
-
-
 def validate_index(index_name : str) -> None:
     """Validate index name to prevent Cypher injection in DDL statements."""
     if not re.fullmatch(r'[A-Za-z_]\w*', index_name):
@@ -28,8 +23,6 @@ def validate_index(index_name : str) -> None:
 
 validate_index(FULLTEXT_INDEX_NAME)
 validate_index(VECTOR_INDEX_NAME)
-
-
 
 graph: Driver | None = None
 
@@ -89,8 +82,7 @@ def ensure_fulltext_indexes(driver: Driver) -> None:
         if not result.single():
             session.run(
                 f"CREATE FULLTEXT INDEX {FULLTEXT_INDEX_NAME} "
-                f"FOR (n:RicgraphNode) ON EACH [n.value]"
-            )
+                f"FOR (n:RicgraphNode) ON EACH [n.value]")
             print(f"[database_utils] Created fulltext index '{FULLTEXT_INDEX_NAME}'.")
 
         session.run(
@@ -131,12 +123,14 @@ def ensure_vector_index(driver: Driver, embed_dimensions: int) -> None:
 
         # Create index
         session.run(
-            f"CREATE VECTOR INDEX {VECTOR_INDEX_NAME} "
-            f"FOR (n:RicgraphNode) ON (n.embedding) "
-            f"OPTIONS {{indexConfig: {{"
-            f"  `vector.dimensions`: {embed_dimensions},"
-            f"  `vector.similarity_function`: 'cosine'"
-            f"}}}}"
+            (
+                f"CREATE VECTOR INDEX {VECTOR_INDEX_NAME} "
+                f"FOR (n:RicgraphNode) ON (n.embedding) "
+                f"OPTIONS {{indexConfig: {{"
+                f"  `vector.dimensions`: {embed_dimensions},"
+                f"  `vector.similarity_function`: 'cosine'"
+                f"}}}}"
+            )
         )
         print(
             f"[database_utils] Created vector index '{VECTOR_INDEX_NAME}' "

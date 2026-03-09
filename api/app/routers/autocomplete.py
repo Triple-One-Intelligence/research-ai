@@ -13,7 +13,7 @@ Endpoint
 
 from fastapi import APIRouter, Query, HTTPException
 from neo4j.exceptions import Neo4jError, ServiceUnavailable
-from app.utils.ricgraph_utils.autocomplete_utils import autocomplete
+from app.utils.ricgraph_utils.autocomplete_utils import get_autocomplete_suggestions
 # Import the pydantic response model used by FastAPI to serialize responses
 from app.utils.schemas import Suggestions
 
@@ -36,7 +36,7 @@ def suggest(query: str, limit: int = Query(10, ge=1, le=100, description="Maximu
     """
     # Delegate the actual autocomplete functionality to the utility function and return its result.
     try:
-        suggestions = autocomplete(query, limit)
+        suggestions = get_autocomplete_suggestions(query, limit)
         return suggestions
     except (Neo4jError, ServiceUnavailable, RuntimeError) as e:
         print(f"[autocomplete] Error when trying to autocomplete: {e}")
