@@ -28,6 +28,7 @@
     "collaborators": "Collaborators",
     "publications": "Publications",
     "organizations": "Organizations",
-    "members": "Members"
+    "members": "Members",
+    "versions": "{{count}} versions"
   }
 }

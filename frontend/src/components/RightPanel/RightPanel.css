@@ -76,11 +76,11 @@
 .collapsible-card-count {
   background: #e5e7eb;
   color: #4b5563;
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   font-weight: 600;
-  padding: 0.1rem 0.5rem;
+  padding: 0.05rem 0.35rem;
   border-radius: 10px;
-  min-width: 1.5rem;
+  min-width: 1.25rem;
   text-align: center;
 }
 
@@ -103,6 +103,17 @@
   font-size: 0.85rem;
   color: #374151;
   border-top: 1px solid #f3f4f6;
+}
+
+/* Ensure inline names and single-line labels truncate with ellipsis
+   when available space is limited. The `min-width: 0` allows flexible
+   items inside a flex container to shrink properly. */
+.connection-item > span:not(.entity-type-badge),
+.connection-item .member-info > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .connection-item:first-child {
@@ -143,4 +154,81 @@
 .member-role {
   font-size: 0.75rem;
   color: #9ca3af;
+  /* Keep member roles compact and truncate if they overflow */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Versions card — mirrors .collapsible-card but nested inside a publication
+   Adjusted to be more compact: reduced vertical padding and smaller font sizes */
+.versions-card {
+  margin-top: 0.25rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.versions-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* Reduced vertical padding and slightly smaller horizontal padding */
+  padding: 0.25rem 0.45rem;
+  cursor: pointer;
+  user-select: none;
+  background: #f9fafb;
+  /* Slightly smaller font-size for a compact appearance */
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  list-style: none;
+}
+
+.versions-card-header::-webkit-details-marker {
+  display: none;
+}
+
+.versions-card-header::before {
+  content: '▶';
+  /* smaller marker */
+  font-size: 0.45rem;
+  margin-right: 0.35rem;
+  transition: transform 0.15s;
+  color: #9ca3af;
+}
+
+.versions-card[open] > .versions-card-header::before {
+  transform: rotate(90deg);
+}
+
+/* Versions list */
+.versions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.version-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  /* Reduced vertical padding to make each version more compact */
+  padding: 0.2rem 0.45rem;
+  border-top: 1px solid #f3f4f6;
+}
+
+/* DOI links */
+.version-doi {
+  /* slightly smaller DOI text to match compact layout */
+  font-size: 0.7rem;
+  color: #4a90d9;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.version-doi:hover {
+  color: #3a7bc8;
+  text-decoration: underline;
 }

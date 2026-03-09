@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 class Publication(BaseModel):
     """
@@ -11,3 +11,4 @@ class Publication(BaseModel):
     year: Optional[int] = None
     category: Optional[str] = None
     name: Optional[str] = None
+    versions: Optional[List[Dict[str, Any]]] = None

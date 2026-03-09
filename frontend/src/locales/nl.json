@@ -28,6 +28,7 @@
     "collaborators": "Medewerkers",
     "publications": "Publicaties",
     "organizations": "Organisaties",
-    "members": "Leden"
+    "members": "Leden",
+    "versions": "{{count}} versies"
   }
 }
