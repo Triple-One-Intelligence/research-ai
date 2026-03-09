@@ -13,10 +13,10 @@ router = APIRouter(prefix="/connections")
 def get_entity_connections(
     entity_id: str = Query(..., description="ID of the entity"),
     entity_type: str = Query(..., description="'person' or 'organization'"),
-    max_publications: int = Query(100, ge=1, le=500, description="Maximum number of publications to return"),
+    max_publications: int = Query(50, ge=1, le=200, description="Maximum number of publications to return"),
     max_collaborators: int = Query(50, ge=1, le=200, description="Maximum number of collaborators to return"),
     max_organizations: int = Query(50, ge=1, le=200, description="Maximum number of organizations to return"),
-    max_members: int = Query(200, ge=1, le=500, description="Maximum number of members to return"),
+    max_members: int = Query(50, ge=1, le=200, description="Maximum number of members to return"),
 ):
     """Return connections for a given entity using the Ricgraph database.
 

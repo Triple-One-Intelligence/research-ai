@@ -133,7 +133,7 @@ def organization_connections(entity_id: str, max_publications: int, max_organiza
         "members": format_people(members, as_members=True),
     }
 
-def get_connections(entity_id: str, entity_type: str, max_publications: int = 100, max_collaborators: int = 50, max_organizations: int = 50, max_members: int = 200) -> Dict[str, Any]:
+def get_connections(entity_id: str, entity_type: str, max_publications: int = 50, max_collaborators: int = 50, max_organizations: int = 50, max_members: int = 50) -> Dict[str, Any]:
     if entity_type not in ("person", "organization"):
         raise InvalidEntityTypeError("entity_type must be 'person' or 'organization'")
 
