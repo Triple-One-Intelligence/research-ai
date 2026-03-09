@@ -1,6 +1,6 @@
 import os
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
@@ -28,7 +28,7 @@ class EmbedRequest(BaseModel):
     prompt: str
 
 # --- Endpoints ---
-@router.post("/chat")
+@router.post("/chat") # non-streaming version, deprecated can be removed
 async def chat(req: ChatRequest):
     """
     Sends a chat request to the Ollama container.
@@ -50,6 +50,26 @@ async def chat(req: ChatRequest):
         except httpx.HTTPStatusError as e:
             raise HTTPException(status_code=response.status_code, detail=f"AI service error: {response.text}")
 
+@router.post("/chat-stream") # new streaming version
+async def chat_stream(req: ChatRequest):
+    """
+    Sends a chat request to the Ollama container and streams the response back to the client.
+    """
+    url = f"{AI_SERVICE_URL}/api/chat-stream"
+
+    async def event_generator():
+        payload = req.model_dump(exclude_none=True)
+        payload["stream"] = True
+
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream("POST", url, json=payload) as response:
+                async for line in response.aiter_lines(): #TODO: readup on this method
+                    if not line:
+                        continue
+                    # Ollama typically sends JSON per line; wrap each as SSE
+                    yield f"{line}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @router.post("/embed")
 async def embed(req: EmbedRequest):
