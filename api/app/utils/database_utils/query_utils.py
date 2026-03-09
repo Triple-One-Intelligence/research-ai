@@ -1,11 +1,7 @@
 """
 Includes helper functions which aid with making queries to the neo4j database
 """
-
-import os
 import re
-import time
-from neo4j import Driver, GraphDatabase
 
 # Lucene reserved characters that must be escaped
 LUCENE_SPECIAL = re.compile(r'([+\-&|!(){}\[\]^"~*?:\\/])')

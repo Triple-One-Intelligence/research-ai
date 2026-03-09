@@ -8,7 +8,6 @@ import os
 import re
 import time
 from neo4j import Driver, GraphDatabase
-from typing import cast
 
 REMOTE_NEO4J_URL  = os.environ["REMOTE_NEO4J_URL"]
 REMOTE_NEO4J_USER = os.environ["REMOTE_NEO4J_USER"]
@@ -17,10 +16,6 @@ REMOTE_NEO4J_PASS = os.environ["REMOTE_NEO4J_PASS"]
 FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
 VECTOR_INDEX_NAME = "publicationEmbeddingIndex"
 
-
-
-
-
 def validate_index(index_name : str) -> None:
     """Validate index name to prevent Cypher injection in DDL statements."""
     if not re.fullmatch(r'[A-Za-z_]\w*', index_name):
@@ -28,8 +23,6 @@ def validate_index(index_name : str) -> None:
 
 validate_index(FULLTEXT_INDEX_NAME)
 validate_index(VECTOR_INDEX_NAME)
-
-
 
 graph: Driver | None = None
 
