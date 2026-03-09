@@ -105,14 +105,15 @@ const App = () => {
       },
       userMsg,
     ];
+
     setResponseText('');
     setIsGenerating(true);
+
     try {
-      await promptTheAIStream(msgs, (chunk: string) => {
-        setResponseText((prev) => prev + chunk);
-      }, () => {
-        setIsGenerating(false);
-      });
+      await promptTheAIStream(msgs, 
+        (chunk: string) => {setResponseText((prev) => prev + chunk);}, 
+        () => {setIsGenerating(false);}
+      );
     } catch (err: any) {
       console.error(err);
       // show user-friendly error
