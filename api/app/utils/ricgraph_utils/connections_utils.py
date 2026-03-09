@@ -87,23 +87,14 @@ def person_connections(entity_id: str, max_publications: int, max_collaborators:
     driver = database_utils.get_graph()
 
     with driver.session() as session:
-        root_record = session.run(RESOLVE_PERSON_ROOT, entityId=entity_id).single()
-        if not root_record:
-            return {"collaborators": [], "publications": [], "organizations": [], "members": []}
-
-        root = root_record.data()
-        root_key = root.get("rootKey")
-        if not root_key:
-            return {"collaborators": [], "publications": [], "organizations": [], "members": []}
-
         collaborators = session.run(
-            PERSON_COLLABORATORS, rootKey=root_key, excludeCategories=EXCLUDE_CATEGORIES, limit=max_collaborators
+            PERSON_COLLABORATORS, rootKey=entity_id, excludeCategories=EXCLUDE_CATEGORIES, limit=max_collaborators
         ).data()
         publications = session.run(
-            PERSON_PUBLICATIONS, rootKey=root_key, excludeCategories=EXCLUDE_CATEGORIES, limit=max_publications
+            PERSON_PUBLICATIONS, rootKey=entity_id, excludeCategories=EXCLUDE_CATEGORIES, limit=max_publications
         ).data()
         organizations = session.run(
-            PERSON_ORGANIZATIONS, rootKey=root_key, limit=max_organizations
+            PERSON_ORGANIZATIONS, rootKey=entity_id, limit=max_organizations
         ).data()
 
     return {
