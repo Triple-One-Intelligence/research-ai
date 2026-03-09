@@ -22,12 +22,14 @@ AUTOCOMPLETE_CYPHER = """
     // Ensure all keywords match the actual name, not the UUID part of the value
     WHERE all(k IN $keywords WHERE dbCleanName CONTAINS k)
 
-    // Resolve person-root: if the node is a person variant, prefer the linked person-root node as the canonical root
+    // Resolve person-root only for person nodes:
+    // restrict the OPTIONAL MATCH to person nodes so organizations won't pick up a person-root accidentally
     OPTIONAL MATCH (node)-[:LINKS_TO]-(linked:RicgraphNode {name: 'person-root'})
+    WHERE node.category = 'person'
     WITH node, name, dbCleanName, linked,
          CASE
-           WHEN node.name = 'person-root' THEN node
-           WHEN linked IS NOT NULL THEN linked
+           // only use the linked person-root if the original node is a person
+           WHEN node.category = 'person' AND linked IS NOT NULL THEN linked
            ELSE node
          END AS root
 
