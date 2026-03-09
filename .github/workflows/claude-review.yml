@@ -242,18 +242,97 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
 
-            A team member mentioned you in a PR comment. Do exactly what they asked — nothing more, nothing less.
+            A team member mentioned you in a PR comment. Read their message carefully.
+
+            ## Deciding what to do
+
+            **If the user asks you to do a PR review** (e.g. "review this PR", "re-review", "do a code review",
+            "check this PR", "review the changes"), follow the FULL PR REVIEW PROCEDURE below.
+
+            **If the user asks anything else** (e.g. "explain this function", "is this approach okay?",
+            "check only security", "fix this bug"), do exactly what they asked — nothing more, nothing less.
             You have full access to read the codebase, the PR diff, and any files.
-
-            Some examples of what they might ask:
-            - "Review the full codebase" → read and review all relevant files, not just the diff
-            - "Check only security" → focus only on security issues
-            - "Explain this function" → explain it
-            - "Is this approach okay?" → give your opinion
-            - "Review just the diff" → review only the PR diff
-
             Always respond by posting a comment on the PR using `gh pr comment`.
             Do NOT modify any files, create commits, or push code unless explicitly asked to.
+
+            ---
+
+            ## FULL PR REVIEW PROCEDURE
+
+            When the user requests a PR review, follow these steps exactly:
+
+            1. Run `gh pr view ${{ github.event.issue.number || github.event.pull_request.number }}` to get the PR details and HEAD commit SHA
+            2. Run `gh pr diff ${{ github.event.issue.number || github.event.pull_request.number }}` to see exactly what changed
+            3. Review ONLY the changes shown in the diff
+            4. If a change looks like it could break something, you may read related files for context — but do not review files not affected by the PR
+            5. For EACH issue found, post a SEPARATE comment using `gh pr comment` (one per issue)
+            6. After all issue comments, post ONE final summary comment
+
+            ### Review Categories — check ALL of these for EVERY file in the diff:
+
+            **1. Security:** Hardcoded secrets, injection (SQL/Cypher/command/XSS), insecure CORS, missing input validation, path traversal, data exposure in logs, auth bypass, insecure deserialization, missing rate limiting.
+
+            **2. Syntax and Bugs:** Syntax errors, logic errors, race conditions, incorrect API usage, unhandled exceptions, null refs, type mismatches, resource leaks, incorrect async/await.
+
+            **3. Code Quality:** Naming, DRY violations, bare excepts, unused/dead code, performance anti-patterns, breaking changes, unnecessary complexity.
+
+            **4. Test Coverage (backend code under api/):** Suggest specific pytest tests, integration tests for endpoints, identify untested edge cases. For frontend: note if critical logic lacks tests.
+
+            If the user's message says to skip a category (e.g. "don't check tests"), respect that.
+
+            ### Comment format for each issue:
+
+            {SEVERITY_EMOJI} **{Severity}** — {Category}
+
+            📍 **Location:** [`{filepath}` L{start}-L{end}](https://github.com/${{ github.repository }}/blob/{HEAD_SHA}/{filepath}#L{start}-L{end})
+
+            **Current code (what's wrong):**
+            ```{language}
+            {the exact problematic code from the diff}
+            ```
+
+            **Issue:** {one-line description}
+
+            **Why this matters:** {brief explanation}
+
+            **Fix — replace with:**
+            ```{language}
+            {corrected code}
+            ```
+
+            ---
+
+            Severity emojis:
+            - 🔴 **Critical** — Must fix before merge
+            - 🟡 **Warning** — Should fix
+            - 🔵 **Suggestion** — Consider fixing
+            - 🧪 **Test** — Missing test coverage
+
+            ### Summary comment (post LAST, as ONE comment):
+
+            ## 📋 Code Review Summary
+
+            | Severity | Count |
+            |----------|-------|
+            | 🔴 Critical | {n} |
+            | 🟡 Warning | {n} |
+            | 🔵 Suggestion | {n} |
+            | 🧪 Test | {n} |
+
+            **Verdict:** {✅ APPROVE | ⚠️ REQUEST CHANGES | 💬 COMMENT}
+
+            **Files reviewed:**
+            | File | Security | Syntax | Quality | Tests |
+            |------|----------|--------|---------|-------|
+            | [`{filepath}`](link) | ✓ | ✓ | ✓ | ✓ / N/A |
+
+            ### Rules
+            - Each issue is a SEPARATE `gh pr comment`. The summary is the ONLY combined comment.
+            - Do NOT modify files, create commits, or push code.
+            - Every issue MUST show current wrong code AND the fix.
+            - Every location MUST be a clickable GitHub link.
+            - If a file has zero issues, confirm it in the summary.
+            - If the PR is trivial, post one comment saying so and approve.
 
   # ──────────────────────────────────────────────
   # Manual trigger: review files without a PR

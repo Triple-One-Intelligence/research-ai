@@ -1,5 +1,6 @@
 [Unit]
 Description=Research AI Ricgraph
+After=research-ai-neo4j.service
 
 [Service]
 Restart=always
@@ -18,7 +19,8 @@ PublishPort=127.0.0.1:3030:3030
 
 EnvironmentFile=/etc/research-ai/research-ai-prod.env
 
-Volume=ricgraph-data:/var/lib/neo4j/data
+# Override ricgraph.ini to point at the external Neo4j container
+Volume=/etc/research-ai/ricgraph.ini:/app/ricgraph/ricgraph.ini:ro
 
 [Install]
 WantedBy=multi-user.target

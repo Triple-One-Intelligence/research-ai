@@ -1,4 +1,4 @@
-import app.utils.ricgraph_utils.query_utils as query_utils
+from app.utils.database_utils import query_utils, database_utils
 from neo4j import Result
 from app.utils.schemas import Suggestions, Person, Organization
 
@@ -71,9 +71,7 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     if len(query) < 2:
         return Suggestions(persons=persons_out, organizations=orgs_out)
 
-    # Tokenization alignment: the fulltext index analyzer splits on
-    # punctuation, so we do the same to ensure each keyword maps to an
-    # indexed token.
+    # Tokenization alignment
     query = query_utils.normalize_query_for_index(query)
 
     # Create tokens (all lowercase, remove empty tokens)
@@ -89,10 +87,10 @@ def autocomplete(user_query: str, limit: int = 10) -> Suggestions:
     clean_query = " ".join(keywords)
     lucene_query = query_utils.build_lucene_query(keywords)
 
-    rows = query_utils.graph.execute_query(
+    rows = database_utils.get_graph().execute_query(
         AUTOCOMPLETE_CYPHER,
         result_transformer_=Result.data,
-        indexName=query_utils.FULLTEXT_INDEX_NAME,
+        indexName=database_utils.FULLTEXT_INDEX_NAME,
         luceneQuery=lucene_query,
         keywords=keywords,
         firstKeyword=keywords[0],
