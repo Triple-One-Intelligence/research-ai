@@ -74,9 +74,9 @@ def format_publications(rows: List[Dict[str, Any]]) -> List[Publication]:
     for entries in grouped.values():
         rep = entries[0].model_copy()
         if len(entries) > 1:
-            alt = [{"doi": e.doi, "year": e.year, "category": e.category}
-                   for e in entries if e.doi != rep.doi]
-            rep.versions = alt if alt else None
+            versions = [{"doi": e.doi, "year": e.year, "category": e.category}
+                        for e in entries]
+            rep.versions = versions if versions else None
         out.append(rep)
 
     out.extend(no_title)
