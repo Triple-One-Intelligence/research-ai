@@ -23,6 +23,7 @@ kind: Pod
 metadata:
   name: research-ai-dev
 spec:
+  hostNetwork: true
   containers:
     - name: api
       image: research-ai-api:dev
@@ -69,12 +70,8 @@ spec:
     - name: caddy
       image: docker.io/library/caddy:2-alpine
       ports:
-        - containerPort: 80
-          hostPort: 8080
-          hostIP: 127.0.0.1
-        - containerPort: 443
-          hostPort: 8443
-          hostIP: 127.0.0.1
+        - containerPort: 3000
+        - containerPort: 8443
       volumeMounts:
         - name: caddy-data
           mountPath: /data
