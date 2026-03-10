@@ -34,21 +34,29 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
       {/* Conditional rendering of prompt buttons based on whether an entity is selected. */}
       {selectedEntity && (
         <div className="prompt-buttons">
-          {/* Button for generating an executive summary. */}
+          {/* Button for finding top 5 collaborating organizations. */}
           <button 
             className="prompt-btn"
-            onClick={() => onAsk(t('leftPanel.executiveSummaryPrompt'))}
+            onClick={() => setCustomPrompt(t('leftPanel.topOrganizationsPrompt', { entity: selectedEntity.label }))}
           >
-            <span className="prompt-icon">📄</span>
-            {t('leftPanel.executiveSummary')}
+            <span className="prompt-icon">🏢</span>
+            {t('leftPanel.topOrganizations')}
           </button>
-          {/* Button for generating strengths and gaps analysis. */}
+          {/* Button for finding relevant publications by abstract. */}
           <button 
             className="prompt-btn"
-            onClick={() => onAsk(t('leftPanel.strengthsGapsPrompt'))}
+            onClick={() => setCustomPrompt(t('leftPanel.publicationsPrompt', { entity: selectedEntity.label }))}
           >
-            <span className="prompt-icon">💪</span>
-            {t('leftPanel.strengthsGaps')}
+            <span className="prompt-icon">📚</span>
+            {t('leftPanel.relevantPublications')}
+          </button>
+          {/* Button for creating a UV/UU profile CV. */}
+          <button 
+            className="prompt-btn"
+            onClick={() => setCustomPrompt(t('leftPanel.uvCVPrompt', { entity: selectedEntity.label }))}
+          >
+            <span className="prompt-icon">🎓</span>
+            {t('leftPanel.uvProfileCV')}
           </button>
         </div>
       )}

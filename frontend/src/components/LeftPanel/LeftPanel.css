@@ -15,11 +15,17 @@
 
 /* Prompt buttons */
 .prompt-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
 }
 
+/* keep button width to full and allow wrapping */
+.prompt-buttons .prompt-btn {
+  width: 100%;
+  white-space: normal;
+  text-align: left; /* keep icon on left even if wrapping occurs */
+}
 .prompt-btn {
   display: flex;
   align-items: center;
