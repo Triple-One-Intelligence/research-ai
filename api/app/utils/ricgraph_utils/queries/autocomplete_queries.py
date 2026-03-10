@@ -1,6 +1,6 @@
 """Cypher query for the autocomplete service."""
 
-AUTOCOMPLETE_CYPHER = """
+AUTOCOMPLETE_CYPHER = """/*cypher*/
     CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)
     YIELD node, score AS ftScore
     WHERE node.category IN ['person', 'organization']
@@ -8,7 +8,7 @@ AUTOCOMPLETE_CYPHER = """
 
     // Use fulltext score for initial ordering, limit early for performance
     WITH node
-    ORDER BY ftScore DESC, size(node.value) ASC
+    ORDER BY ftScore DESC, length(node.value) ASC
     LIMIT 1000
 
     // Data cleaning (uuid + leading comma)
@@ -20,12 +20,13 @@ AUTOCOMPLETE_CYPHER = """
          toLower(reduce(s = name, char IN [',','.','-'] | replace(s, char, ' '))) AS dbCleanName
 
     // Ensure all keywords match the actual name, not the UUID part of the value
+    // Also filter out technical identifiers like ORCID-style numeric IDs:
     WHERE all(k IN $keywords WHERE dbCleanName CONTAINS k)
+      AND NOT name =~ '^[0-9xX-]+$'
 
     // Resolve person-root only for person nodes:
     // restrict the OPTIONAL MATCH to person nodes so organizations won't pick up a person-root accidentally
-    OPTIONAL MATCH (node)-[:LINKS_TO]-(linked:RicgraphNode {name: 'person-root'})
-    WHERE node.category = 'person'
+    OPTIONAL MATCH (node:RicgraphNode {category: 'person'})-[:LINKS_TO]-(linked:RicgraphNode {name: 'person-root'})
     WITH node, name, dbCleanName, linked,
          CASE
            // only use the linked person-root if the original node is a person
@@ -34,7 +35,7 @@ AUTOCOMPLETE_CYPHER = """
          END AS root
 
     // Compute match/format score per candidate name
-    WITH node, root, name,
+    WITH node, root, name, dbCleanName,
          CASE
             WHEN dbCleanName = $cleanQuery THEN 100
             WHEN toLower(name) STARTS WITH $firstKeyword THEN 50
@@ -49,7 +50,7 @@ AUTOCOMPLETE_CYPHER = """
     // For each root, pick the best displayName among its mapped nodes/names
     // Order candidates by matchScore desc, formatScore desc, length(name) desc to make selection deterministic
     WITH root, name, matchScore, formatScore
-    ORDER BY matchScore DESC, formatScore DESC, size(name) DESC
+    ORDER BY matchScore DESC, formatScore DESC, length(name) DESC
 
     // Aggregate by root._key, keep best name and bestScore
     WITH root._key AS id, root, head(collect(name)) AS displayName, max(matchScore) AS bestScore
