@@ -32,6 +32,7 @@ async def send_async_ai_request(url: str, request_params: dict) -> dict:
             )
             response.raise_for_status()
             return response.json()
+            
         except httpx.RequestError as e:
             raise HTTPException(status_code=503, detail=f"Error connecting to AI service: {e}")
         except httpx.HTTPStatusError as e:
