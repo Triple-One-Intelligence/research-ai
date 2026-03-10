@@ -37,7 +37,7 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
           {/* Button for finding top 5 collaborating organizations. */}
           <button 
             className="prompt-btn"
-            onClick={() => setCustomPrompt(`Find the top 5 organizations that ${selectedEntity.label} collaborates with. Provide relevant details about each collaboration.`)}
+            onClick={() => setCustomPrompt(t('leftPanel.topOrganizationsPrompt', { entity: selectedEntity.label }))}
           >
             <span className="prompt-icon">🏢</span>
             {t('leftPanel.topOrganizations')}
@@ -45,15 +45,15 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
           {/* Button for finding relevant publications by abstract. */}
           <button 
             className="prompt-btn"
-            onClick={() => setCustomPrompt(`Identify publications relevant to ${selectedEntity.label}'s research focus. Search by analyzing abstracts that align with their professional interests and expertise.`)}
+            onClick={() => setCustomPrompt(t('leftPanel.publicationsPrompt', { entity: selectedEntity.label }))}
           >
             <span className="prompt-icon">📚</span>
             {t('leftPanel.relevantPublications')}
           </button>
-          {/* Button for creating a UV profile CV. */}
+          {/* Button for creating a UV/UU profile CV. */}
           <button 
             className="prompt-btn"
-            onClick={() => setCustomPrompt(`Create a comprehensive CV for the Utrecht University (UU) profile of ${selectedEntity.label} based on their research, publications, and collaborations. Format it for professional use.`)}
+            onClick={() => setCustomPrompt(t('leftPanel.uvCVPrompt', { entity: selectedEntity.label }))}
           >
             <span className="prompt-icon">🎓</span>
             {t('leftPanel.uvProfileCV')}
