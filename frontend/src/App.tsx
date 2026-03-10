@@ -48,9 +48,9 @@ const App = () => {
     setResponseText('');
     setIsGenerating(true);
     try {
-      const res = await fetchRagDocs(selectedEntity);
-      // For now, just dump JSON to the middle panel for inspection:
-      setResponseText(JSON.stringify(res.sources, null, 2));
+      const res = await fetchRagDocs(t('leftPanel.executiveSummaryPrompt'), selectedEntity);
+      setResponseText(res.context_text);
+      
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unknown error';

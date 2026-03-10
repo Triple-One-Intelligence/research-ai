@@ -87,20 +87,22 @@ export interface RagAskResponse {
 
 //just docs
 export interface RagDocsResponse {
-  sources: RagSource[];
+  prompt: string;
+  context_text: string;
 }
 
+
 export const fetchRagDocs = async (
-  entity: EntitySuggestion,
-  topK: number = 8
+  prompt: string,
+  entity: EntitySuggestion
 ): Promise<RagDocsResponse> => {
   const response = await api.post<RagDocsResponse>('/rag/docs', {
+    prompt,
     entity: {
       id: entity.id,
       type: entity.type,
       label: entity.label,
     },
-    top_k: topK,
   });
   return response.data;
 };
