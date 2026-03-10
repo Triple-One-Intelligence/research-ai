@@ -3,7 +3,7 @@ from app.utils.database_utils import database_utils
 from app.utils.schemas import Person, Publication, Organization
 from app.utils.schemas.connections import Member
 from app.utils.ricgraph_utils.queries.connections_queries import (
-    RESOLVE_PERSON_ROOT, PERSON_PUBLICATIONS, PERSON_COLLABORATORS,
+    PERSON_PUBLICATIONS, PERSON_COLLABORATORS,
     PERSON_ORGANIZATIONS, ORG_MEMBERS, ORG_PUBLICATIONS, ORG_RELATED_ORGS,
 )
 
