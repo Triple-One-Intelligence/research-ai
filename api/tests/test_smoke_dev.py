@@ -15,7 +15,7 @@ import socket
 import pytest
 import httpx
 
-DEV_BASE = "http://localhost:8080"
+DEV_BASE = "http://localhost:3000"
 TIMEOUT = 5.0
 
 
@@ -71,9 +71,9 @@ class TestDevPodRunning:
     """Verify that the local dev pod containers are up."""
 
     def test_caddy_port(self):
-        """Caddy reverse proxy should be on port 8080."""
-        assert _port_open("localhost", 8080), (
-            "Port 8080 (Caddy) is not reachable.\n"
+        """Caddy reverse proxy should be on port 3000."""
+        assert _port_open("localhost", 3000), (
+            "Port 3000 (Caddy) is not reachable.\n"
             "Is the dev pod running? Try: make up"
         )
 
@@ -91,7 +91,7 @@ class TestDevPodRunning:
             )
         except httpx.ConnectError:
             pytest.fail(
-                "Could not connect to Caddy on port 8080.\n"
+                "Could not connect to Caddy on port 3000.\n"
                 "Is the dev pod running? Try: make up"
             )
 
