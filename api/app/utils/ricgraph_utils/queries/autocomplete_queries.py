@@ -3,7 +3,7 @@
 AUTOCOMPLETE_CYPHER = """/*cypher*/
     CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)
     YIELD node, score AS ftScore
-    WHERE node.category IN ['person', 'organization']
+    WHERE node.category IN ['person', 'organization'] AND node.name IN ['FULL_NAME', 'FULL_NAME_ASCII', 'ORGANIZATION_NAME']
     AND NOT node.name ENDS WITH '-root'
 
     // Use fulltext score for initial ordering, limit early for performance
