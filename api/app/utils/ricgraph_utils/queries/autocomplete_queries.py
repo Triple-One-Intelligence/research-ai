@@ -3,11 +3,11 @@
 AUTOCOMPLETE_CYPHER = """/*cypher*/
     CALL db.index.fulltext.queryNodes($indexName, $luceneQuery)
     YIELD node, score AS ftScore
-    WHERE node.category IN ['person', 'organization'] AND node.name IN ['FULL_NAME', 'FULL_NAME_ASCII', 'ORGANIZATION_NAME']
-    AND NOT node.name ENDS WITH '-root'
+    WHERE node.category IN ['person', 'organization'] 
+    AND node.name IN ['FULL_NAME', 'FULL_NAME_ASCII', 'ORGANIZATION_NAME']
 
     // Use fulltext score for initial ordering, limit early for performance
-    WITH node
+    WITH node, ftScore
     ORDER BY ftScore DESC, size(node.value) ASC
     LIMIT 1000
 
@@ -22,7 +22,7 @@ AUTOCOMPLETE_CYPHER = """/*cypher*/
     // Ensure all keywords match the actual name, not the UUID part of the value
     // Also filter out technical identifiers like ORCID-style numeric IDs:
     WHERE all(k IN $keywords WHERE dbCleanName CONTAINS k)
-      AND NOT name =~ '^[0-9xX-]+$'
+    AND NOT name =~ '^[0-9xX-]+$'
 
     // Resolve person-root only for person nodes:
     // restrict the OPTIONAL MATCH to person nodes so organizations won't pick up a person-root accidentally
