@@ -5,7 +5,7 @@ import { LeftPanel } from './components/LeftPanel';
 import { MiddlePanel } from './components/MiddlePanel';
 import { RightPanel } from './components/RightPanel';
 import type { EntitySuggestion } from './types';
-import { askWithRag } from './api';
+import { askWithRag, fetchRagDocs } from './api';
 
 // Ask response generation function. Takes a prompt and two callbacks:
 // one for handling incoming chunks of text, and one for when the response is complete.
@@ -35,6 +35,26 @@ const App = () => {
       const message =
         error instanceof Error ? error.message : 'Unknown error';
       setResponseText('Error: ' + message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleRagTest = async () => {
+    if (!selectedEntity) {
+      setResponseText('Please select an entity first.');
+      return;
+    }
+    setResponseText('');
+    setIsGenerating(true);
+    try {
+      const res = await fetchRagDocs(selectedEntity);
+      // For now, just dump JSON to the middle panel for inspection:
+      setResponseText(JSON.stringify(res.sources, null, 2));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error';
+      setResponseText('Error (RAG-TEST): ' + message);
     } finally {
       setIsGenerating(false);
     }
@@ -73,6 +93,7 @@ const App = () => {
           isGenerating={isGenerating}
           onEntitySelect={setSelectedEntity}
           onEntityClear={() => setSelectedEntity(null)}
+          onRagTest={handleRagTest}
         />
         <div className="middle-panel">
           <MiddlePanel text={responseText} isGenerating={isGenerating} />

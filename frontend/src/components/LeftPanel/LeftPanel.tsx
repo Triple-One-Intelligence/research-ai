@@ -13,10 +13,11 @@ interface LeftPanelProps {
   selectedEntity: EntitySuggestion | null;
   onEntitySelect: (entity: EntitySuggestion) => void;
   onEntityClear: () => void;
+  onRagTest: () => void;
 }
 
 // Main functional component. Destructures props for easy access.
-const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEntityClear }: LeftPanelProps) => {
+const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEntityClear, onRagTest }: LeftPanelProps) => {
   const { t } = useTranslation();
   // State for the free‑form custom prompt the user can type.
   const [customPrompt, setCustomPrompt] = useState('');
@@ -49,6 +50,15 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
           >
             <span className="prompt-icon">💪</span>
             {t('leftPanel.strengthsGaps')}
+          </button>
+
+          {/* NEW: RAG-TEST button */}
+          <button
+            className="prompt-btn"
+            onClick={onRagTest}
+            disabled={isGenerating}
+          >
+              RAG-TEST
           </button>
         </div>
       )}

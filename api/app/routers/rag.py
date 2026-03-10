@@ -284,3 +284,50 @@ async def rag_ask(req: RagAskRequest) -> RagAskResponse:
     answer = await _chat_with_context(req.prompt, context_text)
 
     return RagAskResponse(answer=answer, sources=top_sources)
+
+
+# just the docs for testing
+
+class RagDocsRequest(BaseModel):
+    entity: EntityRef
+    top_k: int = 8
+class RagDocsResponse(BaseModel):
+    sources: List[RagSource]
+
+@router.post("/docs", response_model=RagDocsResponse)
+async def rag_docs(req: RagDocsRequest) -> RagDocsResponse:
+    """
+    RAG test endpoint:
+    Return the top-k ranked documents for the selected entity,
+    without calling the chat model.
+    """
+    docs = _get_entity_publication_docs(req.entity, max_docs=100)
+    if not docs:
+        return RagDocsResponse(sources=[])
+
+    # Reuse the same scoring logic as rag_ask
+    query_text = f"Entity: {req.entity.label} ({req.entity.type}, id={req.entity.id})"
+    query_emb = await _embed(query_text)
+
+    scored: list[RagSource] = []
+    for d in docs:
+        emb = d.get("embedding")
+        if not isinstance(emb, list):
+            continue
+        score = _cosine_similarity(query_emb, emb)
+        if score <= 0:
+            continue
+        src = RagSource(
+            doi=d.get("doi"),
+            title=d.get("title"),
+            year=d.get("year"),
+            category=d.get("category"),
+            abstract=d.get("abstract") or "",
+            score=score,
+        )
+        scored.append(src)
+
+    scored.sort(key=lambda s: s.score, reverse=True)
+    top_sources = scored[: max(req.top_k, 1)]
+
+    return RagDocsResponse(sources=top_sources)
