@@ -5,8 +5,9 @@
   "leftPanel": {
     "searchLabel": "Search organisation or person",
     "searchPlaceholder": "Type a name or organisation…",
-    "executiveSummary": "Executive Summary",
-    "strengthsGaps": "Strengths & Gaps",
+    "topOrganizations": "Top 5 Collaborating Organizations",
+    "relevantPublications": "Relevant Publications by Abstract",
+    "uvProfileCV": "Create UV Profile CV",
     "promptPlaceholder": "Write your question or instruction for the LLM…",
     "askButton": "Ask",
     "askButtonGenerating": "Generating...",

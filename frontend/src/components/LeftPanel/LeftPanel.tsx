@@ -34,15 +34,29 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
       {/* Conditional rendering of prompt buttons based on whether an entity is selected. */}
       {selectedEntity && (
         <div className="prompt-buttons">
-          {/* Button for generating an executive summary. */}
-          <button className="prompt-btn">
-            <span className="prompt-icon">📄</span>
-            {t('leftPanel.executiveSummary')}
+          {/* Button for finding top 5 collaborating organizations. */}
+          <button 
+            className="prompt-btn"
+            onClick={() => setCustomPrompt(`Find the top 5 organizations that ${selectedEntity.label} collaborates with. Provide relevant details about each collaboration.`)}
+          >
+            <span className="prompt-icon">🏢</span>
+            {t('leftPanel.topOrganizations')}
           </button>
-          {/* Button for generating strengths and gaps analysis. */}
-          <button className="prompt-btn">
-            <span className="prompt-icon">💪</span>
-            {t('leftPanel.strengthsGaps')}
+          {/* Button for finding relevant publications by abstract. */}
+          <button 
+            className="prompt-btn"
+            onClick={() => setCustomPrompt(`Identify publications relevant to ${selectedEntity.label}'s research focus. Search by analyzing abstracts that align with their professional interests and expertise.`)}
+          >
+            <span className="prompt-icon">📚</span>
+            {t('leftPanel.relevantPublications')}
+          </button>
+          {/* Button for creating a UV profile CV. */}
+          <button 
+            className="prompt-btn"
+            onClick={() => setCustomPrompt(`Create a comprehensive CV for the Utrecht University (UU) profile of ${selectedEntity.label} based on their research, publications, and collaborations. Format it for professional use.`)}
+          >
+            <span className="prompt-icon">🎓</span>
+            {t('leftPanel.uvProfileCV')}
           </button>
         </div>
       )}
