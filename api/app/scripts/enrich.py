@@ -65,15 +65,29 @@ def fetch_abstract(doi: str, client: httpx.Client) -> str | None:
 
 def generate_embedding(text: str, client: httpx.Client) -> list[float] | None:
     """Generate an embedding vector via Ollama."""
-    url = f"{AI_SERVICE_URL}/api/embeddings"
     try:
+        # Try the newer /api/embed endpoint first (Ollama ≥0.15)
         resp = client.post(
-            url,
-            json={"model": EMBED_MODEL, "prompt": text},
+            f"{AI_SERVICE_URL}/api/embed",
+            json={"model": EMBED_MODEL, "input": text},
             timeout=60.0,
         )
+        if resp.status_code == 404:
+            # Fall back to legacy /api/embeddings endpoint
+            resp = client.post(
+                f"{AI_SERVICE_URL}/api/embeddings",
+                json={"model": EMBED_MODEL, "prompt": text},
+                timeout=60.0,
+            )
+            resp.raise_for_status()
+            return resp.json().get("embedding")
         resp.raise_for_status()
-        return resp.json().get("embedding")
+        data = resp.json()
+        # /api/embed returns {"embeddings": [[...]]}
+        embeddings = data.get("embeddings")
+        if embeddings and len(embeddings) > 0:
+            return embeddings[0]
+        return None
     except httpx.HTTPError as e:
         print(f"  [ollama] Embedding error: {e}")
         return None

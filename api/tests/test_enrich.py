@@ -96,9 +96,11 @@ class TestFetchAbstract:
 
 
 class TestGenerateEmbedding:
-    def test_returns_embedding_vector(self):
+    def test_returns_embedding_vector_new_api(self):
+        """New /api/embed endpoint returns {"embeddings": [[...]]}."""
         mock_response = MagicMock()
-        mock_response.json.return_value = {"embedding": [0.1, 0.2, 0.3]}
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"embeddings": [[0.1, 0.2, 0.3]]}
         mock_response.raise_for_status = MagicMock()
 
         client = MagicMock()
@@ -106,6 +108,21 @@ class TestGenerateEmbedding:
 
         result = generate_embedding("test text", client)
         assert result == [0.1, 0.2, 0.3]
+
+    def test_falls_back_to_legacy_api(self):
+        """Falls back to /api/embeddings when /api/embed returns 404."""
+        not_found = MagicMock()
+        not_found.status_code = 404
+
+        legacy_resp = MagicMock()
+        legacy_resp.json.return_value = {"embedding": [0.4, 0.5, 0.6]}
+        legacy_resp.raise_for_status = MagicMock()
+
+        client = MagicMock()
+        client.post.side_effect = [not_found, legacy_resp]
+
+        result = generate_embedding("test text", client)
+        assert result == [0.4, 0.5, 0.6]
 
     def test_returns_none_on_error(self):
         client = MagicMock()
@@ -116,6 +133,7 @@ class TestGenerateEmbedding:
 
     def test_returns_none_when_no_embedding_key(self):
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {}
         mock_response.raise_for_status = MagicMock()
 
