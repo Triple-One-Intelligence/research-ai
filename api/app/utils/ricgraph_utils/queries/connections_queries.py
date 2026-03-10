@@ -18,8 +18,16 @@ MATCH (root:RicgraphNode {value: $rootValue})-[:LINKS_TO]-(pub:RicgraphNode {nam
 WHERE other <> root
   AND NOT coalesce(pub.category, '') IN $excludeCategories
 WITH DISTINCT other
-MATCH (other)-[:LINKS_TO]-(fn:RicgraphNode {name: 'FULL_NAME'})
-WITH other.value AS author_id, head(collect(fn.value)) AS rawName
+MATCH (other)-[:LINKS_TO]-(fn:RicgraphNode)
+WHERE fn.name IN ['FULL_NAME', 'FULL_NAME_ASCII']
+WITH other.value AS author_id, fn.value AS name,
+     CASE
+       WHEN fn.value CONTAINS ',' THEN 3
+       WHEN fn.value CONTAINS ' ' THEN 2
+       ELSE 1
+     END AS formatScore
+ORDER BY author_id, formatScore DESC, size(fn.value) DESC
+WITH author_id, head(collect(name)) AS rawName
 RETURN author_id, rawName
 ORDER BY rawName
 LIMIT $limit
