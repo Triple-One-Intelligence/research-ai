@@ -13,6 +13,8 @@ import time
 
 import httpx
 import app.utils.database_utils.database_utils as database_utils
+from app.utils.ai_utils.ai_utils import embed
+
 
 AI_SERVICE_URL = os.environ["AI_SERVICE_URL"]
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
@@ -58,24 +60,6 @@ def fetch_abstract(doi: str, client: httpx.Client) -> str | None:
         return None
     except httpx.HTTPError as e:
         print(f"  [openalex] Error fetching {doi}: {e}")
-        return None
-
-
-# ── Ollama embeddings ───────────────────────────────────────────────────────
-
-def generate_embedding(text: str, client: httpx.Client) -> list[float] | None:
-    """Generate an embedding vector via Ollama."""
-    url = f"{AI_SERVICE_URL}/api/embeddings"
-    try:
-        resp = client.post(
-            url,
-            json={"model": EMBED_MODEL, "prompt": text},
-            timeout=60.0,
-        )
-        resp.raise_for_status()
-        return resp.json().get("embedding")
-    except httpx.HTTPError as e:
-        print(f"  [ollama] Embedding error: {e}")
         return None
 
 
@@ -144,7 +128,7 @@ def run(force: bool = False, batch_size: int = 50):
                     skipped += 1
                     continue
 
-                embedding = generate_embedding(abstract, client)
+                embedding = embed(abstract, client).get("embedding")
                 if not embedding:
                     print("    -> Embedding failed, skipping.")
                     skipped += 1

@@ -5,14 +5,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.utils.database_utils import database_utils
 
-# --------------------------------------------------------------------
-# Config (reuse same env variables used elsewhere)
-# --------------------------------------------------------------------
-AI_SERVICE_URL = os.environ["AI_SERVICE_URL"]
-CHAT_MODEL = os.getenv("CHAT_MODEL", "tinyllama")
-EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 
-router = APIRouter(prefix="/rag", tags=["rag"])
+router = APIRouter()
 
 # --------------------------------------------------------------------
 # Schemas
@@ -63,82 +57,6 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 
     return num / ((da**0.5) * (db**0.5))
 
-
-async def _embed(text: str) -> list[float]:
-    """
-    Call Ollama embeddings API directly (same as /embed, but internal).
-    """
-    url = f"{AI_SERVICE_URL}/api/embeddings"
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.post(
-                url,
-                json={"model": EMBED_MODEL, "prompt": text},
-                timeout=60.0,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            emb = data.get("embedding")
-            
-            if not isinstance(emb, list):
-                raise RuntimeError("Embedding response missing 'embedding' list")
-
-            return emb
-
-        except httpx.HTTPError as e:
-            raise HTTPException(
-                status_code=503,
-                detail=f"Error connecting to AI embeddings service: {e}",
-            )
-
-
-async def _chat_with_context(prompt: str, context: str) -> str:
-    """
-    Call Ollama chat API, injecting retrieved context into the prompt.
-    """
-    url = f"{AI_SERVICE_URL}/api/chat"
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are a research assistant. Answer the user's question "
-                "using ONLY the information in the provided sources. "
-                "If the sources are insufficient or unrelated, say so explicitly."
-            ),
-        },
-        {
-            "role": "user",
-            "content": f"{prompt}\n\n---\nSources:\n{context}",
-        },
-    ]
-
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.post(
-                url,
-                json={
-                    "model": CHAT_MODEL,
-                    "messages": messages,
-                    "stream": False,
-                },
-                timeout=60.0,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            # Ollama-style response: { "message": { "content": "..." }, ... }
-            msg = data.get("message") or {}
-            content = msg.get("content")
-
-            if not isinstance(content, str):
-                raise RuntimeError("Chat response missing 'message.content'")
-
-            return content
-
-        except httpx.HTTPError as e:
-            raise HTTPException(
-                status_code=503,
-                detail=f"Error connecting to AI chat service: {e}",
-            )
 
 
 def _get_entity_publication_docs(entity: EntityRef, max_docs: int) -> list[dict]:
@@ -213,7 +131,7 @@ def _get_entity_publication_docs(entity: EntityRef, max_docs: int) -> list[dict]
 # --------------------------------------------------------------------
 
 
-@router.post("/ask", response_model=RagAskResponse)
+@router.post("/generate", response_model=RagAskResponse)
 async def rag_ask(req: RagAskRequest) -> RagAskResponse:
     """
     Simple RAG endpoint:
