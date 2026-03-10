@@ -3,8 +3,7 @@ from datetime import datetime
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.ai import router as ai_router
-from app.routers import connections, autocomplete, rag
+from app.routers import connections, autocomplete, ai
 
 from contextlib import asynccontextmanager
 import app.utils.database_utils.database_utils as database_utils
@@ -39,8 +38,7 @@ app.add_middleware(
 
 app.include_router(connections.router)
 app.include_router(autocomplete.router)
-app.include_router(ai_router)
-app.include_router(rag.router)
+app.include_router(ai.router)
 
 memory_db = {"fruits": []}
 
