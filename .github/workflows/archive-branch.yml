@@ -1,0 +1,24 @@
+name: Archive merged branches
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  archive-branch:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Archive branch
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git fetch origin "$BRANCH"
+          git push origin "refs/remotes/origin/$BRANCH:refs/heads/archive/$BRANCH"
+          git push origin --delete "$BRANCH"
