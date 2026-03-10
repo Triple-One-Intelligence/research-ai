@@ -1,7 +1,7 @@
 """Cypher queries for the connections service."""
 
 PERSON_PUBLICATIONS = """
-MATCH (root:RicgraphNode {value: $rootKey})-[:LINKS_TO]-(pub:RicgraphNode {name: 'DOI'})
+MATCH (root:RicgraphNode {value: $rootValue})-[:LINKS_TO]-(pub:RicgraphNode {name: 'DOI'})
 WHERE NOT coalesce(pub.category, '') IN $excludeCategories
 WITH DISTINCT pub
 ORDER BY pub.year DESC
@@ -13,7 +13,7 @@ LIMIT $limit
 """
 
 PERSON_COLLABORATORS = """
-MATCH (root:RicgraphNode {value: $rootKey})-[:LINKS_TO]-(pub:RicgraphNode {name: 'DOI'})
+MATCH (root:RicgraphNode {value: $rootValue})-[:LINKS_TO]-(pub:RicgraphNode {name: 'DOI'})
       -[:LINKS_TO]-(other:RicgraphNode {name: 'person-root'})
 WHERE other <> root
   AND NOT coalesce(pub.category, '') IN $excludeCategories
@@ -26,7 +26,7 @@ LIMIT $limit
 """
 
 PERSON_ORGANIZATIONS = """
-MATCH (root:RicgraphNode {value: $rootKey})-[:LINKS_TO]-(org:RicgraphNode {category: 'organization'})
+MATCH (root:RicgraphNode {value: $rootValue})-[:LINKS_TO]-(org:RicgraphNode {category: 'organization'})
 WITH DISTINCT org
 RETURN org.value AS organization_id, org.value AS name
 ORDER BY name

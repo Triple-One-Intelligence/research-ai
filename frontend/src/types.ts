@@ -41,10 +41,8 @@ export type PublicationVersion = {
 export type Publication = {
   doi: string;
   title?: string;
-  publication_rootid?: string;
   year?: number;
   category?: string;
-  name?: string;
   versions?: PublicationVersion[];
 };
 

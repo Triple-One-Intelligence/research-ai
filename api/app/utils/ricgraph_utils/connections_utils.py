@@ -87,13 +87,13 @@ def person_connections(entity_id: str, max_publications: int, max_collaborators:
 
     with driver.session() as session:
         collaborators = session.run(
-            PERSON_COLLABORATORS, rootKey=entity_id, excludeCategories=EXCLUDE_CATEGORIES, limit=max_collaborators
+            PERSON_COLLABORATORS, rootValue=entity_id, excludeCategories=EXCLUDE_CATEGORIES, limit=max_collaborators
         ).data()
         publications = session.run(
-            PERSON_PUBLICATIONS, rootKey=entity_id, excludeCategories=EXCLUDE_CATEGORIES, limit=max_publications
+            PERSON_PUBLICATIONS, rootValue=entity_id, excludeCategories=EXCLUDE_CATEGORIES, limit=max_publications
         ).data()
         organizations = session.run(
-            PERSON_ORGANIZATIONS, rootKey=entity_id, limit=max_organizations
+            PERSON_ORGANIZATIONS, rootValue=entity_id, limit=max_organizations
         ).data()
 
     return {
