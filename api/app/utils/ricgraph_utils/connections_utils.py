@@ -61,9 +61,8 @@ def format_publications(rows: List[Dict[str, Any]]) -> List[Publication]:
     for row in rows:
         title = clean_title(row.get("title"))
         entry = Publication(
-            doi=row["doi"], title=title, publication_rootid=None,
-            year=parse_year(row.get("year")), category=row.get("category"),
-            name=None,
+            doi=row["doi"], title=title
+            year=parse_year(row.get("year")), category=row.get("category")
         )
         if title is not None:
             grouped.setdefault(title.lower(), []).append(entry)
