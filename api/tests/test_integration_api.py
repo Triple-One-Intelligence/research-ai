@@ -11,13 +11,13 @@ import socket
 import pytest
 import httpx
 
-API_BASE = "http://localhost:8080/api"
+API_BASE = "http://localhost:3000/api"
 TIMEOUT = 5.0
 
 
 def _api_reachable() -> bool:
     try:
-        with socket.create_connection(("localhost", 8080), timeout=2):
+        with socket.create_connection(("localhost", 3000), timeout=2):
             return True
     except (ConnectionRefusedError, TimeoutError, OSError):
         return False
@@ -25,7 +25,7 @@ def _api_reachable() -> bool:
 
 pytestmark = pytest.mark.skipif(
     not _api_reachable(),
-    reason="Dev pod not running (port 8080 not open). Start with: make dev",
+    reason="Dev pod not running (port 3000 not open). Start with: make dev",
 )
 
 
