@@ -3,7 +3,10 @@ from typing import List, Literal, Optional
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from app.utils.database_utils import database_utils
+from app.utils.database_utils.database_utils import get_graph, VECTOR_INDEX_NAME
+from app.utils.ai_utils.ai_utils import async_embed, generate
+from app.utils.ricgraph_utils.queries import rag_queries 
+
 
 
 router = APIRouter()
@@ -17,195 +20,87 @@ class EntityRef(BaseModel):
     type: Literal["person", "organization"]
     label: str
 
-class RagSource(BaseModel):
-    doi: str
-    title: Optional[str] = None
-    year: Optional[int] = None
-    category: Optional[str] = None
-    abstract: str
-    score: float
-
 class RagAskRequest(BaseModel):
     entity: EntityRef
     prompt: str
     top_k: int = 8
 
-class RagAskResponse(BaseModel):
-    answer: str
-    sources: List[RagSource]
 
 
 # --------------------------------------------------------------------
 # Helpers
 # --------------------------------------------------------------------
 
+async def get_similar_publications(prompt: str, top_k: int) -> list[dict]:
+    prompt_embedding = await async_embed(prompt)
 
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    if not a or not b or len(a) != len(b):
-        return 0.0
+    with get_graph().session() as session:
+        results = session.run(rag_queries.SIMILAR_PUBLICATIONS, 
+                              indexName=VECTOR_INDEX_NAME, 
+                              k=top_k, 
+                              prompt_embedding=prompt_embedding)
 
-    num = 0.0
-    da = 0.0
-    db = 0.0
-    for x, y in zip(a, b):
-        num += x * y
-        da += x * x
-        db += y * y
-
-    if da == 0.0 or db == 0.0:
-        return 0.0
-
-    return num / ((da**0.5) * (db**0.5))
-
-
-
-def _get_entity_publication_docs(entity: EntityRef, max_docs: int) -> list[dict]:
+        top_k_publications = [
+        {
+            "doi": r["doi"],
+            "title": r["title"],
+            "year": r["year"],
+            "category": r["category"],
+            "abstract": r["abstract"]
+        }
+        for r in results
+        ]
+        return top_k_publications    
+    
+def format_similar_publications_for_rag(similar_publications: list[dict]) -> str:
     """
-    Fetch publication nodes for the given entity from Neo4j, including
-    abstract + embedding stored by the enrich.py script.
-    This intentionally mirrors your existing connections_queries, but
-    adds abstract + embedding.
+    Turn a list of similar publications into a single string for RAG context.
+    Each publications is formatted with its DOI, title, year, and optionally category and abstract.
     """
-    driver = database_utils.get_graph()
-    docs: list[dict] = []
+    lines = []
+    for doc in similar_publications:
+        parts = [
+            f"DOI: {doc.get('doi', 'available')}",
+            f"Title: {doc.get('title', 'not available')}",
+            f"Year: {doc.get('year', 'available')}"
+        ]
+        if "category" in doc:
+            parts.append(f"Category: {doc['category']}")
+        if "abstract" in doc:
+            parts.append(f"Abstract: {doc['text']}")
+        lines.append(" | ".join(parts))
 
-    with driver.session() as session:
-        if entity.type == "person":
-            # Person: resolve person-root first, then traverse to DOI nodes
-            res = session.run(
-                """
-                // Resolve person-root node from arbitrary person node id
-                MATCH (start:RicgraphNode {_key: $entityId})
-                OPTIONAL MATCH (start)-[:LINKS_TO]-(root:RicgraphNode {name: 'person-root'})
-                WITH CASE WHEN start.name = 'person-root' THEN start ELSE root END AS root
-                WHERE root IS NOT NULL
-                // Publications attached to this person-root
-                MATCH (root)-[:LINKS_TO]-(pub:RicgraphNode {name: 'DOI'})
-                WHERE pub.value IS NOT NULL
-                  AND pub.abstract IS NOT NULL
-                  AND pub.embedding IS NOT NULL
-                RETURN
-                  pub.value     AS doi,
-                  pub.comment   AS title,
-                  pub.year      AS year,
-                  pub.category  AS category,
-                  pub.abstract  AS abstract,
-                  pub.embedding AS embedding
-                LIMIT $maxDocs
-                """,
-                entityId=entity.id,
-                maxDocs=max_docs,
-            )
-        else:
-            # Organization: org -> person-root -> DOI
-            res = session.run(
-                """
-                MATCH (org:RicgraphNode {_key: $entityId})
-                      -[:LINKS_TO]-(:RicgraphNode {name: 'person-root'})-[:LINKS_TO]
-                      (pub:RicgraphNode {name: 'DOI'})
-                WHERE pub.value IS NOT NULL
-                  AND pub.abstract IS NOT NULL
-                  AND pub.embedding IS NOT NULL
-                RETURN
-                  pub.value     AS doi,
-                  pub.comment   AS title,
-                  pub.year      AS year,
-                  pub.category  AS category,
-                  pub.abstract  AS abstract,
-                  pub.embedding AS embedding
-                LIMIT $maxDocs
-                """,
-                entityId=entity.id,
-                maxDocs=max_docs,
-            )
 
-        for row in res:
-            data = row.data()
-            docs.append(data)
+    # Join all documents with double newlines to separate them clearly
+    return "\n\n".join(lines)
 
-    return docs
-
+def format_entity_context(entity: EntityRef) -> str:
+    """
+    Returns a string instructing the AI that the prompt is about a given entity.
+    """
+    return (
+        f"The following user query is related to a {entity.type} named '{entity.label}.'"
+    )
 
 # --------------------------------------------------------------------
 # Endpoint
 # --------------------------------------------------------------------
 
 
-@router.post("/generate", response_model=RagAskResponse)
-async def rag_ask(req: RagAskRequest) -> RagAskResponse:
-    """
-    Simple RAG endpoint:
-    1) Get publications for the selected entity.
-    2) Embed (entity + question).
-    3) Rank docs by cosine similarity in Python.
-    4) Build a context block and call the chat model.
-    """
+@router.post("/generate", response_model=str)
+async def rag_ask(req: RagAskRequest) -> str:
 
     if not req.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt must not be empty")
 
-    docs = _get_entity_publication_docs(req.entity, max_docs=100)
-    if not docs:
-        # No docs – fallback: answer without context but tell the user.
-        answer = await _chat_with_context(
-            f"(No related publications were found for entity {req.entity.label} "
-            f"[{req.entity.type}/{req.entity.id}].) {req.prompt}",
-            context="(no sources available)",
-        )
-        return RagAskResponse(answer=answer, sources=[])
+    similar_docs = await get_similar_publications(req.prompt, 10)
+    rag_context = format_similar_publications_for_rag(similar_docs)
+    entity_context = format_entity_context(req.entity)
 
-    query_text = (
-        f"Entity: {req.entity.label} ({req.entity.type}, id={req.entity.id})\n"
-        f"Question: {req.prompt}"
-    )
-    query_emb = await _embed(query_text)
+    final_prompt = f"{entity_context}\n\n{rag_context}\n\n{req.prompt}"
 
-    # Score and pick top_k
-    scored: list[RagSource] = []
-    for d in docs:
-        emb = d.get("embedding")
-
-        if not isinstance(emb, list):
-            continue
-
-        score = _cosine_similarity(query_emb, emb)
-
-        if score <= 0:
-            continue
-
-        src = RagSource(
-            doi=d.get("doi"),
-            title=d.get("title"),
-            year=d.get("year"),
-            category=d.get("category"),
-            abstract=d.get("abstract") or "",
-            score=score,
-        )
-        scored.append(src)
-
-    scored.sort(key=lambda s: s.score, reverse=True)
-    top_sources = scored[: max(req.top_k, 1)]
-
-    # Build context text for the LLM
-    context_chunks = []
-    for i, s in enumerate(top_sources, start=1):
-        meta_bits = []
-
-        if s.year is not None:
-            meta_bits.append(f"Year: {s.year}")
-
-        if s.category:
-            meta_bits.append(f"Category: {s.category}")
-            
-        meta_str = " | ".join(meta_bits) if meta_bits else ""
-        context_chunks.append(
-            f"[S{i}] DOI: {s.doi}\n"
-            f"Title: {s.title or '(no title)'}\n"
-            f"{meta_str}\n"
-            f"Abstract: {s.abstract}\n"
-        )
-
-    context_text = "\n\n".join(context_chunks)
-    answer = await _chat_with_context(req.prompt, context_text)
-
-    return RagAskResponse(answer=answer, sources=top_sources)
+    answer = await generate(final_prompt)
+    response = answer.get("response")
+    if response is None:
+        raise ValueError("AI response missing")
+    return response
