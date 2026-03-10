@@ -1,8 +1,11 @@
 """Tests for FastAPI endpoints (autocomplete, health, AI proxy)."""
 
+import os
 from unittest.mock import patch, MagicMock, AsyncMock
 import pytest
 from fastapi.testclient import TestClient
+
+CHAT_MODEL = os.getenv("CHAT_MODEL", "tinyllama")
 
 
 @pytest.fixture
@@ -94,7 +97,7 @@ class TestChatEndpoint:
         mock_client_cls.return_value = mock_client
 
         response = client.post("/chat", json={
-            "model": "llama3",
+            "model": CHAT_MODEL,
             "messages": [{"role": "user", "content": "hi"}],
         })
         assert response.status_code == 200
@@ -110,7 +113,7 @@ class TestChatEndpoint:
         mock_client_cls.return_value = mock_client
 
         response = client.post("/chat", json={
-            "model": "llama3",
+            "model": CHAT_MODEL,
             "messages": [{"role": "user", "content": "hi"}],
         })
         assert response.status_code == 503
