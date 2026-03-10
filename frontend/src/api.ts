@@ -88,7 +88,7 @@ export const askWithRag = async (
   prompt: string,
   entity: EntitySuggestion
 ): Promise<RagAskResponse> => {
-  const response = await api.post<RagAskResponse>('/rag/ask', {
+  const response = await api.post<RagAskResponse>('/generate', {
     prompt,
     entity: {
       id: entity.id,
@@ -96,6 +96,7 @@ export const askWithRag = async (
       label: entity.label,
     },
   });
+  
   return response.data;
 };
 
