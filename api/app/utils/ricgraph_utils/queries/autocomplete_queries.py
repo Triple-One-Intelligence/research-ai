@@ -8,7 +8,7 @@ AUTOCOMPLETE_CYPHER = """/*cypher*/
 
     // Use fulltext score for initial ordering, limit early for performance
     WITH node
-    ORDER BY ftScore DESC, length(node.value) ASC
+    ORDER BY ftScore DESC, size(node.value) ASC
     LIMIT 1000
 
     // Data cleaning (uuid + leading comma)
@@ -48,9 +48,9 @@ AUTOCOMPLETE_CYPHER = """/*cypher*/
          END AS formatScore
 
     // For each root, pick the best displayName among its mapped nodes/names
-    // Order candidates by matchScore desc, formatScore desc, length(name) desc to make selection deterministic
+    // Order candidates by matchScore desc, formatScore desc, size(name) desc to make selection deterministic
     WITH root, name, matchScore, formatScore
-    ORDER BY matchScore DESC, formatScore DESC, length(name) DESC
+    ORDER BY matchScore DESC, formatScore DESC, size(name) DESC
 
     // Aggregate by root._key, keep best name and bestScore
     WITH root._key AS id, root, head(collect(name)) AS displayName, max(matchScore) AS bestScore
