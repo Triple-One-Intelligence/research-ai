@@ -39,13 +39,17 @@ class TestHealthIntegration:
         assert "time" in data
 
     def test_health_time_is_recent(self):
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
 
         resp = httpx.get(f"{API_BASE}/health", timeout=TIMEOUT)
         data = resp.json()
         api_time = datetime.fromisoformat(data["time"])
-        assert abs(datetime.now() - api_time) < timedelta(minutes=5), (
-            "API time is more than 5 minutes off from local time."
+        # API may return naive UTC or tz-aware time; compare in UTC
+        if api_time.tzinfo is None:
+            api_time = api_time.replace(tzinfo=timezone.utc)
+        now_utc = datetime.now(timezone.utc)
+        assert abs(now_utc - api_time) < timedelta(minutes=5), (
+            "API time is more than 5 minutes off from UTC."
         )
 
 

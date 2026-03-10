@@ -200,4 +200,4 @@ test: test-unit
 	@echo "=== Unit tests passed. Running dev integration tests... ==="
 	@echo "(tests will skip automatically if the dev pod is not running)"
 	@echo ""
-	cd api && python -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=long
+	-cd api && python -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=line
