@@ -31,10 +31,11 @@ setup-wsl-ssh:
 	fi
 
 tunnel: setup-wsl-ssh
-	@set -a; . ./kube/research-ai-dev.env; set +a; \
-	ssh -f -N -o ExitOnForwardFailure=yes \
+	set -a; . ./kube/research-ai-dev.env; set +a; \
+	ssh -N -o ExitOnForwardFailure=yes \
 		-L 7687:localhost:7687 \
 		-L 7474:localhost:7474 \
+		-L 18080:localhost:8080 \
 		-L 3030:localhost:3030 \
 		-L 11434:localhost:11434 \
 		$$REMOTE_SERVER \
@@ -65,10 +66,22 @@ up:
 	set -a; . ./kube/research-ai-dev.env; set +a; \
 	envsubst < kube/pod-dev.yaml | podman kube play -
 
-dev: up tunnel
-	@echo "[dev] Pod and SSH tunnel are running. Use 'make tunnel-status' to check tunnel."
+dev: down
+	@$(MAKE) tunnel &
+	@echo "  Waiting for SSH tunnel..."
+	@for i in $$(seq 1 30); do nc -z localhost 7687 2>/dev/null && break || sleep 1; done
+	@nc -z localhost 7687 2>/dev/null || { echo "  Tunnel failed to start"; exit 1; }
+	@$(MAKE) up
+	@echo ""
+	@echo "  research-ai dev is running at: http://localhost:3000"
+	@echo "  SSH tunnel to prod server running in background (PID $$!)"
+	@echo ""
+	@echo "  make watch  - view all logs"
+	@echo "  make down   - stop the pod"
+	@echo ""
 
 down:
+	-pkill -f 'ssh -N.*$(REMOTE_SERVER)' 2>/dev/null || true
 	set -a; . ./kube/research-ai-dev.env; set +a; \
 	envsubst < kube/pod-dev.yaml | podman kube down -
 
