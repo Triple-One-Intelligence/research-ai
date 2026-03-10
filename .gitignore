@@ -9,3 +9,5 @@ enrich.log
 
 # --- Python Artifacts ---
 __pycache__/
+.venv/
+api/.venv/

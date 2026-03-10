@@ -1,16 +1,54 @@
-.PHONY: dev up down nuke labelSELinux watch wapi wui deploy undeploy logs logs-api logs-ui logs-ric enrich enrich-force harvest tunnel tunnel-stop tunnel-status setup-wsl-ssh test test-unit test-dev test-deploy
+.PHONY: help dev up down nuke labelSELinux watch wapi wui deploy undeploy logs logs-api logs-ui logs-ric enrich enrich-force harvest tunnel tunnel-stop tunnel-status setup-wsl-ssh test test-unit test-dev test-deploy
 
 REMOTE_SERVER ?= root@0xai.nl
 
-# Use venv pip/python if available, otherwise system pip/python
-VENV_DIR := .venv
-ifneq (,$(wildcard $(VENV_DIR)/bin/python))
-  PIP := $(VENV_DIR)/bin/pip
-  PYTHON := $(VENV_DIR)/bin/python
-else
-  PIP := pip
-  PYTHON := python
-endif
+# Test venv: auto-created under api/.venv so it works with cd api
+TEST_VENV := api/.venv
+TEST_PIP := $(TEST_VENV)/bin/pip
+TEST_PYTHON := $(TEST_VENV)/bin/python
+
+$(TEST_VENV)/bin/python:
+	@echo "Setting up test environment..."
+	python3 -m venv $(TEST_VENV)
+	$(TEST_PIP) install -q -r api/requirements-dev.txt
+
+help:
+	@echo "research-ai Makefile"
+	@echo ""
+	@echo "Development:"
+	@echo "  make dev             Start dev pod + SSH tunnel (full dev environment)"
+	@echo "  make up              Build and start the dev pod only"
+	@echo "  make down            Stop the dev pod and SSH tunnel"
+	@echo "  make tunnel          Open SSH tunnel to production services"
+	@echo "  make tunnel-stop     Stop the SSH tunnel"
+	@echo "  make tunnel-status   Check if the SSH tunnel is running"
+	@echo "  make watch           Follow logs from all dev containers"
+	@echo "  make wapi            Follow API container logs"
+	@echo "  make wui             Follow frontend container logs"
+	@echo "  make labelSELinux    Relabel files for SELinux (Fedora/RHEL)"
+	@echo "  make setup-wsl-ssh   Symlink Windows SSH keys into WSL"
+	@echo ""
+	@echo "Data:"
+	@echo "  make harvest         Run ricgraph harvesting"
+	@echo "  make enrich          Enrich publications with abstracts + embeddings"
+	@echo "  make enrich-force    Re-enrich all publications (even existing ones)"
+	@echo ""
+	@echo "Production:"
+	@echo "  make deploy          Build and deploy all services to production"
+	@echo "  make undeploy        Stop and remove all production services"
+	@echo "  make logs            Follow all production service logs"
+	@echo "  make logs-api        Follow production API logs"
+	@echo "  make logs-ui         Follow production frontend logs"
+	@echo "  make logs-ric        Follow production ricgraph logs"
+	@echo ""
+	@echo "Testing:"
+	@echo "  make test            Run unit tests + dev integration tests"
+	@echo "  make test-unit       Run unit tests only (no services needed)"
+	@echo "  make test-dev        Run dev smoke + integration tests (needs make dev)"
+	@echo "  make test-deploy     Run production smoke tests (run on prod server)"
+	@echo ""
+	@echo "Danger:"
+	@echo "  make nuke            Destroy ALL containers, pods, volumes, and images"
 
 # THE NUCLEAR OPTION:
 # Wipes all containers, pods, volumes, and images from the system.
@@ -193,16 +231,16 @@ logs-ric:
 # test rules:
 
 # Run all unit tests (no running services needed)
-test-unit:
-	cd api && $(PIP) install -q -r requirements-dev.txt && $(PYTHON) -m pytest tests/test_query_utils.py tests/test_database_utils.py tests/test_autocomplete_utils.py tests/test_enrich.py tests/test_schemas.py tests/test_api_endpoints.py tests/test_connections_endpoint.py -v
+test-unit: $(TEST_VENV)/bin/python
+	cd api && .venv/bin/python -m pytest tests/test_query_utils.py tests/test_database_utils.py tests/test_autocomplete_utils.py tests/test_enrich.py tests/test_schemas.py tests/test_api_endpoints.py tests/test_connections_endpoint.py -v
 
 # Run dev smoke + integration tests (requires: make dev + make tunnel)
-test-dev:
-	cd api && $(PIP) install -q -r requirements-dev.txt && $(PYTHON) -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=long
+test-dev: $(TEST_VENV)/bin/python
+	cd api && .venv/bin/python -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=long
 
 # Run prod deployment tests (run ON the production server after make deploy)
-test-deploy:
-	cd api && $(PIP) install -q -r requirements-dev.txt && $(PYTHON) -m pytest tests/test_smoke_deploy.py -v --tb=long
+test-deploy: $(TEST_VENV)/bin/python
+	cd api && .venv/bin/python -m pytest tests/test_smoke_deploy.py -v --tb=long
 
 # Run everything: unit tests first, then dev integration if pod is running
 test: test-unit
@@ -210,4 +248,4 @@ test: test-unit
 	@echo "=== Unit tests passed. Running dev integration tests... ==="
 	@echo "(tests will skip automatically if the dev pod is not running)"
 	@echo ""
-	-cd api && $(PYTHON) -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=line
+	-cd api && .venv/bin/python -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=line
