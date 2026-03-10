@@ -52,8 +52,8 @@ AUTOCOMPLETE_CYPHER = """/*cypher*/
     WITH root, name, matchScore, formatScore
     ORDER BY matchScore DESC, formatScore DESC, size(name) DESC
 
-    // Aggregate by root._key, keep best name and bestScore
-    WITH root._key AS id, root, head(collect(name)) AS displayName, max(matchScore) AS bestScore
+    // Aggregate by root.value, keep best name and bestScore
+    WITH root.value AS id, root, head(collect(name)) AS displayName, max(matchScore) AS bestScore
     WITH id, displayName, root.category AS type, bestScore
 
     RETURN id, displayName, type, bestScore
