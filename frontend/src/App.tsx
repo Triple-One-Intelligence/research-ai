@@ -5,55 +5,11 @@ import { LeftPanel } from './components/LeftPanel';
 import { MiddlePanel } from './components/MiddlePanel';
 import { RightPanel } from './components/RightPanel';
 import type { EntitySuggestion } from './types';
-import api, { askWithRag } from './api';
+import  { askWithRag } from './api';
 
-const generateResponse = async (
-  prompt: string,
-  onChunk: (chunk: string) => void,
-  onComplete: () => void,
-) => {
-  try {
-    const resp = await fetch(`${API_BASE}/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
+// Ask response generation function. Takes a prompt and two callbacks:
+// one for handling incoming chunks of text, and one for when the response is complete.
 
-    if (!resp.ok || !resp.body) {
-      onChunk(`Error: ${resp.status} ${resp.statusText}`);
-      onComplete();
-      return;
-    }
-
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop() ?? '';
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const payload = line.slice(6);
-        if (payload === '[DONE]') break;
-        try {
-          const data = JSON.parse(payload);
-          if (data.error) { onChunk(`Error: ${data.error}`); break; }
-          if (data.token) onChunk(data.token);
-        } catch { /* skip malformed */ }
-      }
-    }
-    onComplete();
-  } catch (error) {
-    onChunk('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    onComplete();
-  }
-};
 
 
 // Main App component – orchestrates state and renders the three‑panel layout.
@@ -62,18 +18,7 @@ const App = () => {
   const [responseText, setResponseText] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
-  const handleGenerate = (prompt: string) => { //deprecated
-    if (isGenerating) return;
 
-    setResponseText('');
-    setIsGenerating(true);
-
-    generateResponse(
-      prompt,
-      (chunk) => setResponseText((prev) => prev + chunk),
-      () => setIsGenerating(false)
-    );
-  };
 
   const handleRAGGenerate = async (prompt: string) => {
     if (isGenerating) return;
