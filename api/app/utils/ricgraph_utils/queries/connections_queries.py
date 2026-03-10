@@ -35,8 +35,16 @@ LIMIT $limit
 
 ORG_MEMBERS = """
 MATCH (org:RicgraphNode {value: $entityId})-[:LINKS_TO]-(root:RicgraphNode {name: 'person-root'})
-MATCH (root)-[:LINKS_TO]-(fn:RicgraphNode {name: 'FULL_NAME'})
-WITH root.value AS author_id, head(collect(fn.value)) AS rawName
+MATCH (root)-[:LINKS_TO]-(fn:RicgraphNode)
+WHERE fn.name IN ['FULL_NAME', 'FULL_NAME_ASCII']
+WITH root.value AS author_id, fn.value AS name,
+     CASE
+       WHEN fn.value CONTAINS ',' THEN 3
+       WHEN fn.value CONTAINS ' ' THEN 2
+       ELSE 1
+     END AS formatScore
+ORDER BY author_id, formatScore DESC, size(fn.value) DESC
+WITH author_id, head(collect(name)) AS rawName
 RETURN author_id, rawName
 ORDER BY rawName
 LIMIT $limit
