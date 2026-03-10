@@ -2,6 +2,16 @@
 
 REMOTE_SERVER ?= root@0xai.nl
 
+# Use venv pip/python if available, otherwise system pip/python
+VENV_DIR := .venv
+ifneq (,$(wildcard $(VENV_DIR)/bin/python))
+  PIP := $(VENV_DIR)/bin/pip
+  PYTHON := $(VENV_DIR)/bin/python
+else
+  PIP := pip
+  PYTHON := python
+endif
+
 # THE NUCLEAR OPTION:
 # Wipes all containers, pods, volumes, and images from the system.
 nuke:
@@ -184,15 +194,15 @@ logs-ric:
 
 # Run all unit tests (no running services needed)
 test-unit:
-	cd api && pip install -q -r requirements-dev.txt && python -m pytest tests/test_query_utils.py tests/test_database_utils.py tests/test_autocomplete_utils.py tests/test_enrich.py tests/test_schemas.py tests/test_api_endpoints.py tests/test_connections_endpoint.py -v
+	cd api && $(PIP) install -q -r requirements-dev.txt && $(PYTHON) -m pytest tests/test_query_utils.py tests/test_database_utils.py tests/test_autocomplete_utils.py tests/test_enrich.py tests/test_schemas.py tests/test_api_endpoints.py tests/test_connections_endpoint.py -v
 
 # Run dev smoke + integration tests (requires: make dev + make tunnel)
 test-dev:
-	cd api && pip install -q -r requirements-dev.txt && python -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=long
+	cd api && $(PIP) install -q -r requirements-dev.txt && $(PYTHON) -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=long
 
 # Run prod deployment tests (run ON the production server after make deploy)
 test-deploy:
-	cd api && pip install -q -r requirements-dev.txt && python -m pytest tests/test_smoke_deploy.py -v --tb=long
+	cd api && $(PIP) install -q -r requirements-dev.txt && $(PYTHON) -m pytest tests/test_smoke_deploy.py -v --tb=long
 
 # Run everything: unit tests first, then dev integration if pod is running
 test: test-unit
@@ -200,4 +210,4 @@ test: test-unit
 	@echo "=== Unit tests passed. Running dev integration tests... ==="
 	@echo "(tests will skip automatically if the dev pod is not running)"
 	@echo ""
-	-cd api && python -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=line
+	-cd api && $(PYTHON) -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=line
