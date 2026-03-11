@@ -5,7 +5,8 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from app.utils.database_utils.database_utils import get_graph
+from app.utils.database_utils.database_utils import get_graph, VECTOR_INDEX_NAME
+from app.utils.ai_utils.ai_utils import async_embed
 from app.utils.ricgraph_utils.queries import rag_queries
 
 router = APIRouter()
@@ -41,20 +42,36 @@ class EntityRef(BaseModel):
 class RagGenerateRequest(BaseModel):
     prompt: str
     entity: Optional[EntityRef] = None
-    top_k: int = 20
+    top_k: int = 8
 
 # --------------------------------------------------------------------
 # RAG helpers
 # --------------------------------------------------------------------
 
-def _get_entity_publications(entity: EntityRef, limit: int) -> list[dict]:
-    """Get publications that belong to the selected entity from the graph."""
-    if entity.type == "person":
-        query = rag_queries.PERSON_PUBLICATIONS_WITH_ABSTRACT
-        params = {"entityId": entity.id, "limit": limit}
+async def get_similar_publications(prompt: str, entity: Optional[EntityRef], top_k: int) -> list[dict]:
+    """Embed the user prompt and retrieve the most similar publications
+    from the vector index, optionally scoped to an entity."""
+    prompt_embedding = await async_embed(prompt)
+
+    if entity:
+        if entity.type == "person":
+            query = rag_queries.PERSON_SIMILAR_PUBLICATIONS
+        else:
+            query = rag_queries.ORG_SIMILAR_PUBLICATIONS
+        params = {
+            "indexName": VECTOR_INDEX_NAME,
+            "searchK": top_k * 25,
+            "prompt_embedding": prompt_embedding,
+            "entityId": entity.id,
+            "limit": top_k,
+        }
     else:
-        query = rag_queries.ORG_PUBLICATIONS_WITH_ABSTRACT
-        params = {"entityId": entity.id, "limit": limit}
+        query = rag_queries.SIMILAR_PUBLICATIONS
+        params = {
+            "indexName": VECTOR_INDEX_NAME,
+            "k": top_k,
+            "prompt_embedding": prompt_embedding,
+        }
 
     with get_graph().session() as session:
         results = session.run(query, **params)
@@ -70,10 +87,12 @@ def _get_entity_publications(entity: EntityRef, limit: int) -> list[dict]:
         ]
 
 
-def _format_publications_context(publications: list[dict]) -> str:
-    """Format retrieved publications into a context string for the LLM."""
+def format_similar_publications_for_rag(similar_publications: list[dict]) -> str:
+    """Turn a list of similar publications into a single string for RAG context.
+    Each publication is formatted with its DOI, title, year, and optionally
+    category and abstract."""
     lines = []
-    for doc in publications:
+    for doc in similar_publications:
         parts = [
             f"DOI: {doc.get('doi', 'n/a')}",
             f"Title: {doc.get('title', 'n/a')}",
@@ -87,6 +106,14 @@ def _format_publications_context(publications: list[dict]) -> str:
     return "\n\n".join(lines)
 
 
+def format_entity_context(entity: EntityRef) -> str:
+    """Returns a string describing which entity the prompt is about."""
+    return (
+        f"The following user query is related to a {entity.type} "
+        f"named '{entity.label}'."
+    )
+
+
 def _build_rag_system_prompt(entity: Optional[EntityRef], publications_context: str) -> str:
     """Build the system prompt incorporating RAG context."""
     parts = [
@@ -95,10 +122,7 @@ def _build_rag_system_prompt(entity: Optional[EntityRef], publications_context: 
         "If evidence is insufficient, say so briefly."
     ]
     if entity:
-        parts.append(
-            f"\nThe following user query is related to a {entity.type} "
-            f"named '{entity.label}'."
-        )
+        parts.append(f"\n{format_entity_context(entity)}")
     if publications_context:
         parts.append(f"\n\nRelevant publications:\n{publications_context}")
     else:
@@ -153,18 +177,15 @@ async def chat(req: ChatRequest):
 
 @router.post("/generate")
 async def rag_generate(req: RagGenerateRequest):
-    """Streaming RAG-augmented generation: retrieves the selected entity's
-    publications from the graph, builds an enriched prompt with their
-    abstracts, and streams the LLM response token-by-token via SSE."""
+    """Streaming RAG-augmented generation: embeds the user prompt, retrieves
+    similar publications from the vector index (scoped to the selected entity),
+    and streams the LLM response token-by-token via SSE."""
     if not req.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt must not be empty")
 
-    publications: list[dict] = []
-    if req.entity:
-        publications = _get_entity_publications(req.entity, req.top_k)
-
-    pub_context = _format_publications_context(publications)
-    system_prompt = _build_rag_system_prompt(req.entity, pub_context)
+    similar_docs = await get_similar_publications(req.prompt, req.entity, req.top_k)
+    rag_context = format_similar_publications_for_rag(similar_docs)
+    system_prompt = _build_rag_system_prompt(req.entity, rag_context)
 
     payload = {
         "model": CHAT_MODEL,
@@ -181,8 +202,8 @@ async def rag_generate(req: RagGenerateRequest):
             "model": CHAT_MODEL,
             "user_prompt": req.prompt,
             "entity": req.entity.model_dump() if req.entity else None,
-            "publications_found": len(publications),
-            "publications": publications,
+            "publications_found": len(similar_docs),
+            "publications": similar_docs,
             "system_prompt": system_prompt,
             "full_messages": payload["messages"],
         }

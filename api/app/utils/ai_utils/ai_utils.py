@@ -3,6 +3,7 @@ import httpx
 from fastapi import HTTPException
 
 AI_SERVICE_URL = os.environ["AI_SERVICE_URL"]
+CHAT_MODEL = os.getenv("CHAT_MODEL", "tinyllama")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 EMBED_DIMENSIONS = int(os.getenv("EMBED_DIMENSIONS", "768"))
 
@@ -21,6 +22,35 @@ def _send_ai_request(url: str, request_params: dict, client: httpx.Client) -> di
         raise HTTPException(status_code=503, detail=f"Error connecting to AI service: {e}")
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=response.status_code, detail=f"AI service error: {response.text}")
+
+
+async def send_async_ai_request(url: str, request_params: dict) -> dict:
+    """Send an asynchronous request to the AI service (used by the router)."""
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                url,
+                json=request_params,
+                timeout=60.0,
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Error connecting to AI service: {e}")
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(status_code=response.status_code, detail=f"AI service error: {response.text}")
+
+
+async def async_embed(input: str) -> list[float]:
+    """Send an asynchronous embedding request and return the embedding vector."""
+    url = f"{AI_SERVICE_URL}/api/embed"
+    params = {
+        "input": input,
+        "model": EMBED_MODEL,
+        "dimensions": EMBED_DIMENSIONS,
+    }
+    result = await send_async_ai_request(url, params)
+    return result["embeddings"][0]
 
 
 def embed(input: str, client: httpx.Client) -> dict:
