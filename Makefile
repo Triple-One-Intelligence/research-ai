@@ -8,7 +8,10 @@
 
 # ── Config ───────────────────────────────────────────────────────────────────
 
-REMOTE_SERVER ?= $(shell grep -s '^REMOTE_SERVER=' kube/research-ai-dev.env | cut -d= -f2-)
+# Strip \r from env files (users on Windows may save with CRLF)
+_load_env = if [ -f $(1) ]; then sed -i 's/\r$$//' $(1); set -a; . $(1); set +a; fi
+
+REMOTE_SERVER ?= $(shell grep -s '^REMOTE_SERVER=' kube/research-ai-dev.env | tr -d '\r' | cut -d= -f2-)
 REMOTE_SERVER := $(or $(REMOTE_SERVER),root@0xai.nl)
 
 TEST_VENV   := api/.venv
@@ -93,13 +96,13 @@ up:
 	@podman build -t research-ai-api:dev -f ./api/Containerfile . -q
 	@mkdir -p .caddy/data .caddy/config
 	@printf "$(_C)[up]$(_0) Starting pod...\n"
-	@set -a; . ./kube/research-ai-dev.env; set +a; \
+	@$(call _load_env,./kube/research-ai-dev.env); \
 		envsubst < kube/pod-dev.yaml | podman kube play - >/dev/null
 	@printf "$(_G)[up]$(_0) Pod started\n"
 
 down:
 	@-pkill -f 'ssh -N.*$(REMOTE_SERVER)' 2>/dev/null || true
-	@set -a; . ./kube/research-ai-dev.env; set +a; \
+	@$(call _load_env,./kube/research-ai-dev.env); \
 		envsubst < kube/pod-dev.yaml | podman kube down - 2>/dev/null || true
 
 # ── SSH Tunnel ───────────────────────────────────────────────────────────────
@@ -109,7 +112,7 @@ setup-wsl-ssh:
 
 tunnel: setup-wsl-ssh
 	@printf "$(_C)[tunnel]$(_0) Connecting to $(REMOTE_SERVER)...\n"
-	@set -a; [ -f ./kube/research-ai-dev.env ] && . ./kube/research-ai-dev.env; set +a; \
+	@$(call _load_env,./kube/research-ai-dev.env); \
 	ssh -N -o ExitOnForwardFailure=yes -o ConnectTimeout=10 \
 		-o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
 		-L 7687:localhost:7687  -L 7474:localhost:7474 \
@@ -185,7 +188,7 @@ logs-ric:
 deploy:
 	@printf "$(_B)Deploying...$(_0)\n"
 	podman build -t research-ai-api:prod -f ./api/Containerfile .
-	set -a; . ./kube/research-ai-prod.env; set +a; \
+	$(call _load_env,./kube/research-ai-prod.env); \
 		podman build -t research-ai-frontend:prod -f ./frontend/Containerfile . \
 		--build-arg VITE_API_URL=$$VITE_API_URL
 	mkdir -p /etc/containers/systemd /etc/research-ai
@@ -196,7 +199,7 @@ deploy:
 	install -m 0644 kube/research-ai-neo4j.container   /etc/containers/systemd/
 	install -m 0644 kube/research-ai-ai.container      /etc/containers/systemd/
 	install -m 0644 kube/research-ai-prod.env          /etc/research-ai/
-	set -a; . ./kube/research-ai-prod.env; set +a; \
+	$(call _load_env,./kube/research-ai-prod.env); \
 		envsubst < kube/ricgraph.ini > /etc/research-ai/ricgraph.ini && chmod 0640 /etc/research-ai/ricgraph.ini
 	podman volume create caddy-data 2>/dev/null || true
 	podman volume create caddy-config 2>/dev/null || true
