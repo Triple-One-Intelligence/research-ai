@@ -56,13 +56,14 @@ def suggest(
         # Neo4j is temporarily unavailable – signal this as a 503 to clients.
         print(f"Autocomplete service unavailable for query={query!r}")
         raise HTTPException(status_code=503, detail="Autocomplete service unavailable.")
+    except AutocompleteError:
+        print(f"Autocomplete service error for query={query!r}")
+        raise HTTPException(status_code=500, detail="Autocomplete query failed.")
     except RuntimeError:
         # Typically raised when the Neo4j driver has not been initialized yet.
         print(f"Autocomplete backend not initialized for query={query!r}")
         raise HTTPException(status_code=503, detail="Autocomplete backend not initialized.")
-    except AutocompleteError:
-        print(f"Autocomplete service error for query={query!r}")
-        raise HTTPException(status_code=500, detail="Autocomplete query failed.")
     except Exception:
         print(f"Unexpected error while handling autocomplete for query={query!r}")
         raise HTTPException(status_code=500, detail="Autocomplete query failed.")
+        
