@@ -1,5 +1,7 @@
 [Unit]
 Description=Research AI LLM Service (GPU)
+After=nvidia-persistenced.service
+Requires=nvidia-persistenced.service
 
 [Service]
 Restart=always

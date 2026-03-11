@@ -54,6 +54,11 @@ const generateResponse = async (
     onComplete();
   }
 };
+import  { askWithRag } from './api';
+
+// Ask response generation function. Takes a prompt and two callbacks:
+// one for handling incoming chunks of text, and one for when the response is complete.
+
 
 
 // Main App component – orchestrates state and renders the three‑panel layout.
@@ -62,17 +67,30 @@ const App = () => {
   const [responseText, setResponseText] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
-  const handleGenerate = (prompt: string) => {
-    if (isGenerating) return;
 
+
+  const handleRAGGenerate = async (prompt: string) => {
+    if (isGenerating) return;
+    if (!selectedEntity) {
+      // You can decide whether to block or fall back to plain /chat here.
+      setResponseText('Please select an entity first.');
+      return;
+    }
+    
     setResponseText('');
     setIsGenerating(true);
-
-    generateResponse(
-      prompt,
-      (chunk) => setResponseText((prev) => prev + chunk),
-      () => setIsGenerating(false)
-    );
+    
+    try {
+      const res = await askWithRag(prompt, selectedEntity);
+      setResponseText(res.answer);
+      // Optionally: store res.sources in state and render them somewhere.
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error';
+      setResponseText('Error: ' + message);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const { t, i18n } = useTranslation();
@@ -104,7 +122,7 @@ const App = () => {
       <main className="app-main">
         <LeftPanel
           selectedEntity={selectedEntity}
-          onAsk={handleGenerate}
+          onAsk={handleRAGGenerate}
           isGenerating={isGenerating}
           onEntitySelect={setSelectedEntity}
           onEntityClear={() => setSelectedEntity(null)}
