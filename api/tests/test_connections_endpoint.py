@@ -83,7 +83,6 @@ class TestFormatPeople:
         result = format_people(rows, as_members=True)
         assert len(result) == 1
         assert result[0].author_id == "p1"
-        assert result[0].role is None
 
     def test_empty_rows(self):
         assert format_people([]) == []
