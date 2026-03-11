@@ -4,7 +4,7 @@
 .PHONY: help dev up down tunnel tunnel-stop tunnel-status \
         watch wapi wui test test-unit test-dev test-deploy \
         enrich enrich-force harvest deploy undeploy dev-env-info \
-        logs logs-api logs-ui logs-ric labelSELinux setup-wsl-ssh setup nuke
+        logs logs-api logs-ui logs-ric labelSELinux setup-wsl-ssh nuke
 
 # ── Config ───────────────────────────────────────────────────────────────────
 
@@ -55,54 +55,50 @@ help:
 	@echo "  dev-env-info     Print dev env config for this server"
 	@echo "  logs             Tail all prod logs"
 	@printf "\n$(_C)Setup$(_0)\n"
-	@echo "  setup            Auto-install prerequisites (podman, python3, etc.)"
 	@echo "  setup-wsl-ssh    Symlink Windows SSH keys into WSL"
 	@echo "  labelSELinux     SELinux relabel (Fedora/RHEL)"
 	@printf "\n$(_R)Danger$(_0)\n"
 	@echo "  nuke             Destroy ALL containers, pods, volumes, images"
 	@echo ""
 
-# ── Auto-install prerequisites ─────────────────────────────────────────────
+# ── Auto-install prerequisites (called automatically) ─────────────────────
 
-_NEED := podman ssh nc envsubst
-
-setup:
+define _ensure_deps
 	@MISSING=""; \
-	for cmd in $(_NEED); do \
+	for cmd in podman ssh nc envsubst; do \
 		command -v $$cmd >/dev/null 2>&1 || MISSING="$$MISSING $$cmd"; \
 	done; \
-	if [ -z "$$MISSING" ]; then \
-		printf "$(_G)[setup]$(_0) All prerequisites installed\n"; \
-	elif command -v apt-get >/dev/null 2>&1; then \
-		printf "$(_C)[setup]$(_0) Installing (apt):$$MISSING\n"; \
-		PKGS=""; \
-		for cmd in $$MISSING; do \
-			case $$cmd in \
-				podman)   PKGS="$$PKGS podman" ;; \
-				ssh)      PKGS="$$PKGS openssh-client" ;; \
-				nc)       PKGS="$$PKGS netcat-openbsd" ;; \
-				envsubst) PKGS="$$PKGS gettext-base" ;; \
-			esac; \
-		done; \
-		sudo apt-get update -qq && sudo apt-get install -yqq $$PKGS; \
-		printf "$(_G)[setup]$(_0) Done\n"; \
-	elif command -v dnf >/dev/null 2>&1; then \
-		printf "$(_C)[setup]$(_0) Installing (dnf):$$MISSING\n"; \
-		PKGS=""; \
-		for cmd in $$MISSING; do \
-			case $$cmd in \
-				podman)   PKGS="$$PKGS podman" ;; \
-				ssh)      PKGS="$$PKGS openssh-clients" ;; \
-				nc)       PKGS="$$PKGS nmap-ncat" ;; \
-				envsubst) PKGS="$$PKGS gettext" ;; \
-			esac; \
-		done; \
-		sudo dnf install -yq $$PKGS; \
-		printf "$(_G)[setup]$(_0) Done\n"; \
-	else \
-		printf "$(_R)[setup]$(_0) Missing:$$MISSING — install them manually\n"; \
-		exit 1; \
+	if [ -n "$$MISSING" ]; then \
+		if command -v apt-get >/dev/null 2>&1; then \
+			printf "$(_C)[setup]$(_0) Installing:$$MISSING\n"; \
+			PKGS=""; \
+			for cmd in $$MISSING; do \
+				case $$cmd in \
+					podman)   PKGS="$$PKGS podman" ;; \
+					ssh)      PKGS="$$PKGS openssh-client" ;; \
+					nc)       PKGS="$$PKGS netcat-openbsd" ;; \
+					envsubst) PKGS="$$PKGS gettext-base" ;; \
+				esac; \
+			done; \
+			sudo apt-get update -qq && sudo apt-get install -yqq $$PKGS; \
+		elif command -v dnf >/dev/null 2>&1; then \
+			printf "$(_C)[setup]$(_0) Installing:$$MISSING\n"; \
+			PKGS=""; \
+			for cmd in $$MISSING; do \
+				case $$cmd in \
+					podman)   PKGS="$$PKGS podman" ;; \
+					ssh)      PKGS="$$PKGS openssh-clients" ;; \
+					nc)       PKGS="$$PKGS nmap-ncat" ;; \
+					envsubst) PKGS="$$PKGS gettext" ;; \
+				esac; \
+			done; \
+			sudo dnf install -yq $$PKGS; \
+		else \
+			printf "$(_R)[setup]$(_0) Missing:$$MISSING — install them manually\n"; \
+			exit 1; \
+		fi; \
 	fi
+endef
 
 # ── Test image (built from API image + pytest) ────────────────────────────
 
@@ -117,6 +113,7 @@ test-image:
 # ── Development ──────────────────────────────────────────────────────────────
 
 dev: down
+	$(_ensure_deps)
 	@printf "\n$(_B)Starting dev environment...$(_0)\n\n"
 	@$(MAKE) -s tunnel &
 	@printf "$(_C)[dev]$(_0) Waiting for SSH tunnel...\n"
@@ -134,6 +131,7 @@ dev: down
 	@$(MAKE) -s test || printf "\n$(_Y)[dev]$(_0) Some tests failed (see above)\n\n"
 
 up:
+	$(_ensure_deps)
 	@printf "$(_C)[up]$(_0) Building API...\n"
 	@podman build -t research-ai-api:dev -f ./api/Containerfile . -q
 	@mkdir -p .caddy/data .caddy/config
