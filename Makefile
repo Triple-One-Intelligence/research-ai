@@ -103,7 +103,7 @@ endef
 # ── Test image (built from API image + pytest) ────────────────────────────
 
 TEST_IMG := research-ai-test:dev
-TEST_RUN := podman run --rm --network host -v ./api:/work:ro $(TEST_IMG)
+TEST_RUN := podman run --rm -t --network host -v ./api:/work:ro -e FORCE_COLOR=1 $(TEST_IMG)
 
 .PHONY: test-image
 test-image:
@@ -176,9 +176,9 @@ tunnel-status:
 
 test: test-image
 	@printf "\n$(_B)═══ Unit Tests ═══$(_0)\n\n"
-	@$(TEST_RUN) python -m pytest $(UNIT_TESTS) -v --tb=short; U=$$?; \
+	@$(TEST_RUN) python -m pytest $(UNIT_TESTS) -v --tb=short --color=yes; U=$$?; \
 	printf "\n$(_B)═══ Integration Tests ═══$(_0)\n(skips if dev pod not running)\n\n"; \
-	$(TEST_RUN) python -m pytest $(DEV_TESTS) -v --tb=short; D=$$?; \
+	$(TEST_RUN) python -m pytest $(DEV_TESTS) -v --tb=short --color=yes; D=$$?; \
 	printf "\n$(_B)═══ Summary ═══$(_0)\n"; \
 	[ $$U -eq 0 ] && printf "  $(_G)Unit:        PASS$(_0)\n" || printf "  $(_R)Unit:        FAIL$(_0)\n"; \
 	[ $$D -eq 0 ] && printf "  $(_G)Integration: PASS$(_0)\n" \
@@ -187,13 +187,13 @@ test: test-image
 	exit $$U
 
 test-unit: test-image
-	@$(TEST_RUN) python -m pytest $(UNIT_TESTS) -v --tb=short
+	@$(TEST_RUN) python -m pytest $(UNIT_TESTS) -v --tb=short --color=yes
 
 test-dev: test-image
-	@$(TEST_RUN) python -m pytest $(DEV_TESTS) -v --tb=short
+	@$(TEST_RUN) python -m pytest $(DEV_TESTS) -v --tb=short --color=yes
 
 test-deploy: test-image
-	@$(TEST_RUN) python -m pytest tests/test_smoke_deploy.py -v --tb=short
+	@$(TEST_RUN) python -m pytest tests/test_smoke_deploy.py -v --tb=short --color=yes
 
 # ── Data ─────────────────────────────────────────────────────────────────────
 
