@@ -59,7 +59,7 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     num = 0.0
     da = 0.0
     db = 0.0
-    for x, y in zip(a, b):
+    for x, y in zip[tuple[float, float]](a, b):
         num += x * y
         da += x * x
         db += y * y
@@ -243,96 +243,86 @@ def _get_abstracts_by_dois(dois: list[str]) -> list[dict]:
 
 @router.post("/ask", response_model=RagAskResponse)
 async def rag_ask(req: RagAskRequest) -> RagAskResponse:
-    """
-    Executive summary / RAG endpoint.
-    For a person:
-      - Use the connections service to get top 5 publications (by year)
-        and top 3 organizations.
-      - Fetch abstracts for those publication DOIs.
-      - Build a context containing org names + publication metadata
-        (DOI, title, year, category, abstract).
-      - Ask the chat model for a summary.
-    For an organization:
-      - Use the connections service to get top 10 publications (by year).
-      - Fetch abstracts for those DOIs.
-      - Build a context and ask the chat model for a summary.
-    """
     if not req.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt must not be empty")
+    if entity.type != "person":
+        raise HTTPException(status_code=400, detail="Only person entities are supported")
+
     entity = req.entity
-    # 1) Use connections to get top publications and organizations
+    top_k = max(1, int(req.top_k or 8))
+
+    # Keep orgs behavior for "person" (optional, unchanged from before)
+    orgs = []
     if entity.type == "person":
-        # Top 5 pubs, top 3 orgs – no need for many collaborators here
         conn = get_connections(
             entity_id=entity.id,
             entity_type="person",
-            max_publications=5,
+            max_publications=0,
             max_collaborators=0,
             max_organizations=3,
             max_members=0,
         )
-        publications = conn.get("publications", [])[:5]
-        orgs = conn.get("organizations", [])[:3]
-    else:
-        # Organization: top 10 publications
-        conn = get_connections(
-            entity_id=entity.id,
-            entity_type="organization",
-            max_publications=10,
-            max_collaborators=0,
-            max_organizations=0,
-            max_members=0,
-        )
-        publications = conn.get("publications", [])[:10]
-        orgs = []
-    if not publications:
-        # No publications – tell the user explicitly
+        orgs = (conn.get("organizations", []) or [])[:3]
+
+    # 1) Gather up to 100 publication docs (with abstracts) from Neo4j
+    #    (NOTE: _get_entity_publication_docs already requires abstract+embedding not null)
+    docs = _get_entity_publication_docs(entity=entity, max_docs=100)
+
+    if not docs:
         answer = await _chat_with_context(
-            f"(No related publications were found for entity {entity.label} "
+            f"(No related publications with abstracts were found for entity {entity.label} "
             f"[{entity.type}/{entity.id}].) {req.prompt}",
             context="(no sources available)",
         )
         return RagAskResponse(answer=answer, sources=[])
-    # 2) Collect DOIs from the selected publications
-    #    (only the main doi field; extend with versions if you want)
-    dois: list[str] = []
-    for pub in publications:
-        doi = pub.get("doi")
-        if isinstance(doi, str):
-            dois.append(doi)
-    # Optional: deduplicate
-    dois = list(dict.fromkeys(dois))
-    # 3) Fetch abstracts and metadata for these DOIs
-    docs = _get_abstracts_by_dois(dois)
-    if not docs:
-        answer = await _chat_with_context(
-            f"(Selected top publications for entity {entity.label} "
-            f"but none have abstracts stored.) {req.prompt}",
-            context="(no sources available)",
-        )
-        return RagAskResponse(answer=answer, sources=[])
-    # 4) Convert docs into RagSource models (no scoring; just placeholder score)
-    sources: list[RagSource] = []
+
+    # 2) Deduplicate (by DOI, normalized). Keep first occurrence.
+    seen: set[str] = set[str]()
+    unique_docs: list[dict] = []
     for d in docs:
-        src = RagSource(
-            doi=d.get("doi"),
-            title=d.get("title"),
-            year=d.get("year"),
-            category=d.get("category"),
-            abstract=d.get("abstract") or "",
-            score=1.0,  # all selected docs are considered "top"
+        doi = d.get("doi")
+        if not isinstance(doi, str):
+            continue
+        key = doi.strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        unique_docs.append(d)
+
+    # 3) Order by year (newest first). Missing/invalid year goes last.
+    def _year_key(d: dict) -> int:
+        y = d.get("year")
+        return y if isinstance(y, int) else -1
+
+    unique_docs.sort(key=_year_key, reverse=True)
+
+    # 4) Select top x (= req.top_k)
+    selected = unique_docs[:top_k]
+
+    # 5) Convert to sources (score is placeholder since selection is rule-based)
+    sources: list[RagSource] = []
+    for d in selected:
+        sources.append(
+            RagSource(
+                doi=d.get("doi"),
+                title=d.get("title"),
+                year=d.get("year") if isinstance(d.get("year"), int) else None,
+                category=d.get("category"),
+                abstract=d.get("abstract") or "",
+                score=1.0,
+            )
         )
-        sources.append(src)
-    # 5) Build context text for the LLM
+
+    # 6) Build context for LLM
     context_chunks: list[str] = []
-    # Organizations (only for person entities)
+
     if entity.type == "person" and orgs:
         org_names = [o.get("name") for o in orgs if isinstance(o.get("name"), str)]
         if org_names:
             context_chunks.append(
                 "Affiliated organizations:\n" + "\n".join(f"- {name}" for name in org_names)
             )
-    # Publications with abstracts
+
     for i, s in enumerate(sources, start=1):
         meta_bits = []
         if s.year is not None:
@@ -340,14 +330,16 @@ async def rag_ask(req: RagAskRequest) -> RagAskResponse:
         if s.category:
             meta_bits.append(f"Category: {s.category}")
         meta_str = " | ".join(meta_bits) if meta_bits else ""
+
         context_chunks.append(
             f"[P{i}] DOI: {s.doi}\n"
             f"Title: {s.title or '(no title)'}\n"
             f"{meta_str}\n"
             f"Abstract: {s.abstract}\n"
         )
-    context_text = "\n\n".join(context_chunks)
-    # 6) Ask the chat model to produce the executive summary
+
+    context_text = "\n\n".join(context_chunks) if context_chunks else "(no sources available)"
+
     answer = await _chat_with_context(req.prompt, context_text)
     return RagAskResponse(answer=answer, sources=sources)
 
