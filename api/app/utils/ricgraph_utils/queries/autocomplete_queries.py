@@ -16,8 +16,11 @@ AUTOCOMPLETE_CYPHER = """/*cypher*/
     WITH node, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
 
     // Clean the DB name as well for comparison
+    // Match normalize_query_for_index (query_utils.py), which applies:
+    //   re.sub(r'[^\\w\\s]', ' ', user_query)
+    // i.e. replace any non-word, non-whitespace character with a space.
     WITH node, name,
-         toLower(reduce(s = name, char IN [',','.','-'] | replace(s, char, ' '))) AS dbCleanName
+         toLower(apoc.text.regreplace(name, '[^\\\\w\\\\s]', ' ')) AS dbCleanName
 
     // Ensure all keywords match the actual name, not the UUID part of the value
     // Also filter out technical identifiers like ORCID-style numeric IDs:
