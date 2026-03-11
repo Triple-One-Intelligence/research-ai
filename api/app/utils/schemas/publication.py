@@ -7,8 +7,6 @@ class Publication(BaseModel):
     """
     doi: str
     title: Optional[str] = None
-    publication_rootid: Optional[str] = None
     year: Optional[int] = None
     category: Optional[str] = None
-    name: Optional[str] = None
     versions: Optional[List[Dict[str, Any]]] = None

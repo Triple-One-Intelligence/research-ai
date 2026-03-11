@@ -84,13 +84,9 @@ class TestConnections:
             collaborators=[],
             publications=[],
             organizations=[],
-            members=[Member(author_id="p1", name="John", role="Professor")],
+            members=[Member(author_id="p1", name="John")],
         )
-        assert c.members[0].role == "Professor"
-
-    def test_member_role_optional(self):
-        m = Member(author_id="p1", name="John")
-        assert m.role is None
+        assert c.members[0].name == "John"
 
 
 class TestPublication:

@@ -36,10 +36,10 @@ def connect_to_database(max_retries: int = 10, retry_delay: float = 3.0) -> None
             global graph
             graph = driver
             return
-        except Exception as e:
+        except Exception as exception:
             if attempt == max_retries:
                 raise
-            print(f"[database_utils] Attempt {attempt}/{max_retries} failed: {e}")
+            print(f"[database_utils] Attempt {attempt}/{max_retries} failed: {exception}")
             print(f"[database_utils] Retrying in {retry_delay}s...")
             time.sleep(retry_delay)
 
@@ -47,8 +47,8 @@ def startup() -> None:
     """Connect to the Ricgraph Neo4j database and ensure indexes are ready."""
     try:
         connect_to_database()
-    except Exception as e:
-        print(f"[database_utils] Couldn't connect to Ricgraph database: {e}")
+    except Exception as exception:
+        print(f"[database_utils] Couldn't connect to Ricgraph database: {exception}")
         if graph is not None:
             graph.close()
         raise
