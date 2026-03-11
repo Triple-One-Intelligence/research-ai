@@ -49,7 +49,6 @@ export type Publication = {
 export type Member = {
   author_id: string;
   name: string;
-  role?: string;
 };
 
 export type ConnectionsResponse = {

@@ -46,7 +46,7 @@ def format_people(rows: List[Dict[str, Any]], *, as_members: bool = False) -> li
     for row in rows:
         name = clean_name(row.get("rawName"))
         if as_members:
-            out.append(Member(author_id=row["author_id"], name=name, role=None))
+            out.append(Member(author_id=row["author_id"], name=name))
         else:
             out.append(Person(author_id=row["author_id"], name=name))
     return out
