@@ -12,9 +12,7 @@ Endpoint
 """
 
 from fastapi import APIRouter, Query, HTTPException
-from neo4j.exceptions import Neo4jError, ServiceUnavailable
-from app.utils.ricgraph_utils.autocomplete_utils import get_autocomplete_suggestions
-# Import the pydantic response model used by FastAPI to serialize responses
+from app.utils.ricgraph_utils.autocomplete_utils import get_autocomplete_suggestions, AutocompleteError, InvalidQueryError
 from app.utils.schemas import Suggestions
 
 router = APIRouter(prefix="/autocomplete")

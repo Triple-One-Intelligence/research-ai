@@ -53,10 +53,12 @@ def get_autocomplete_suggestions(user_query: str, limit: int = 10) -> Suggestion
         )
 
         for row in rows:
-        if row.get("type") == "person":
-            persons_out.append(Person(author_id=row["id"], name=row["displayName"]))
-        elif row.get("type") == "organization":
-            orgs_out.append(Organization(organization_id=row["id"], name=row["displayName"]))
+            if row.get("type") == "person":
+                persons_out.append(Person(author_id=row["id"], name=row["displayName"]))
+            elif row.get("type") == "organization":
+                orgs_out.append(Organization(organization_id=row["id"], name=row["displayName"]))
+            else:
+                raise AutocompleteError(f"Unexpected type: {row.get('type')!r}")
 
     except Exception as exception:
         print(f"Autocomplete query failed for query={query!r}")
