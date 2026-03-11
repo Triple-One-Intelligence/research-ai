@@ -7,18 +7,18 @@ import { RightPanel } from './components/RightPanel';
 import type { EntitySuggestion } from './types';
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-const generateResponse = async (
-  prompt: string,
+// Shared SSE stream reader — works for both /chat and /generate
+const streamSSE = async (
+  url: string,
+  body: Record<string, unknown>,
   onChunk: (chunk: string) => void,
   onComplete: () => void,
 ) => {
   try {
-    const resp = await fetch(`${API_BASE}/chat`, {
+    const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: prompt }],
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!resp.ok || !resp.body) {
@@ -54,11 +54,6 @@ const generateResponse = async (
     onComplete();
   }
 };
-import  { askWithRag } from './api';
-
-// Ask response generation function. Takes a prompt and two callbacks:
-// one for handling incoming chunks of text, and one for when the response is complete.
-
 
 
 // Main App component – orchestrates state and renders the three‑panel layout.
@@ -67,29 +62,35 @@ const App = () => {
   const [responseText, setResponseText] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
-
-
-  const handleRAGGenerate = async (prompt: string) => {
+  const handleGenerate = (prompt: string) => {
     if (isGenerating) return;
-    if (!selectedEntity) {
-      // You can decide whether to block or fall back to plain /chat here.
-      setResponseText('Please select an entity first.');
-      return;
-    }
-    
+
     setResponseText('');
     setIsGenerating(true);
-    
-    try {
-      const res = await askWithRag(prompt, selectedEntity);
-      setResponseText(res.answer);
-      // Optionally: store res.sources in state and render them somewhere.
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error';
-      setResponseText('Error: ' + message);
-    } finally {
-      setIsGenerating(false);
+
+    if (selectedEntity) {
+      // RAG-augmented streaming: include entity context + vector retrieval
+      streamSSE(
+        `${API_BASE}/generate`,
+        {
+          prompt,
+          entity: {
+            id: selectedEntity.id,
+            type: selectedEntity.type,
+            label: selectedEntity.label,
+          },
+        },
+        (chunk) => setResponseText((prev) => prev + chunk),
+        () => setIsGenerating(false),
+      );
+    } else {
+      // Plain streaming chat (no RAG context)
+      streamSSE(
+        `${API_BASE}/chat`,
+        { messages: [{ role: 'user', content: prompt }] },
+        (chunk) => setResponseText((prev) => prev + chunk),
+        () => setIsGenerating(false),
+      );
     }
   };
 
@@ -122,7 +123,7 @@ const App = () => {
       <main className="app-main">
         <LeftPanel
           selectedEntity={selectedEntity}
-          onAsk={handleRAGGenerate}
+          onAsk={handleGenerate}
           isGenerating={isGenerating}
           onEntitySelect={setSelectedEntity}
           onEntityClear={() => setSelectedEntity(null)}

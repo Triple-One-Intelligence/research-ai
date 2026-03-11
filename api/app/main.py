@@ -40,8 +40,6 @@ app.include_router(connections.router)
 app.include_router(autocomplete.router)
 app.include_router(ai.router)
 
-memory_db = {"fruits": []}
-
 @app.get("/health")
 def health():
     return {

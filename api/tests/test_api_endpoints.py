@@ -106,7 +106,7 @@ class _MockStream:
 
 
 class TestChatEndpoint:
-    @patch("app.ai.httpx.AsyncClient")
+    @patch("app.routers.ai.httpx.AsyncClient")
     def test_chat_success(self, mock_client_cls, client):
         mock_stream = _MockStream(lines=[
             '{"message":{"content":"hello"},"done":false}',
@@ -126,7 +126,7 @@ class TestChatEndpoint:
         assert response.status_code == 200
         assert "text/event-stream" in response.headers["content-type"]
 
-    @patch("app.ai.httpx.AsyncClient")
+    @patch("app.routers.ai.httpx.AsyncClient")
     def test_chat_service_unavailable(self, mock_client_cls, client):
         import httpx
 
@@ -149,7 +149,7 @@ class TestChatEndpoint:
 
 
 class TestEmbedEndpoint:
-    @patch("app.ai.httpx.AsyncClient")
+    @patch("app.routers.ai.httpx.AsyncClient")
     def test_embed_success(self, mock_client_cls, client):
         mock_response = MagicMock()
         mock_response.json.return_value = {"embedding": [0.1, 0.2]}

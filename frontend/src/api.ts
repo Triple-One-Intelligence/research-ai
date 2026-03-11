@@ -68,36 +68,4 @@ export const fetchConnections = async (
   return response.data;
 };
 
-
-// RAG part
-export interface RagSource {
-  doi: string;
-  title?: string | null;
-  year?: number | null;
-  category?: string | null;
-  abstract: string;
-  score: number;
-}
-
-export interface RagAskResponse {
-  answer: string;
-  sources: RagSource[];
-}
-
-export const askWithRag = async (
-  prompt: string,
-  entity: EntitySuggestion
-): Promise<RagAskResponse> => {
-  const response = await api.post<RagAskResponse>('/generate', {
-    prompt,
-    entity: {
-      id: entity.id,
-      type: entity.type,
-      label: entity.label,
-    },
-  });
-  
-  return response.data;
-};
-
 export default api;
