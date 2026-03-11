@@ -52,7 +52,7 @@ def format_people(rows: List[Dict[str, Any]], *, as_members: bool = False) -> li
     return out
 
 def format_organizations(rows: List[Dict[str, Any]]) -> List[Organization]:
-    return [Organization(organization_id=r["organization_id"], name=r["name"]) for r in rows]
+    return [Organization(organization_id=row["organization_id"], name=row["name"]) for row in rows]
 
 def format_publications(rows: List[Dict[str, Any]]) -> List[Publication]:
     grouped: Dict[str, List[Publication]] = {}
@@ -73,13 +73,13 @@ def format_publications(rows: List[Dict[str, Any]]) -> List[Publication]:
     for entries in grouped.values():
         rep = entries[0].model_copy()
         if len(entries) > 1:
-            versions = [{"doi": e.doi, "year": e.year, "category": e.category}
-                        for e in entries]
+            versions = [{"doi": entry.doi, "year": entry.year, "category": entry.category}
+                        for entry in entries]
             rep.versions = versions if versions else None
         out.append(rep)
 
     out.extend(no_title)
-    out.sort(key=lambda p: (p.year is not None, p.year or 0), reverse=True)
+    out.sort(key=lambda publication: (publication.year is not None, publication.year or 0), reverse=True)
     return out
 
 def person_connections(entity_id: str, max_publications: int, max_collaborators: int, max_organizations: int) -> Dict[str, Any]:
@@ -131,6 +131,6 @@ def get_connections(entity_id: str, entity_type: str, max_publications: int = 50
         if entity_type == "person":
             return person_connections(entity_id, max_publications, max_collaborators, max_organizations)
         return organization_connections(entity_id, max_publications, max_organizations, max_members)
-    except Exception as exc:
+    except Exception as exception:
         print(f"Connections query failed for entity_id={entity_id!r}")
-        raise ConnectionsError("Connections query failed") from exc
+        raise ConnectionsError("Connections query failed") from exception

@@ -38,6 +38,11 @@ def suggest(query: str, limit: int = Query(10, ge=1, le=100, description="Maximu
     try:
         suggestions = get_autocomplete_suggestions(query, limit)
         return suggestions
-    except (Neo4jError, ServiceUnavailable, RuntimeError) as e:
-        print(f"[autocomplete] Error when trying to autocomplete: {e}")
-        raise HTTPException(status_code=503, detail="could not suggest any autocompletions")
+    except InvalidQueryError as exception:
+        raise HTTPException(status_code=400, detail=str(exception))
+    except AutocompleteError:
+        print(f"Autocomplete service error for query={query!r}")
+        raise HTTPException(status_code=500, detail="Autocomplete query failed.")
+    except Exception:
+        print(f"Unexpected error while handling autocomplete for query={query!r}")
+        raise HTTPException(status_code=500, detail="Autocomplete query failed.")
