@@ -80,7 +80,12 @@ dev: down
 		&& printf "$(_G)[dev]$(_0) Tunnel up\n" \
 		|| { printf "$(_R)[dev]$(_0) Tunnel failed. Try: ssh $(REMOTE_SERVER) echo ok\n"; exit 1; }
 	@$(MAKE) -s up
-	@printf "\n$(_G)$(_B)  Dev running!$(_0)  http://localhost:3000\n\n"
+	@printf "$(_C)[dev]$(_0) Waiting for frontend (Vite)...\n"
+	@for i in $$(seq 1 60); do nc -z localhost 5173 2>/dev/null && break || sleep 1; done
+	@nc -z localhost 5173 2>/dev/null \
+		&& printf "$(_G)[dev]$(_0) Frontend ready\n" \
+		|| printf "$(_Y)[dev]$(_0) Frontend not ready yet (tests may fail)\n"
+	@printf "\n$(_G)$(_B)  Dev running!$(_0)  https://localhost:3000\n\n"
 	@$(MAKE) -s test || printf "\n$(_Y)[dev]$(_0) Some tests failed (see above)\n\n"
 
 up:
@@ -135,7 +140,8 @@ test: $(TEST_VENV)/bin/python
 	[ $$U -eq 0 ] && printf "  $(_G)Unit:        PASS$(_0)\n" || printf "  $(_R)Unit:        FAIL$(_0)\n"; \
 	[ $$D -eq 0 ] && printf "  $(_G)Integration: PASS$(_0)\n" \
 		|| { [ $$D -eq 5 ] && printf "  $(_Y)Integration: SKIP$(_0)\n" || printf "  $(_R)Integration: FAIL$(_0)\n"; }; \
-	echo ""; exit $$U
+	printf "\n  $(_C)URL$(_0)  https://localhost:3000\n\n"; \
+	exit $$U
 
 test-unit: $(TEST_VENV)/bin/python
 	@cd api && .venv/bin/python -m pytest $(UNIT_TESTS) -v --tb=short

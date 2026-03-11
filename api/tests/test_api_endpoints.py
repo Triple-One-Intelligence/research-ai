@@ -83,15 +83,38 @@ class TestAutocompleteEndpoint:
         assert response.status_code == 503
 
 
+class _MockStream:
+    """Mock for httpx async streaming response."""
+    def __init__(self, lines=None, error=None):
+        self._lines = lines or []
+        self._error = error
+
+    async def __aenter__(self):
+        if self._error:
+            raise self._error
+        return self
+
+    async def __aexit__(self, *args):
+        pass
+
+    def raise_for_status(self):
+        pass
+
+    async def aiter_lines(self):
+        for line in self._lines:
+            yield line
+
+
 class TestChatEndpoint:
     @patch("app.ai.httpx.AsyncClient")
     def test_chat_success(self, mock_client_cls, client):
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"message": {"content": "hello"}}
-        mock_response.raise_for_status = MagicMock()
+        mock_stream = _MockStream(lines=[
+            '{"message":{"content":"hello"},"done":false}',
+            '{"message":{"content":""},"done":true}',
+        ])
 
         mock_client = AsyncMock()
-        mock_client.post.return_value = mock_response
+        mock_client.stream = MagicMock(return_value=mock_stream)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client_cls.return_value = mock_client
@@ -101,13 +124,18 @@ class TestChatEndpoint:
             "messages": [{"role": "user", "content": "hi"}],
         })
         assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]
 
     @patch("app.ai.httpx.AsyncClient")
     def test_chat_service_unavailable(self, mock_client_cls, client):
         import httpx
 
+        mock_stream = _MockStream(
+            error=httpx.RequestError("connection refused")
+        )
+
         mock_client = AsyncMock()
-        mock_client.post.side_effect = httpx.RequestError("connection refused")
+        mock_client.stream = MagicMock(return_value=mock_stream)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client_cls.return_value = mock_client
@@ -116,7 +144,8 @@ class TestChatEndpoint:
             "model": CHAT_MODEL,
             "messages": [{"role": "user", "content": "hi"}],
         })
-        assert response.status_code == 503
+        assert response.status_code == 200
+        assert "error" in response.text
 
 
 class TestEmbedEndpoint:
