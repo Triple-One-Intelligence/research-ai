@@ -11,7 +11,7 @@ AUTOCOMPLETE_CYPHER = """/*cypher*/
     ORDER BY ftScore DESC, size(node.value) ASC
     LIMIT 1000
 
-    // Data cleaning (uuid + leading comma)
+    // Data cleaning: strip UUID suffix and any leading comma from the stored value
     WITH node, trim(split(node.value, '#')[0]) AS rawClean
     WITH node, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
 
@@ -22,8 +22,8 @@ AUTOCOMPLETE_CYPHER = """/*cypher*/
     WITH node, name,
          toLower(apoc.text.regreplace(name, '[^\\\\w\\\\s]', ' ')) AS dbCleanName
 
-    // Ensure all keywords match the actual name, not the UUID part of the value
-    // Also filter out technical identifiers like ORCID-style numeric IDs:
+    // Ensure all keywords match the cleaned, human-readable name (after stripping UUIDs/commas above)
+    // Keep a safety net against pure technical identifiers (e.g. ORCID-style numeric IDs):
     WHERE all(k IN $keywords WHERE dbCleanName CONTAINS k)
     AND NOT name =~ '^[0-9xX-]+$'
 
