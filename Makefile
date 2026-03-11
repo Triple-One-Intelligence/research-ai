@@ -14,9 +14,6 @@ _load_env = if [ -f $(1) ]; then sed -i 's/\r$$//' $(1); set -a; . $(1); set +a;
 REMOTE_SERVER ?= $(shell grep -s '^REMOTE_SERVER=' kube/research-ai-dev.env | tr -d '\r' | cut -d= -f2-)
 REMOTE_SERVER := $(or $(REMOTE_SERVER),root@0xai.nl)
 
-TEST_VENV   := api/.venv
-TEST_PYTEST := $(TEST_VENV)/bin/python -m pytest
-
 _G := \033[32m
 _Y := \033[33m
 _R := \033[31m
@@ -67,14 +64,13 @@ help:
 
 # ── Auto-install prerequisites ─────────────────────────────────────────────
 
-_NEED := podman ssh nc envsubst python3
+_NEED := podman ssh nc envsubst
 
 setup:
 	@MISSING=""; \
 	for cmd in $(_NEED); do \
 		command -v $$cmd >/dev/null 2>&1 || MISSING="$$MISSING $$cmd"; \
 	done; \
-	python3 -c 'import venv' 2>/dev/null || MISSING="$$MISSING python3-venv"; \
 	if [ -z "$$MISSING" ]; then \
 		printf "$(_G)[setup]$(_0) All prerequisites installed\n"; \
 	elif command -v apt-get >/dev/null 2>&1; then \
@@ -82,12 +78,10 @@ setup:
 		PKGS=""; \
 		for cmd in $$MISSING; do \
 			case $$cmd in \
-				podman)       PKGS="$$PKGS podman" ;; \
-				ssh)          PKGS="$$PKGS openssh-client" ;; \
-				nc)           PKGS="$$PKGS netcat-openbsd" ;; \
-				envsubst)     PKGS="$$PKGS gettext-base" ;; \
-				python3)      PKGS="$$PKGS python3 python3-venv python3-pip" ;; \
-				python3-venv) PKGS="$$PKGS python3-venv" ;; \
+				podman)   PKGS="$$PKGS podman" ;; \
+				ssh)      PKGS="$$PKGS openssh-client" ;; \
+				nc)       PKGS="$$PKGS netcat-openbsd" ;; \
+				envsubst) PKGS="$$PKGS gettext-base" ;; \
 			esac; \
 		done; \
 		sudo apt-get update -qq && sudo apt-get install -yqq $$PKGS; \
@@ -97,12 +91,10 @@ setup:
 		PKGS=""; \
 		for cmd in $$MISSING; do \
 			case $$cmd in \
-				podman)       PKGS="$$PKGS podman" ;; \
-				ssh)          PKGS="$$PKGS openssh-clients" ;; \
-				nc)           PKGS="$$PKGS nmap-ncat" ;; \
-				envsubst)     PKGS="$$PKGS gettext" ;; \
-				python3)      PKGS="$$PKGS python3 python3-pip" ;; \
-				python3-venv) ;; \
+				podman)   PKGS="$$PKGS podman" ;; \
+				ssh)      PKGS="$$PKGS openssh-clients" ;; \
+				nc)       PKGS="$$PKGS nmap-ncat" ;; \
+				envsubst) PKGS="$$PKGS gettext" ;; \
 			esac; \
 		done; \
 		sudo dnf install -yq $$PKGS; \
@@ -112,13 +104,15 @@ setup:
 		exit 1; \
 	fi
 
-# ── Test venv (auto-created) ────────────────────────────────────────────────
+# ── Test image (built from API image + pytest) ────────────────────────────
 
-$(TEST_VENV)/bin/python: setup
-	@printf "$(_C)[setup]$(_0) Creating test venv...\n"
-	@python3 -m venv $(TEST_VENV)
-	@$(TEST_VENV)/bin/pip install -q -r api/requirements-dev.txt
-	@printf "$(_G)[setup]$(_0) Ready\n"
+TEST_IMG := research-ai-test:dev
+TEST_RUN := podman run --rm --network host -v ./api:/work:ro $(TEST_IMG)
+
+.PHONY: test-image
+test-image:
+	@podman build -t research-ai-api:dev -f ./api/Containerfile . -q
+	@podman build -t $(TEST_IMG) -f ./api/Containerfile.test . -q
 
 # ── Development ──────────────────────────────────────────────────────────────
 
@@ -182,11 +176,11 @@ tunnel-status:
 
 # ── Testing ──────────────────────────────────────────────────────────────────
 
-test: $(TEST_VENV)/bin/python
+test: test-image
 	@printf "\n$(_B)═══ Unit Tests ═══$(_0)\n\n"
-	@cd api && .venv/bin/python -m pytest $(UNIT_TESTS) -v --tb=short; U=$$?; \
+	@$(TEST_RUN) python -m pytest $(UNIT_TESTS) -v --tb=short; U=$$?; \
 	printf "\n$(_B)═══ Integration Tests ═══$(_0)\n(skips if dev pod not running)\n\n"; \
-	.venv/bin/python -m pytest $(DEV_TESTS) -v --tb=short; D=$$?; \
+	$(TEST_RUN) python -m pytest $(DEV_TESTS) -v --tb=short; D=$$?; \
 	printf "\n$(_B)═══ Summary ═══$(_0)\n"; \
 	[ $$U -eq 0 ] && printf "  $(_G)Unit:        PASS$(_0)\n" || printf "  $(_R)Unit:        FAIL$(_0)\n"; \
 	[ $$D -eq 0 ] && printf "  $(_G)Integration: PASS$(_0)\n" \
@@ -194,14 +188,14 @@ test: $(TEST_VENV)/bin/python
 	printf "\n  $(_C)URL$(_0)  https://localhost:3000\n\n"; \
 	exit $$U
 
-test-unit: $(TEST_VENV)/bin/python
-	@cd api && .venv/bin/python -m pytest $(UNIT_TESTS) -v --tb=short
+test-unit: test-image
+	@$(TEST_RUN) python -m pytest $(UNIT_TESTS) -v --tb=short
 
-test-dev: $(TEST_VENV)/bin/python
-	@cd api && .venv/bin/python -m pytest $(DEV_TESTS) -v --tb=short
+test-dev: test-image
+	@$(TEST_RUN) python -m pytest $(DEV_TESTS) -v --tb=short
 
-test-deploy: $(TEST_VENV)/bin/python
-	@cd api && .venv/bin/python -m pytest tests/test_smoke_deploy.py -v --tb=short
+test-deploy: test-image
+	@$(TEST_RUN) python -m pytest tests/test_smoke_deploy.py -v --tb=short
 
 # ── Data ─────────────────────────────────────────────────────────────────────
 

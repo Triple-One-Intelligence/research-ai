@@ -1,0 +1,4 @@
+FROM research-ai-api:dev
+RUN pip install --no-cache-dir pytest httpx
+WORKDIR /work
+CMD ["python", "-m", "pytest"]
