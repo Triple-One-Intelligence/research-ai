@@ -1,153 +1,152 @@
-.PHONY: help dev up down nuke labelSELinux watch wapi wui deploy undeploy logs logs-api logs-ui logs-ric enrich enrich-force harvest tunnel tunnel-stop tunnel-status setup-wsl-ssh test test-unit test-dev test-deploy
+# research-ai Makefile — run `make help` for available targets
+# ─────────────────────────────────────────────────────────────────────────────
 
-REMOTE_SERVER ?= root@0xai.nl
+.PHONY: help dev up down tunnel tunnel-stop tunnel-status \
+        watch wapi wui test test-unit test-dev test-deploy \
+        enrich enrich-force harvest deploy undeploy dev-env-info \
+        logs logs-api logs-ui logs-ric labelSELinux setup-wsl-ssh nuke
 
-# Test venv: auto-created under api/.venv so it works with cd api
-TEST_VENV := api/.venv
-TEST_PIP := $(TEST_VENV)/bin/pip
-TEST_PYTHON := $(TEST_VENV)/bin/python
+# ── Config ───────────────────────────────────────────────────────────────────
 
-$(TEST_VENV)/bin/python:
-	@echo "Setting up test environment..."
-	python3 -m venv $(TEST_VENV)
-	$(TEST_PIP) install -q -r api/requirements-dev.txt
+REMOTE_SERVER ?= $(shell grep -s '^REMOTE_SERVER=' kube/research-ai-dev.env | cut -d= -f2-)
+REMOTE_SERVER := $(or $(REMOTE_SERVER),root@0xai.nl)
+
+TEST_VENV   := api/.venv
+TEST_PYTEST := $(TEST_VENV)/bin/python -m pytest
+
+_G := \033[32m
+_Y := \033[33m
+_R := \033[31m
+_C := \033[36m
+_B := \033[1m
+_0 := \033[0m
+
+UNIT_TESTS := tests/test_query_utils.py tests/test_database_utils.py \
+              tests/test_autocomplete_utils.py tests/test_enrich.py \
+              tests/test_schemas.py tests/test_api_endpoints.py \
+              tests/test_connections_endpoint.py
+
+DEV_TESTS  := tests/test_smoke_dev.py tests/test_integration_api.py
+
+# ── Help ─────────────────────────────────────────────────────────────────────
 
 help:
-	@echo "research-ai Makefile"
+	@printf "$(_B)research-ai$(_0) — dev & deploy toolkit\n\n"
+	@printf "$(_C)Development$(_0)\n"
+	@echo "  dev              Full dev env (tunnel + pod + tests)"
+	@echo "  up / down        Start / stop dev pod"
+	@echo "  tunnel           SSH tunnel to prod services"
+	@echo "  tunnel-stop      Stop SSH tunnel"
+	@echo "  tunnel-status    Check tunnel status"
+	@echo "  watch            Tail all container logs"
+	@echo "  wapi / wui       Tail API / frontend logs"
+	@printf "\n$(_C)Testing$(_0)\n"
+	@echo "  test             Unit + dev integration tests"
+	@echo "  test-unit        Unit tests only (offline)"
+	@echo "  test-dev         Dev smoke + integration (needs make dev)"
+	@echo "  test-deploy      Prod smoke tests (run on server)"
+	@printf "\n$(_C)Data$(_0)\n"
+	@echo "  enrich           Enrich publications (abstracts + embeddings)"
+	@echo "  enrich-force     Re-enrich all publications"
+	@echo "  harvest          Run ricgraph harvesting"
+	@printf "\n$(_C)Production$(_0)\n"
+	@echo "  deploy           Build + deploy to production"
+	@echo "  undeploy         Stop + remove all prod services"
+	@echo "  dev-env-info     Print dev env config for this server"
+	@echo "  logs             Tail all prod logs"
+	@printf "\n$(_C)Setup$(_0)\n"
+	@echo "  setup-wsl-ssh    Symlink Windows SSH keys into WSL"
+	@echo "  labelSELinux     SELinux relabel (Fedora/RHEL)"
+	@printf "\n$(_R)Danger$(_0)\n"
+	@echo "  nuke             Destroy ALL containers, pods, volumes, images"
 	@echo ""
-	@echo "Development:"
-	@echo "  make dev             Start dev pod + SSH tunnel (full dev environment)"
-	@echo "  make up              Build and start the dev pod only"
-	@echo "  make down            Stop the dev pod and SSH tunnel"
-	@echo "  make tunnel          Open SSH tunnel to production services"
-	@echo "  make tunnel-stop     Stop the SSH tunnel"
-	@echo "  make tunnel-status   Check if the SSH tunnel is running"
-	@echo "  make watch           Follow logs from all dev containers"
-	@echo "  make wapi            Follow API container logs"
-	@echo "  make wui             Follow frontend container logs"
-	@echo "  make labelSELinux    Relabel files for SELinux (Fedora/RHEL)"
-	@echo "  make setup-wsl-ssh   Symlink Windows SSH keys into WSL"
-	@echo ""
-	@echo "Data:"
-	@echo "  make harvest         Run ricgraph harvesting"
-	@echo "  make enrich          Enrich publications with abstracts + embeddings"
-	@echo "  make enrich-force    Re-enrich all publications (even existing ones)"
-	@echo ""
-	@echo "Production:"
-	@echo "  make deploy          Build and deploy all services to production"
-	@echo "  make undeploy        Stop and remove all production services"
-	@echo "  make logs            Follow all production service logs"
-	@echo "  make logs-api        Follow production API logs"
-	@echo "  make logs-ui         Follow production frontend logs"
-	@echo "  make logs-ric        Follow production ricgraph logs"
-	@echo ""
-	@echo "Testing:"
-	@echo "  make test            Run unit tests + dev integration tests"
-	@echo "  make test-unit       Run unit tests only (no services needed)"
-	@echo "  make test-dev        Run dev smoke + integration tests (needs make dev)"
-	@echo "  make test-deploy     Run production smoke tests (run on prod server)"
-	@echo ""
-	@echo "Danger:"
-	@echo "  make nuke            Destroy ALL containers, pods, volumes, and images"
 
-# THE NUCLEAR OPTION:
-# Wipes all containers, pods, volumes, and images from the system.
-nuke:
-	-podman ps -aq | xargs -r podman rm -f
-	-podman pod ps -q | xargs -r podman pod rm -f
-	-podman volume ls -q | xargs -r podman volume rm -f
-	-podman images -aq | xargs -r podman rmi -f
-	podman system prune -a -f --volumes
+# ── Test venv (auto-created) ────────────────────────────────────────────────
 
-# dev rules:
+$(TEST_VENV)/bin/python:
+	@printf "$(_C)[setup]$(_0) Creating test venv...\n"
+	@python3 -m venv $(TEST_VENV)
+	@$(TEST_VENV)/bin/pip install -q -r api/requirements-dev.txt
+	@printf "$(_G)[setup]$(_0) Ready\n"
 
-# Symlink Windows SSH keys into WSL if running under WSL and ~/.ssh is missing
-setup-wsl-ssh:
-	@if grep -qi microsoft /proc/version 2>/dev/null; then \
-		WIN_USER=$$(cmd.exe /C "echo %USERNAME%" 2>/dev/null | tr -d '\r'); \
-		WIN_SSH="/mnt/c/Users/$$WIN_USER/.ssh"; \
-		if [ ! -d "$$HOME/.ssh" ] && [ -d "$$WIN_SSH" ]; then \
-			ln -s "$$WIN_SSH" "$$HOME/.ssh"; \
-			echo "Linked $$WIN_SSH -> $$HOME/.ssh"; \
-		elif [ -d "$$HOME/.ssh" ]; then \
-			echo "$$HOME/.ssh already exists, skipping symlink"; \
-		else \
-			echo "Windows SSH keys not found at $$WIN_SSH"; \
-		fi; \
-	else \
-		echo "Not running in WSL, skipping SSH key setup"; \
-	fi
-
-tunnel: setup-wsl-ssh
-	set -a; . ./kube/research-ai-dev.env; set +a; \
-	ssh -N -o ExitOnForwardFailure=yes \
-		-L 7687:localhost:7687 \
-		-L 7474:localhost:7474 \
-		-L 18080:localhost:8080 \
-		-L 3030:localhost:3030 \
-		-L 11434:localhost:11434 \
-		$$REMOTE_SERVER \
-	&& echo "[tunnel] SSH tunnel running in background (PID $$(pgrep -f 'ssh -f -N.*$$REMOTE_SERVER' | tail -1))" \
-	|| (echo "[tunnel] ERROR: Failed to establish SSH tunnel. Is the remote server reachable?" && exit 1)
-
-tunnel-stop:
-	@set -a; . ./kube/research-ai-dev.env; set +a; \
-	PIDS=$$(pgrep -f "ssh -f -N.*$$REMOTE_SERVER" 2>/dev/null); \
-	if [ -n "$$PIDS" ]; then \
-		kill $$PIDS && echo "[tunnel] Stopped SSH tunnel (PID $$PIDS)"; \
-	else \
-		echo "[tunnel] No active tunnel found."; \
-	fi
-
-tunnel-status:
-	@set -a; . ./kube/research-ai-dev.env; set +a; \
-	PIDS=$$(pgrep -f "ssh -f -N.*$$REMOTE_SERVER" 2>/dev/null); \
-	if [ -n "$$PIDS" ]; then \
-		echo "[tunnel] Running (PID $$PIDS)"; \
-	else \
-		echo "[tunnel] Not running"; \
-	fi
-
-up:
-	podman build -t research-ai-api:dev -f ./api/Containerfile .
-	mkdir -p .caddy/data .caddy/config
-	set -a; . ./kube/research-ai-dev.env; set +a; \
-	envsubst < kube/pod-dev.yaml | podman kube play -
+# ── Development ──────────────────────────────────────────────────────────────
 
 dev: down
-	@$(MAKE) tunnel &
-	@echo "  Waiting for SSH tunnel..."
+	@printf "\n$(_B)Starting dev environment...$(_0)\n\n"
+	@$(MAKE) -s tunnel &
+	@printf "$(_C)[dev]$(_0) Waiting for SSH tunnel...\n"
 	@for i in $$(seq 1 30); do nc -z localhost 7687 2>/dev/null && break || sleep 1; done
-	@nc -z localhost 7687 2>/dev/null || { echo "  Tunnel failed to start"; exit 1; }
-	@$(MAKE) up
-	@echo ""
-	@echo "  research-ai dev is running at: http://localhost:3000"
-	@echo "  SSH tunnel to prod server running in background (PID $$!)"
-	@echo ""
-	@echo "  make watch  - view all logs"
-	@echo "  make down   - stop the pod"
-	@echo ""
+	@nc -z localhost 7687 2>/dev/null \
+		&& printf "$(_G)[dev]$(_0) Tunnel up\n" \
+		|| { printf "$(_R)[dev]$(_0) Tunnel failed. Try: ssh $(REMOTE_SERVER) echo ok\n"; exit 1; }
+	@$(MAKE) -s up
+	@printf "\n$(_G)$(_B)  Dev running!$(_0)  http://localhost:3000\n\n"
+	@$(MAKE) -s test || printf "\n$(_Y)[dev]$(_0) Some tests failed (see above)\n\n"
+
+up:
+	@printf "$(_C)[up]$(_0) Building API...\n"
+	@podman build -t research-ai-api:dev -f ./api/Containerfile . -q
+	@mkdir -p .caddy/data .caddy/config
+	@printf "$(_C)[up]$(_0) Starting pod...\n"
+	@set -a; . ./kube/research-ai-dev.env; set +a; \
+		envsubst < kube/pod-dev.yaml | podman kube play - >/dev/null
+	@printf "$(_G)[up]$(_0) Pod started\n"
 
 down:
-	-pkill -f 'ssh -N.*$(REMOTE_SERVER)' 2>/dev/null || true
-	set -a; . ./kube/research-ai-dev.env; set +a; \
-	envsubst < kube/pod-dev.yaml | podman kube down -
+	@-pkill -f 'ssh -N.*$(REMOTE_SERVER)' 2>/dev/null || true
+	@set -a; . ./kube/research-ai-dev.env; set +a; \
+		envsubst < kube/pod-dev.yaml | podman kube down - 2>/dev/null || true
 
-# relabel files to allow mapping to containers.
-# only for development on OSes running a security-hardened Linux kernel
-labelSELinux:
-	sudo chcon -R -t container_file_t -l s0 frontend .
-	sudo chcon -R -t container_file_t -l s0 api .
-	sudo chcon -t container_file_t -l s0 caddy/Caddyfile.dev
+# ── SSH Tunnel ───────────────────────────────────────────────────────────────
 
-watch:
-	podman pod logs -f research-ai-dev
+setup-wsl-ssh:
+	@bash scripts/setup-wsl-ssh.sh
 
-wapi:
-	podman logs -f research-ai-dev-api
+tunnel: setup-wsl-ssh
+	@printf "$(_C)[tunnel]$(_0) Connecting to $(REMOTE_SERVER)...\n"
+	@set -a; [ -f ./kube/research-ai-dev.env ] && . ./kube/research-ai-dev.env; set +a; \
+	ssh -N -o ExitOnForwardFailure=yes -o ConnectTimeout=10 \
+		-o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+		-L 7687:localhost:7687  -L 7474:localhost:7474 \
+		-L 18080:localhost:8080 -L 3030:localhost:3030 \
+		-L 11434:localhost:11434 $$REMOTE_SERVER 2>&1 \
+	|| { printf "$(_R)[tunnel]$(_0) Failed. Try: ssh $(REMOTE_SERVER) echo ok\n"; exit 1; }
 
-wui:
-	podman logs -f research-ai-dev-frontend
+tunnel-stop:
+	@PIDS=$$(pgrep -f "ssh.*-N.*$(REMOTE_SERVER)" 2>/dev/null); \
+	[ -n "$$PIDS" ] \
+		&& kill $$PIDS && printf "$(_G)[tunnel]$(_0) Stopped\n" \
+		|| printf "$(_Y)[tunnel]$(_0) Not running\n"
+
+tunnel-status:
+	@PIDS=$$(pgrep -f "ssh.*-N.*$(REMOTE_SERVER)" 2>/dev/null); \
+	[ -n "$$PIDS" ] \
+		&& printf "$(_G)[tunnel]$(_0) Running (PID $$PIDS)\n" \
+		|| printf "$(_R)[tunnel]$(_0) Not running\n"
+
+# ── Testing ──────────────────────────────────────────────────────────────────
+
+test: $(TEST_VENV)/bin/python
+	@printf "\n$(_B)═══ Unit Tests ═══$(_0)\n\n"
+	@cd api && .venv/bin/python -m pytest $(UNIT_TESTS) -v --tb=short; U=$$?; \
+	printf "\n$(_B)═══ Integration Tests ═══$(_0)\n(skips if dev pod not running)\n\n"; \
+	.venv/bin/python -m pytest $(DEV_TESTS) -v --tb=short; D=$$?; \
+	printf "\n$(_B)═══ Summary ═══$(_0)\n"; \
+	[ $$U -eq 0 ] && printf "  $(_G)Unit:        PASS$(_0)\n" || printf "  $(_R)Unit:        FAIL$(_0)\n"; \
+	[ $$D -eq 0 ] && printf "  $(_G)Integration: PASS$(_0)\n" \
+		|| { [ $$D -eq 5 ] && printf "  $(_Y)Integration: SKIP$(_0)\n" || printf "  $(_R)Integration: FAIL$(_0)\n"; }; \
+	echo ""; exit $$U
+
+test-unit: $(TEST_VENV)/bin/python
+	@cd api && .venv/bin/python -m pytest $(UNIT_TESTS) -v --tb=short
+
+test-dev: $(TEST_VENV)/bin/python
+	@cd api && .venv/bin/python -m pytest $(DEV_TESTS) -v --tb=short
+
+test-deploy: $(TEST_VENV)/bin/python
+	@cd api && .venv/bin/python -m pytest tests/test_smoke_deploy.py -v --tb=short
+
+# ── Data ─────────────────────────────────────────────────────────────────────
 
 enrich:
 	podman exec research-ai-api python -m app.scripts.enrich
@@ -158,31 +157,45 @@ enrich-force:
 harvest:
 	podman exec research-ai-ricgraph make run_bash_script
 
-# prod rules:
+# ── Logs ─────────────────────────────────────────────────────────────────────
+
+watch:
+	podman pod logs -f research-ai-dev
+wapi:
+	podman logs -f research-ai-dev-api
+wui:
+	podman logs -f research-ai-dev-frontend
+logs:
+	journalctl -f -u research-ai-api -u research-ai-frontend -u research-ai-ricgraph
+logs-api:
+	journalctl -u research-ai-api -f
+logs-ui:
+	journalctl -u research-ai-frontend -f
+logs-ric:
+	journalctl -u research-ai-ricgraph -f
+
+# ── Production ───────────────────────────────────────────────────────────────
+
 deploy:
+	@printf "$(_B)Deploying...$(_0)\n"
 	podman build -t research-ai-api:prod -f ./api/Containerfile .
-
 	set -a; . ./kube/research-ai-prod.env; set +a; \
-	podman build -t research-ai-frontend:prod -f ./frontend/Containerfile . --build-arg VITE_API_URL=$$VITE_API_URL
-
-	mkdir -p /etc/containers/systemd
-	install -m 0644 -D kube/research-ai-net.network /etc/containers/systemd/research-ai-net.network
-	install -m 0644 -D kube/research-ai-frontend.container /etc/containers/systemd/research-ai-frontend.container
-	install -m 0644 -D kube/research-ai-api.container /etc/containers/systemd/research-ai-api.container
-	install -m 0644 -D kube/research-ai-ricgraph.container /etc/containers/systemd/research-ai-ricgraph.container
-	install -m 0644 -D kube/research-ai-neo4j.container /etc/containers/systemd/research-ai-neo4j.container
-	install -m 0644 -D kube/research-ai-ai.container /etc/containers/systemd/research-ai-ai.container
-
-	mkdir -p /etc/research-ai
-	install -m 0644 -D kube/research-ai-prod.env /etc/research-ai/research-ai-prod.env
+		podman build -t research-ai-frontend:prod -f ./frontend/Containerfile . \
+		--build-arg VITE_API_URL=$$VITE_API_URL
+	mkdir -p /etc/containers/systemd /etc/research-ai
+	install -m 0644 kube/research-ai-net.network      /etc/containers/systemd/
+	install -m 0644 kube/research-ai-frontend.container /etc/containers/systemd/
+	install -m 0644 kube/research-ai-api.container     /etc/containers/systemd/
+	install -m 0644 kube/research-ai-ricgraph.container /etc/containers/systemd/
+	install -m 0644 kube/research-ai-neo4j.container   /etc/containers/systemd/
+	install -m 0644 kube/research-ai-ai.container      /etc/containers/systemd/
+	install -m 0644 kube/research-ai-prod.env          /etc/research-ai/
 	set -a; . ./kube/research-ai-prod.env; set +a; \
-	envsubst < kube/ricgraph.ini > /etc/research-ai/ricgraph.ini && chmod 0640 /etc/research-ai/ricgraph.ini
-
-	podman volume create caddy-data || true
-	podman volume create caddy-config || true
-	podman volume create neo4j-data || true
-	podman volume create ai-data || true
-
+		envsubst < kube/ricgraph.ini > /etc/research-ai/ricgraph.ini && chmod 0640 /etc/research-ai/ricgraph.ini
+	podman volume create caddy-data 2>/dev/null || true
+	podman volume create caddy-config 2>/dev/null || true
+	podman volume create neo4j-data 2>/dev/null || true
+	podman volume create ai-data 2>/dev/null || true
 	systemctl daemon-reload
 	systemctl restart --now research-ai-net-network.service
 	systemctl restart --now research-ai-neo4j.service
@@ -190,62 +203,30 @@ deploy:
 	systemctl restart --now research-ai-ricgraph.service
 	systemctl restart --now research-ai-api.service
 	systemctl restart --now research-ai-frontend.service
-
-	@echo "Services started. Enrich will run in background after startup..."
-	@(sleep 30 && $(MAKE) enrich 2>&1 | tee enrich.log || echo "[enrich] FAILED" >> enrich.log &)
+	@printf "$(_G)[deploy]$(_0) Done. Enriching in 30s...\n"
+	@(sleep 30 && $(MAKE) enrich 2>&1 | tee enrich.log || echo "FAILED" >> enrich.log &)
+	@$(MAKE) -s dev-env-info
 
 undeploy:
-	systemctl stop research-ai-frontend.service 2>/dev/null || true
-	systemctl stop research-ai-api.service 2>/dev/null || true
-	systemctl stop research-ai-ricgraph.service 2>/dev/null || true
-	systemctl stop research-ai-neo4j.service 2>/dev/null || true
-	systemctl stop research-ai-ai.service 2>/dev/null || true
-	systemctl stop research-ai-net-network.service 2>/dev/null || true
-
+	-systemctl stop research-ai-{frontend,api,ricgraph,neo4j,ai,net-network}.service 2>/dev/null
 	rm -f /etc/research-ai/research-ai-prod.env
-
-	rm -f /etc/containers/systemd/research-ai-net.network
-	rm -f /etc/containers/systemd/research-ai-frontend.container
-	rm -f /etc/containers/systemd/research-ai-api.container
-	rm -f /etc/containers/systemd/research-ai-ricgraph.container
-	rm -f /etc/containers/systemd/research-ai-neo4j.container
-	rm -f /etc/containers/systemd/research-ai-ai.container
-
+	rm -f /etc/containers/systemd/research-ai-{net.network,frontend,api,ricgraph,neo4j,ai}.container
 	systemctl daemon-reload
 
-logs:
-	journalctl -f \
-		-u research-ai-api.service \
-		-u research-ai-frontend.service \
-		-u research-ai-ricgraph.service
+dev-env-info:
+	@bash scripts/dev-env-info.sh
 
-logs-api:
-	journalctl -u research-ai-api.service -f
+# ── Setup ────────────────────────────────────────────────────────────────────
 
-logs-ui:
-	journalctl -u research-ai-frontend.service -f
+labelSELinux:
+	sudo chcon -R -t container_file_t -l s0 frontend api .
+	sudo chcon -t container_file_t -l s0 caddy/Caddyfile.dev
 
-logs-ric:
-	journalctl -u research-ai-ricgraph.service -f
-
-# test rules:
-
-# Run all unit tests (no running services needed)
-test-unit: $(TEST_VENV)/bin/python
-	cd api && .venv/bin/python -m pytest tests/test_query_utils.py tests/test_database_utils.py tests/test_autocomplete_utils.py tests/test_enrich.py tests/test_schemas.py tests/test_api_endpoints.py tests/test_connections_endpoint.py -v
-
-# Run dev smoke + integration tests (requires: make dev + make tunnel)
-test-dev: $(TEST_VENV)/bin/python
-	cd api && .venv/bin/python -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=long
-
-# Run prod deployment tests (run ON the production server after make deploy)
-test-deploy: $(TEST_VENV)/bin/python
-	cd api && .venv/bin/python -m pytest tests/test_smoke_deploy.py -v --tb=long
-
-# Run everything: unit tests first, then dev integration if pod is running
-test: test-unit
-	@echo ""
-	@echo "=== Unit tests passed. Running dev integration tests... ==="
-	@echo "(tests will skip automatically if the dev pod is not running)"
-	@echo ""
-	-cd api && .venv/bin/python -m pytest tests/test_smoke_dev.py tests/test_integration_api.py -v --tb=line
+nuke:
+	@printf "$(_R)$(_B)WARNING: destroys ALL containers, pods, volumes, images!$(_0)\n"
+	@printf "Ctrl+C within 5s to cancel...\n" && sleep 5
+	-podman ps -aq       | xargs -r podman rm -f
+	-podman pod ps -q    | xargs -r podman pod rm -f
+	-podman volume ls -q | xargs -r podman volume rm -f
+	-podman images -aq   | xargs -r podman rmi -f
+	podman system prune -a -f --volumes
