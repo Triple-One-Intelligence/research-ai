@@ -13,6 +13,7 @@ const streamSSE = async (
   body: Record<string, unknown>,
   onChunk: (chunk: string) => void,
   onComplete: () => void,
+  onDebug?: (info: Record<string, unknown>) => void,
 ) => {
   try {
     const resp = await fetch(url, {
@@ -43,6 +44,7 @@ const streamSSE = async (
         if (payload === '[DONE]') break;
         try {
           const data = JSON.parse(payload);
+          if (data.debug && onDebug) { onDebug(data.debug); continue; }
           if (data.error) { onChunk(`Error: ${data.error}`); break; }
           if (data.token) onChunk(data.token);
         } catch { /* skip malformed */ }
@@ -56,20 +58,21 @@ const streamSSE = async (
 };
 
 
-// Main App component – orchestrates state and renders the three‑panel layout.
+// Main App component – orchestrates state and renders the three-panel layout.
 const App = () => {
   const [selectedEntity, setSelectedEntity] = useState<EntitySuggestion | null>(null);
   const [responseText, setResponseText] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [debugInfo, setDebugInfo] = useState<Record<string, unknown> | null>(null);
 
   const handleGenerate = (prompt: string) => {
     if (isGenerating) return;
 
     setResponseText('');
+    setDebugInfo(null);
     setIsGenerating(true);
 
     if (selectedEntity) {
-      // RAG-augmented streaming: include entity context + vector retrieval
       streamSSE(
         `${API_BASE}/generate`,
         {
@@ -82,9 +85,9 @@ const App = () => {
         },
         (chunk) => setResponseText((prev) => prev + chunk),
         () => setIsGenerating(false),
+        (info) => setDebugInfo(info),
       );
     } else {
-      // Plain streaming chat (no RAG context)
       streamSSE(
         `${API_BASE}/chat`,
         { messages: [{ role: 'user', content: prompt }] },
@@ -129,6 +132,70 @@ const App = () => {
           onEntityClear={() => setSelectedEntity(null)}
         />
         <div className="middle-panel">
+          {debugInfo && (
+            <details className="rag-debug" style={{
+              marginBottom: '1rem',
+              padding: '0.75rem',
+              background: '#1a1a2e',
+              border: '1px solid #444',
+              borderRadius: '6px',
+              fontSize: '0.8rem',
+              color: '#ccc',
+            }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 'bold', color: '#7eb8da' }}>
+                RAG Debug &middot; {(debugInfo.publications_found as number) ?? 0} pubs &middot; {(debugInfo.model as string) ?? '?'}
+              </summary>
+              <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+
+                <details>
+                  <summary style={{ cursor: 'pointer', color: '#a8d8a8' }}>User prompt</summary>
+                  <pre style={{ margin: '0.3rem 0 0 1rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {debugInfo.user_prompt as string}
+                  </pre>
+                </details>
+
+                <details>
+                  <summary style={{ cursor: 'pointer', color: '#a8d8a8' }}>Entity</summary>
+                  <pre style={{ margin: '0.3rem 0 0 1rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {JSON.stringify(debugInfo.entity, null, 2)}
+                  </pre>
+                </details>
+
+                <details>
+                  <summary style={{ cursor: 'pointer', color: '#a8d8a8' }}>System prompt</summary>
+                  <pre style={{ margin: '0.3rem 0 0 1rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '300px', overflow: 'auto' }}>
+                    {debugInfo.system_prompt as string}
+                  </pre>
+                </details>
+
+                <details>
+                  <summary style={{ cursor: 'pointer', color: '#a8d8a8' }}>
+                    Publications ({(debugInfo.publications_found as number) ?? 0})
+                  </summary>
+                  <div style={{ margin: '0.3rem 0 0 1rem', maxHeight: '300px', overflow: 'auto' }}>
+                    {((debugInfo.publications as Array<Record<string, unknown>>) ?? []).map((pub, i) => (
+                      <details key={i} style={{ marginBottom: '0.3rem' }}>
+                        <summary style={{ cursor: 'pointer', color: '#d4c89a' }}>
+                          {pub.title as string ?? 'Untitled'} ({pub.year as string ?? '?'})
+                        </summary>
+                        <pre style={{ margin: '0.2rem 0 0 1rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.75rem' }}>
+                          {JSON.stringify(pub, null, 2)}
+                        </pre>
+                      </details>
+                    ))}
+                  </div>
+                </details>
+
+                <details>
+                  <summary style={{ cursor: 'pointer', color: '#a8d8a8' }}>Full messages (sent to LLM)</summary>
+                  <pre style={{ margin: '0.3rem 0 0 1rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '300px', overflow: 'auto' }}>
+                    {JSON.stringify(debugInfo.full_messages, null, 2)}
+                  </pre>
+                </details>
+
+              </div>
+            </details>
+          )}
           <MiddlePanel text={responseText} isGenerating={isGenerating} />
         </div>
         <RightPanel selectedEntity={selectedEntity} />

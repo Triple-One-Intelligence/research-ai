@@ -5,7 +5,7 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from app.utils.database_utils.database_utils import get_graph, VECTOR_INDEX_NAME
+from app.utils.database_utils.database_utils import get_graph
 from app.utils.ricgraph_utils.queries import rag_queries
 
 router = APIRouter()
@@ -13,6 +13,7 @@ router = APIRouter()
 AI_SERVICE_URL = os.environ["AI_SERVICE_URL"]
 CHAT_MODEL = os.getenv("CHAT_MODEL", "tinyllama")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
+DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
 
 # --------------------------------------------------------------------
 # Schemas
@@ -40,36 +41,23 @@ class EntityRef(BaseModel):
 class RagGenerateRequest(BaseModel):
     prompt: str
     entity: Optional[EntityRef] = None
-    top_k: int = 8
+    top_k: int = 20
 
 # --------------------------------------------------------------------
 # RAG helpers
 # --------------------------------------------------------------------
 
-async def _embed_text(text: str) -> list[float]:
-    """Get embedding vector for text via Ollama."""
-    url = f"{AI_SERVICE_URL}/api/embeddings"
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            url,
-            json={"model": EMBED_MODEL, "prompt": text},
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        return response.json()["embedding"]
-
-
-async def _get_similar_publications(prompt: str, top_k: int) -> list[dict]:
-    """Retrieve similar publications from the Neo4j vector index."""
-    prompt_embedding = await _embed_text(prompt)
+def _get_entity_publications(entity: EntityRef, limit: int) -> list[dict]:
+    """Get publications that belong to the selected entity from the graph."""
+    if entity.type == "person":
+        query = rag_queries.PERSON_PUBLICATIONS_WITH_ABSTRACT
+        params = {"entityId": entity.id, "limit": limit}
+    else:
+        query = rag_queries.ORG_PUBLICATIONS_WITH_ABSTRACT
+        params = {"entityId": entity.id, "limit": limit}
 
     with get_graph().session() as session:
-        results = session.run(
-            rag_queries.SIMILAR_PUBLICATIONS,
-            indexName=VECTOR_INDEX_NAME,
-            k=top_k,
-            prompt_embedding=prompt_embedding,
-        )
+        results = session.run(query, **params)
         return [
             {
                 "doi": r["doi"],
@@ -113,17 +101,22 @@ def _build_rag_system_prompt(entity: Optional[EntityRef], publications_context: 
         )
     if publications_context:
         parts.append(f"\n\nRelevant publications:\n{publications_context}")
+    else:
+        parts.append("\n\nNo publications with abstracts were found for this entity.")
     return "\n".join(parts)
 
 # --------------------------------------------------------------------
 # Streaming helper
 # --------------------------------------------------------------------
 
-def _streaming_chat_response(payload: dict):
-    """Return a StreamingResponse that proxies Ollama /api/chat as SSE."""
+def _streaming_chat_response(payload: dict, debug_info: Optional[dict] = None):
+    """Return a StreamingResponse that proxies Ollama /api/chat as SSE.
+    If debug_info is provided, it is sent as the first SSE event."""
     url = f"{AI_SERVICE_URL}/api/chat"
 
     async def stream_ollama():
+        if debug_info:
+            yield f"data: {json.dumps({'debug': debug_info})}\n\n"
         try:
             async with httpx.AsyncClient() as client:
                 async with client.stream("POST", url, json=payload, timeout=120.0) as resp:
@@ -160,14 +153,17 @@ async def chat(req: ChatRequest):
 
 @router.post("/generate")
 async def rag_generate(req: RagGenerateRequest):
-    """Streaming RAG-augmented generation: retrieves relevant publications
-    from the vector index, builds an enriched prompt, and streams the
-    LLM response token-by-token via SSE."""
+    """Streaming RAG-augmented generation: retrieves the selected entity's
+    publications from the graph, builds an enriched prompt with their
+    abstracts, and streams the LLM response token-by-token via SSE."""
     if not req.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt must not be empty")
 
-    similar_pubs = await _get_similar_publications(req.prompt, req.top_k)
-    pub_context = _format_publications_context(similar_pubs)
+    publications: list[dict] = []
+    if req.entity:
+        publications = _get_entity_publications(req.entity, req.top_k)
+
+    pub_context = _format_publications_context(publications)
     system_prompt = _build_rag_system_prompt(req.entity, pub_context)
 
     payload = {
@@ -178,7 +174,20 @@ async def rag_generate(req: RagGenerateRequest):
         ],
         "stream": True,
     }
-    return _streaming_chat_response(payload)
+
+    debug_info = None
+    if DEBUG:
+        debug_info = {
+            "model": CHAT_MODEL,
+            "user_prompt": req.prompt,
+            "entity": req.entity.model_dump() if req.entity else None,
+            "publications_found": len(publications),
+            "publications": publications,
+            "system_prompt": system_prompt,
+            "full_messages": payload["messages"],
+        }
+
+    return _streaming_chat_response(payload, debug_info=debug_info)
 
 
 @router.post("/embed")
