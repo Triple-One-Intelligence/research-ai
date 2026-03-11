@@ -1,6 +1,6 @@
 """Cypher queries for the connections service."""
 
-PERSON_PUBLICATIONS = """/*cypher*/
+PERSON_PUBLICATIONS = """
 MATCH (root:RicgraphNode {value: $rootValue})-[:LINKS_TO]-(pub:RicgraphNode {name: 'DOI'})
 WHERE NOT coalesce(pub.category, '') IN $excludeCategories
 WITH DISTINCT pub
@@ -12,7 +12,7 @@ RETURN pub.value   AS doi,
 LIMIT $limit
 """
 
-PERSON_COLLABORATORS = """/*cypher*/
+PERSON_COLLABORATORS = """
 MATCH (root:RicgraphNode {value: $rootValue})-[:LINKS_TO]-(pub:RicgraphNode {name: 'DOI'})
       -[:LINKS_TO]-(other:RicgraphNode {name: 'person-root'})
 WHERE other <> root
@@ -33,7 +33,7 @@ ORDER BY rawName
 LIMIT $limit
 """
 
-PERSON_ORGANIZATIONS = """/*cypher*/
+PERSON_ORGANIZATIONS = """
 MATCH (root:RicgraphNode {value: $rootValue})-[:LINKS_TO]-(org:RicgraphNode {category: 'organization'})
 WITH DISTINCT org
 RETURN org.value AS organization_id, org.value AS name
@@ -41,7 +41,7 @@ ORDER BY name
 LIMIT $limit
 """
 
-ORG_MEMBERS = """/*cypher*/
+ORG_MEMBERS = """
 MATCH (org:RicgraphNode {value: $entityId})-[:LINKS_TO]-(root:RicgraphNode {name: 'person-root'})
 MATCH (root)-[:LINKS_TO]-(fn:RicgraphNode)
 WHERE fn.name IN ['FULL_NAME', 'FULL_NAME_ASCII']
@@ -58,7 +58,7 @@ ORDER BY rawName
 LIMIT $limit
 """
 
-ORG_PUBLICATIONS = """/*cypher*/
+ORG_PUBLICATIONS = """
 MATCH (org:RicgraphNode {value: $entityId})-[:LINKS_TO]-(:RicgraphNode {name: 'person-root'})
       -[:LINKS_TO]-(pub:RicgraphNode {name: 'DOI'})
 WHERE NOT coalesce(pub.category, '') IN $excludeCategories
@@ -71,7 +71,7 @@ RETURN pub.value   AS doi,
 LIMIT $limit
 """
 
-ORG_RELATED_ORGS = """/*cypher*/
+ORG_RELATED_ORGS = """
 MATCH (org:RicgraphNode {value: $entityId})-[:LINKS_TO]-(:RicgraphNode {name: 'person-root'})
       -[:LINKS_TO]-(other:RicgraphNode {category: 'organization'})
 WHERE other <> org
