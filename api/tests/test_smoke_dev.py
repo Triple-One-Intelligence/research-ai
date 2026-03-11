@@ -15,8 +15,9 @@ import socket
 import pytest
 import httpx
 
-DEV_BASE = "http://localhost:3000"
+DEV_BASE = "https://localhost:3000"
 TIMEOUT = 5.0
+_client = httpx.Client(verify=False, timeout=TIMEOUT, follow_redirects=True)
 
 pytestmark = pytest.mark.smoke
 
@@ -77,7 +78,7 @@ class TestDevPodRunning:
 
     def test_caddy_serves_frontend(self):
         try:
-            resp = httpx.get(f"{DEV_BASE}/", timeout=TIMEOUT, follow_redirects=True)
+            resp = _client.get(f"{DEV_BASE}/")
             assert resp.status_code == 200, (
                 f"Frontend returned {resp.status_code} instead of 200.\n"
                 "  -> Check: podman logs research-ai-dev-frontend"
@@ -95,7 +96,7 @@ class TestDevPodRunning:
     def test_caddy_proxies_api(self):
         """Caddy should proxy /api/* to the FastAPI backend."""
         try:
-            resp = httpx.get(f"{DEV_BASE}/api/health", timeout=TIMEOUT)
+            resp = _client.get(f"{DEV_BASE}/api/health")
             assert resp.status_code == 200, (
                 f"API health returned {resp.status_code}.\n"
                 "  -> Check: podman logs research-ai-dev-api"
@@ -116,10 +117,9 @@ class TestDevAPIFunctionality:
 
     def test_autocomplete_endpoint_responds(self):
         try:
-            resp = httpx.get(
+            resp = _client.get(
                 f"{DEV_BASE}/api/autocomplete",
                 params={"query": "test", "limit": 5},
-                timeout=TIMEOUT,
             )
             assert resp.status_code in (200, 503), (
                 f"Autocomplete returned unexpected {resp.status_code}.\n"
@@ -130,10 +130,9 @@ class TestDevAPIFunctionality:
 
     def test_connections_entity_endpoint(self):
         try:
-            resp = httpx.get(
+            resp = _client.get(
                 f"{DEV_BASE}/api/connections/entity",
                 params={"entity_id": "test-1", "entity_type": "person"},
-                timeout=TIMEOUT,
             )
             assert resp.status_code == 200, (
                 f"Connections returned {resp.status_code}.\n"

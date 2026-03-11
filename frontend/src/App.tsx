@@ -5,23 +5,49 @@ import { LeftPanel } from './components/LeftPanel';
 import { MiddlePanel } from './components/MiddlePanel';
 import { RightPanel } from './components/RightPanel';
 import type { EntitySuggestion } from './types';
-import api from './api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-// Ask response generation function. Takes a prompt and two callbacks:
-// one for handling incoming chunks of text, and one for when the response is complete.
 const generateResponse = async (
-  prompt: string, 
-  onChunk: (chunk: string) => void, 
-  onComplete: () => void
+  prompt: string,
+  onChunk: (chunk: string) => void,
+  onComplete: () => void,
 ) => {
   try {
-    const response = await api.post('/chat', {
-      messages: [{ role: 'user', content: prompt }],
-      stream: false,
+    const resp = await fetch(`${API_BASE}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: prompt }],
+      }),
     });
-  
-    const text = response.data?.message?.content ?? '';
-    onChunk(text);
+
+    if (!resp.ok || !resp.body) {
+      onChunk(`Error: ${resp.status} ${resp.statusText}`);
+      onComplete();
+      return;
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6);
+        if (payload === '[DONE]') break;
+        try {
+          const data = JSON.parse(payload);
+          if (data.error) { onChunk(`Error: ${data.error}`); break; }
+          if (data.token) onChunk(data.token);
+        } catch { /* skip malformed */ }
+      }
+    }
     onComplete();
   } catch (error) {
     onChunk('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));

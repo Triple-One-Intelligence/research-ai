@@ -71,7 +71,6 @@ spec:
       image: docker.io/library/caddy:2-alpine
       ports:
         - containerPort: 3000
-        - containerPort: 8443
       volumeMounts:
         - name: caddy-data
           mountPath: /data

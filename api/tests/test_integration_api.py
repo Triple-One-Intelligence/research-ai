@@ -10,8 +10,9 @@ Run with: make test-dev
 import pytest
 import httpx
 
-API_BASE = "http://localhost:3000/api"
+API_BASE = "https://localhost:3000/api"
 TIMEOUT = 5.0
+_client = httpx.Client(verify=False)
 
 pytestmark = pytest.mark.integration
 
@@ -19,7 +20,7 @@ pytestmark = pytest.mark.integration
 def _dev_api_running() -> bool:
     """Check if the dev API is actually running (not just any service on :3000)."""
     try:
-        resp = httpx.get(f"{API_BASE}/health", timeout=3.0)
+        resp = _client.get(f"{API_BASE}/health")
         return resp.status_code == 200 and resp.json().get("service") == "Research-AI API"
     except Exception:
         return False
@@ -34,7 +35,7 @@ _skip = pytest.mark.skipif(
 @_skip
 class TestHealthIntegration:
     def test_health_returns_json(self):
-        resp = httpx.get(f"{API_BASE}/health", timeout=TIMEOUT)
+        resp = _client.get(f"{API_BASE}/health")
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/json"
         data = resp.json()
@@ -44,7 +45,7 @@ class TestHealthIntegration:
     def test_health_time_is_recent(self):
         from datetime import datetime, timedelta, timezone
 
-        resp = httpx.get(f"{API_BASE}/health", timeout=TIMEOUT)
+        resp = _client.get(f"{API_BASE}/health")
         data = resp.json()
         api_time = datetime.fromisoformat(data["time"])
         if api_time.tzinfo is None:
@@ -58,10 +59,9 @@ class TestHealthIntegration:
 @_skip
 class TestAutocompleteIntegration:
     def test_valid_query_returns_suggestions_shape(self):
-        resp = httpx.get(
+        resp = _client.get(
             f"{API_BASE}/autocomplete",
             params={"query": "utrecht", "limit": 5},
-            timeout=TIMEOUT,
         )
         if resp.status_code == 503:
             pytest.skip("Neo4j not reachable (503)")
@@ -73,10 +73,9 @@ class TestAutocompleteIntegration:
         assert isinstance(data["organizations"], list)
 
     def test_short_query_returns_empty(self):
-        resp = httpx.get(
+        resp = _client.get(
             f"{API_BASE}/autocomplete",
             params={"query": "a"},
-            timeout=TIMEOUT,
         )
         if resp.status_code == 503:
             pytest.skip("Neo4j not reachable")
@@ -86,10 +85,9 @@ class TestAutocompleteIntegration:
         assert data["organizations"] == []
 
     def test_limit_is_respected(self):
-        resp = httpx.get(
+        resp = _client.get(
             f"{API_BASE}/autocomplete",
             params={"query": "van", "limit": 2},
-            timeout=TIMEOUT,
         )
         if resp.status_code == 503:
             pytest.skip("Neo4j not reachable")
@@ -99,10 +97,9 @@ class TestAutocompleteIntegration:
         assert total <= 2
 
     def test_person_results_have_required_fields(self):
-        resp = httpx.get(
+        resp = _client.get(
             f"{API_BASE}/autocomplete",
             params={"query": "jan", "limit": 10},
-            timeout=TIMEOUT,
         )
         if resp.status_code == 503:
             pytest.skip("Neo4j not reachable")
@@ -112,10 +109,9 @@ class TestAutocompleteIntegration:
             assert len(person["name"]) > 0
 
     def test_organization_results_have_required_fields(self):
-        resp = httpx.get(
+        resp = _client.get(
             f"{API_BASE}/autocomplete",
             params={"query": "university", "limit": 10},
-            timeout=TIMEOUT,
         )
         if resp.status_code == 503:
             pytest.skip("Neo4j not reachable")
@@ -124,20 +120,19 @@ class TestAutocompleteIntegration:
             assert "name" in org, f"Org missing name: {org}"
 
     def test_invalid_limit_rejected(self):
-        resp = httpx.get(
+        resp = _client.get(
             f"{API_BASE}/autocomplete",
             params={"query": "test", "limit": 0},
-            timeout=TIMEOUT,
         )
         assert resp.status_code == 422
 
     def test_missing_query_rejected(self):
-        resp = httpx.get(f"{API_BASE}/autocomplete", timeout=TIMEOUT)
+        resp = _client.get(f"{API_BASE}/autocomplete")
         assert resp.status_code == 422
 
     def test_special_chars_dont_crash(self):
         for query in ["o'brien", "test+test", 'he"llo', "foo\\bar", "(test)"]:
-            resp = httpx.get(
+            resp = _client.get(
                 f"{API_BASE}/autocomplete",
                 params={"query": query},
                 timeout=TIMEOUT,
@@ -150,10 +145,9 @@ class TestAutocompleteIntegration:
 @_skip
 class TestConnectionsIntegration:
     def test_person_connections_shape(self):
-        resp = httpx.get(
+        resp = _client.get(
             f"{API_BASE}/connections/entity",
             params={"entity_id": "p1", "entity_type": "person"},
-            timeout=TIMEOUT,
         )
         assert resp.status_code in (200, 500), (
             f"Connections returned {resp.status_code}: {resp.text[:200]}"
@@ -166,10 +160,9 @@ class TestConnectionsIntegration:
             assert "members" in data
 
     def test_invalid_entity_type_returns_400(self):
-        resp = httpx.get(
+        resp = _client.get(
             f"{API_BASE}/connections/entity",
             params={"entity_id": "p1", "entity_type": "invalid"},
-            timeout=TIMEOUT,
         )
         assert resp.status_code == 400
 
@@ -177,24 +170,22 @@ class TestConnectionsIntegration:
 @_skip
 class TestCORSIntegration:
     def test_cors_allows_dev_origin(self):
-        resp = httpx.options(
+        resp = _client.options(
             f"{API_BASE}/health",
             headers={
                 "Origin": "http://localhost:5173",
                 "Access-Control-Request-Method": "GET",
             },
-            timeout=TIMEOUT,
         )
         assert "access-control-allow-origin" in resp.headers
 
     def test_cors_blocks_unknown_origin(self):
-        resp = httpx.options(
+        resp = _client.options(
             f"{API_BASE}/health",
             headers={
                 "Origin": "http://evil.com",
                 "Access-Control-Request-Method": "GET",
             },
-            timeout=TIMEOUT,
         )
         allow_origin = resp.headers.get("access-control-allow-origin", "")
         assert "evil.com" not in allow_origin
