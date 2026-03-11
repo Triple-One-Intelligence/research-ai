@@ -18,7 +18,7 @@ ORDER BY score DESC
 PERSON_SIMILAR_PUBLICATIONS = """
 CALL db.index.vector.queryNodes($indexName, $searchK, $prompt_embedding)
 YIELD node AS pub, score
-MATCH (start:RicgraphNode {_key: $entityId})
+MATCH (start:RicgraphNode {value: $entityId})
 OPTIONAL MATCH (start)-[:LINKS_TO]-(pr:RicgraphNode {name: 'person-root'})
 WITH pub, score,
      CASE WHEN start.name = 'person-root' THEN start ELSE pr END AS root
@@ -38,7 +38,7 @@ ORG_SIMILAR_PUBLICATIONS = """
 CALL db.index.vector.queryNodes($indexName, $searchK, $prompt_embedding)
 YIELD node AS pub, score
 WHERE EXISTS {
-  MATCH (org:RicgraphNode {_key: $entityId})
+  MATCH (org:RicgraphNode {value: $entityId})
         -[:LINKS_TO]-(:RicgraphNode {name: 'person-root'})
         -[:LINKS_TO]-(pub)
 }

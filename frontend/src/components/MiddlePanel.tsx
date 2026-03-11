@@ -38,11 +38,11 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({ text, isGenerating }) 
         className={`llm-output-box ${isGenerating ? 'generating' : ''}`}
       >
         {/* Show the AI text if available; otherwise display a helpful placeholder. */}
-        {text || (
+        {text || (isGenerating ? null : (
           <span style={{ color: '#888', fontStyle: 'italic' }}>
             {t('middlePanel.outputPlaceholder')}
           </span>
-        )}
+        ))}
       </div>
     </div>
   );

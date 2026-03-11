@@ -16,12 +16,14 @@ AUTOCOMPLETE_CYPHER = """/*cypher*/
     // substring in Cypher is 1-based, so substring(rawClean, 1) drops the first character (the comma)
     WITH node, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
 
-    // Clean the DB name as well for comparison
-    // Match normalize_query_for_index (query_utils.py), which applies:
-    //   re.sub(r'[^\\w\\s]', ' ', user_query)
-    // i.e. replace any non-word, non-whitespace character with a space.
+    // Clean the DB name for comparison: strip common punctuation to match
+    // normalize_query_for_index (query_utils.py) which replaces non-word,
+    // non-whitespace characters with spaces.
     WITH node, name,
-         toLower(apoc.text.regreplace(name, '[^\\\\w\\\\s]', ' ')) AS dbCleanName
+         toLower(
+           reduce(s = name, ch IN [',', '.', '-', '(', ')', '[', ']', '{', '}', ':', ';', '/', '\\\\', '&', '+', '!', '?', '"', "'", '#', '@'] |
+             replace(s, ch, ' '))
+         ) AS dbCleanName
 
     // Ensure all keywords match the cleaned, human-readable name (after stripping UUIDs/commas above)
     // Keep a safety net against pure technical identifiers (e.g. ORCID-style numeric IDs):
