@@ -4,6 +4,7 @@
 .PHONY: help dev up down tunnel tunnel-stop tunnel-status \
         watch wapi wui test test-unit test-dev test-deploy \
         enrich enrich-force harvest deploy undeploy dev-env-info \
+        neo4j-backup neo4j-restore \
         logs logs-api logs-ui logs-ric labelSELinux setup-wsl-ssh nuke
 
 # ── Config ───────────────────────────────────────────────────────────────────
@@ -49,6 +50,8 @@ help:
 	@echo "  enrich           Enrich publications (abstracts + embeddings)"
 	@echo "  enrich-force     Re-enrich all publications"
 	@echo "  harvest          Run ricgraph harvesting"
+	@echo "  neo4j-backup     Backup Neo4j database to /var/backups/research-ai/"
+	@echo "  neo4j-restore    Restore Neo4j database from latest backup"
 	@printf "\n$(_C)Production$(_0)\n"
 	@echo "  deploy           Build + deploy to production"
 	@echo "  undeploy         Stop + remove all prod services"
@@ -206,6 +209,35 @@ enrich-force:
 harvest:
 	podman exec research-ai-ricgraph make run_bash_script
 
+NEO4J_BACKUP_DIR := /var/backups/research-ai
+
+neo4j-backup:
+	@mkdir -p $(NEO4J_BACKUP_DIR)
+	@printf "$(_B)Stopping Neo4j for backup...$(_0)\n"
+	systemctl stop research-ai-neo4j.service
+	podman run --rm --entrypoint "" \
+		-v neo4j-data:/data:ro \
+		-v $(NEO4J_BACKUP_DIR):/backup \
+		docker.io/library/neo4j:5 \
+		bash -c "cp -a /data/. /backup/neo4j-data/"
+	systemctl start research-ai-neo4j.service
+	@ls -sh $(NEO4J_BACKUP_DIR)/neo4j-data/ | head -1
+	@printf "$(_G)[neo4j-backup]$(_0) Saved to $(NEO4J_BACKUP_DIR)/neo4j-data/\n"
+
+neo4j-restore:
+	@if [ ! -d $(NEO4J_BACKUP_DIR)/neo4j-data ]; then \
+		printf "$(_R)No backup found at $(NEO4J_BACKUP_DIR)/neo4j-data/$(_0)\n"; exit 1; \
+	fi
+	@printf "$(_B)Stopping Neo4j for restore...$(_0)\n"
+	systemctl stop research-ai-neo4j.service
+	podman run --rm --entrypoint "" \
+		-v neo4j-data:/data \
+		-v $(NEO4J_BACKUP_DIR):/backup:ro \
+		docker.io/library/neo4j:5 \
+		bash -c "rm -rf /data/* && cp -a /backup/neo4j-data/. /data/"
+	systemctl start research-ai-neo4j.service
+	@printf "$(_G)[neo4j-restore]$(_0) Restored from $(NEO4J_BACKUP_DIR)/neo4j-data/\n"
+
 # ── Logs ─────────────────────────────────────────────────────────────────────
 
 watch:
@@ -246,14 +278,12 @@ deploy:
 	podman volume create neo4j-data 2>/dev/null || true
 	podman volume create ai-data 2>/dev/null || true
 	systemctl daemon-reload
-	systemctl restart --now research-ai-net-network.service
 	systemctl restart --now research-ai-neo4j.service
 	systemctl restart --now research-ai-ai.service
 	systemctl restart --now research-ai-ricgraph.service
 	systemctl restart --now research-ai-api.service
 	systemctl restart --now research-ai-frontend.service
-	@printf "$(_G)[deploy]$(_0) Done. Enriching in 30s...\n"
-	@(sleep 30 && $(MAKE) enrich 2>&1 | tee enrich.log || echo "FAILED" >> enrich.log &)
+	@printf "$(_G)[deploy]$(_0) Done.\n"
 	@$(MAKE) -s dev-env-info
 
 undeploy:
