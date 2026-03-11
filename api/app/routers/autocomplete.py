@@ -12,13 +12,27 @@ Endpoint
 """
 
 from fastapi import APIRouter, Query, HTTPException
-from app.utils.ricgraph_utils.autocomplete_utils import get_autocomplete_suggestions, AutocompleteError, InvalidQueryError
+from neo4j.exceptions import ServiceUnavailable
+
+from app.utils.ricgraph_utils.autocomplete_utils import (
+    get_autocomplete_suggestions,
+    AutocompleteError,
+    InvalidQueryError,
+)
 from app.utils.schemas import Suggestions
 
 router = APIRouter(prefix="/autocomplete")
 
 @router.get("", response_model=Suggestions)
-def suggest(query: str, limit: int = Query(10, ge=1, le=100, description="Maximum number of suggestions to return (1-100)")):
+def suggest(
+    query: str,
+    limit: int = Query(
+        10,
+        ge=1,
+        le=100,
+        description="Maximum number of suggestions to return (1-100)",
+    ),
+):
     """
     Endpoint GET /autocomplete
 
@@ -38,6 +52,14 @@ def suggest(query: str, limit: int = Query(10, ge=1, le=100, description="Maximu
         return suggestions
     except InvalidQueryError as exception:
         raise HTTPException(status_code=400, detail=str(exception))
+    except ServiceUnavailable:
+        # Neo4j is temporarily unavailable – signal this as a 503 to clients.
+        print(f"Autocomplete service unavailable for query={query!r}")
+        raise HTTPException(status_code=503, detail="Autocomplete service unavailable.")
+    except RuntimeError:
+        # Typically raised when the Neo4j driver has not been initialized yet.
+        print(f"Autocomplete backend not initialized for query={query!r}")
+        raise HTTPException(status_code=503, detail="Autocomplete backend not initialized.")
     except AutocompleteError:
         print(f"Autocomplete service error for query={query!r}")
         raise HTTPException(status_code=500, detail="Autocomplete query failed.")

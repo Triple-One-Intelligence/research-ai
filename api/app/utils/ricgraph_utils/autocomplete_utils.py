@@ -1,5 +1,6 @@
 from app.utils.database_utils import query_utils, database_utils
 from neo4j import Result
+from neo4j.exceptions import ServiceUnavailable
 from app.utils.schemas import Suggestions, Person, Organization
 from app.utils.ricgraph_utils.queries.autocomplete_queries import AUTOCOMPLETE_CYPHER
 
@@ -60,6 +61,12 @@ def get_autocomplete_suggestions(user_query: str, limit: int = 10) -> Suggestion
             else:
                 raise AutocompleteError(f"Unexpected type: {row.get('type')!r}")
 
+    except ServiceUnavailable:
+        # Propagate Neo4j service availability issues so the API layer can return 503.
+        raise
+    except RuntimeError:
+        # Propagate driver-not-initialized errors so the API layer can return 503.
+        raise
     except Exception as exception:
         print(f"Autocomplete query failed for query={query!r}")
         raise AutocompleteError("Autocomplete query failed") from exception

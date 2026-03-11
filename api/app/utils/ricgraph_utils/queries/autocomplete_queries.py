@@ -13,6 +13,7 @@ AUTOCOMPLETE_CYPHER = """/*cypher*/
 
     // Data cleaning: strip UUID suffix and any leading comma from the stored value
     WITH node, trim(split(node.value, '#')[0]) AS rawClean
+    // substring in Cypher is 1-based, so substring(rawClean, 1) drops the first character (the comma)
     WITH node, CASE WHEN rawClean STARTS WITH ',' THEN trim(substring(rawClean, 1)) ELSE rawClean END AS name
 
     // Clean the DB name as well for comparison

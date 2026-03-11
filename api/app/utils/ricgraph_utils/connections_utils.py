@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TypedDict, Union
 from app.utils.database_utils import database_utils
 from app.utils.schemas import Person, Publication, Organization
 from app.utils.schemas.connections import Member
@@ -8,6 +8,11 @@ from app.utils.ricgraph_utils.queries.connections_queries import (
 )
 
 EXCLUDE_CATEGORIES: List[str] = []
+"""Categories of publications to exclude from connections queries.
+
+An empty list means "no exclusions". This is passed directly into the Cypher
+queries via the `$excludeCategories` parameter.
+"""
 
 class ConnectionsError(RuntimeError):
     pass
@@ -40,9 +45,17 @@ def parse_year(raw: Any) -> Optional[int]:
             return None
     return None
 
-def format_people(rows: List[Dict[str, Any]], *, as_members: bool = False) -> list:
+PeopleOrMembers = Union[Person, Member]
+
+class ConnectionsPayload(TypedDict):
+    collaborators: List[Person]
+    publications: List[Publication]
+    organizations: List[Organization]
+    members: List[Member]
+
+def format_people(rows: List[Dict[str, Any]], *, as_members: bool = False) -> List[PeopleOrMembers]:
     """Format person rows as Person or Member models."""
-    out: list = []
+    out: List[PeopleOrMembers] = []
     for row in rows:
         name = clean_name(row.get("rawName"))
         if as_members:
@@ -82,7 +95,12 @@ def format_publications(rows: List[Dict[str, Any]]) -> List[Publication]:
     out.sort(key=lambda publication: (publication.year is not None, publication.year or 0), reverse=True)
     return out
 
-def person_connections(entity_id: str, max_publications: int, max_collaborators: int, max_organizations: int) -> Dict[str, Any]:
+def person_connections(
+    entity_id: str,
+    max_publications: int,
+    max_collaborators: int,
+    max_organizations: int,
+) -> ConnectionsPayload:
     driver = database_utils.get_graph()
 
     with driver.session() as session:
@@ -103,7 +121,12 @@ def person_connections(entity_id: str, max_publications: int, max_collaborators:
         "members": [],
     }
 
-def organization_connections(entity_id: str, max_publications: int, max_organizations: int, max_members: int) -> Dict[str, Any]:
+def organization_connections(
+    entity_id: str,
+    max_publications: int,
+    max_organizations: int,
+    max_members: int,
+) -> ConnectionsPayload:
     driver = database_utils.get_graph()
     with driver.session() as session:
         publications = session.run(
@@ -123,7 +146,14 @@ def organization_connections(entity_id: str, max_publications: int, max_organiza
         "members": format_people(members, as_members=True),
     }
 
-def get_connections(entity_id: str, entity_type: str, max_publications: int = 50, max_collaborators: int = 50, max_organizations: int = 50, max_members: int = 50) -> Dict[str, Any]:
+def get_connections(
+    entity_id: str,
+    entity_type: str,
+    max_publications: int = 50,
+    max_collaborators: int = 50,
+    max_organizations: int = 50,
+    max_members: int = 50,
+) -> ConnectionsPayload:
     if entity_type not in ("person", "organization"):
         raise InvalidEntityTypeError("entity_type must be 'person' or 'organization'")
 
