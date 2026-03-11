@@ -2,33 +2,36 @@
 API integration tests against a running local instance.
 
 These tests hit the actual API (no mocks) to verify end-to-end behavior.
-They require the dev pod to be running (`make dev`).
+They require the dev pod to be running (make dev).
 
 Run with: make test-dev
 """
 
-import socket
 import pytest
 import httpx
 
 API_BASE = "http://localhost:3000/api"
 TIMEOUT = 5.0
 
+pytestmark = pytest.mark.integration
 
-def _api_reachable() -> bool:
+
+def _dev_api_running() -> bool:
+    """Check if the dev API is actually running (not just any service on :3000)."""
     try:
-        with socket.create_connection(("localhost", 3000), timeout=2):
-            return True
-    except (ConnectionRefusedError, TimeoutError, OSError):
+        resp = httpx.get(f"{API_BASE}/health", timeout=3.0)
+        return resp.status_code == 200 and resp.json().get("service") == "Research-AI API"
+    except Exception:
         return False
 
 
-pytestmark = pytest.mark.skipif(
-    not _api_reachable(),
-    reason="Dev pod not running (port 3000 not open). Start with: make dev",
+_skip = pytest.mark.skipif(
+    not _dev_api_running(),
+    reason="Dev API not running on port 3000. Start with: make dev",
 )
 
 
+@_skip
 class TestHealthIntegration:
     def test_health_returns_json(self):
         resp = httpx.get(f"{API_BASE}/health", timeout=TIMEOUT)
@@ -44,15 +47,15 @@ class TestHealthIntegration:
         resp = httpx.get(f"{API_BASE}/health", timeout=TIMEOUT)
         data = resp.json()
         api_time = datetime.fromisoformat(data["time"])
-        # API may return naive UTC or tz-aware time; compare in UTC
         if api_time.tzinfo is None:
             api_time = api_time.replace(tzinfo=timezone.utc)
         now_utc = datetime.now(timezone.utc)
         assert abs(now_utc - api_time) < timedelta(minutes=5), (
-            "API time is more than 5 minutes off from UTC."
+            "API time is more than 5 minutes off from UTC"
         )
 
 
+@_skip
 class TestAutocompleteIntegration:
     def test_valid_query_returns_suggestions_shape(self):
         resp = httpx.get(
@@ -61,7 +64,7 @@ class TestAutocompleteIntegration:
             timeout=TIMEOUT,
         )
         if resp.status_code == 503:
-            pytest.skip("Neo4j not reachable (503), tunnel may be down")
+            pytest.skip("Neo4j not reachable (503)")
         assert resp.status_code == 200
         data = resp.json()
         assert "persons" in data
@@ -133,7 +136,6 @@ class TestAutocompleteIntegration:
         assert resp.status_code == 422
 
     def test_special_chars_dont_crash(self):
-        """Queries with special characters should not cause 500 errors."""
         for query in ["o'brien", "test+test", 'he"llo', "foo\\bar", "(test)"]:
             resp = httpx.get(
                 f"{API_BASE}/autocomplete",
@@ -141,10 +143,11 @@ class TestAutocompleteIntegration:
                 timeout=TIMEOUT,
             )
             assert resp.status_code in (200, 503), (
-                f"Query '{query}' caused status {resp.status_code}: {resp.text}"
+                f"Query '{query}' caused status {resp.status_code}: {resp.text[:200]}"
             )
 
 
+@_skip
 class TestConnectionsIntegration:
     def test_person_connections_shape(self):
         resp = httpx.get(
@@ -152,9 +155,8 @@ class TestConnectionsIntegration:
             params={"entity_id": "p1", "entity_type": "person"},
             timeout=TIMEOUT,
         )
-        # 200 = working, 500 = Neo4j query failed (entity not found is still 200)
         assert resp.status_code in (200, 500), (
-            f"Connections returned {resp.status_code}: {resp.text}"
+            f"Connections returned {resp.status_code}: {resp.text[:200]}"
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -172,6 +174,7 @@ class TestConnectionsIntegration:
         assert resp.status_code == 400
 
 
+@_skip
 class TestCORSIntegration:
     def test_cors_allows_dev_origin(self):
         resp = httpx.options(
