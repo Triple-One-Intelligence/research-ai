@@ -151,16 +151,6 @@
   gap: 0.1rem;
 }
 
-.member-role {
-  font-size: 0.75rem;
-  color: #9ca3af;
-  /* Keep member roles compact and truncate if they overflow */
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* Versions card — mirrors .collapsible-card but nested inside a publication
    Adjusted to be more compact: reduced vertical padding and smaller font sizes */
 .versions-card {
