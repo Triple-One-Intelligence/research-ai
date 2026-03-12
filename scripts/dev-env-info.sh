@@ -14,6 +14,9 @@ _env() { grep -s "^$1=" "$PROD_ENV" 2>/dev/null | cut -d= -f2- || echo "$2"; }
 CADDY_HOST=$(_env CADDY_HOSTNAME "$SERVER_HOST")
 NEO4J_USER=$(_env REMOTE_NEO4J_USER "neo4j")
 NEO4J_PASS=$(_env REMOTE_NEO4J_PASS "CHANGE_ME")
+CHAT_MODEL=$(_env CHAT_MODEL "tinyllama")
+EMBED_MODEL=$(_env EMBED_MODEL "nomic-embed-text")
+EMBED_DIMS=$(_env EMBED_DIMENSIONS "768")
 
 printf "\n${B}═══ Dev Environment Connection Info ═══${R}\n\n"
 printf "Copy the following into your ${C}kube/research-ai-dev.env${R} file.\n\n"
@@ -48,11 +51,11 @@ AI_SERVICE_URL=http://localhost:11434
 LOGLEVEL=INFO
 
 # --- CHAT MODEL ---
-CHAT_MODEL=tinyllama
+CHAT_MODEL=$CHAT_MODEL
 
 # --- EMBEDDINGS ---
-EMBED_MODEL=nomic-embed-text
-EMBED_DIMENSIONS=768
+EMBED_MODEL=$EMBED_MODEL
+EMBED_DIMENSIONS=$EMBED_DIMS
 OPENALEX_MAILTO=
 EOF
 
@@ -64,6 +67,18 @@ echo "  7474  -> Neo4j HTTP   (http://localhost:7474)"
 echo "  18080 -> Ricgraph     (http://localhost:18080)"
 echo "  3030  -> Ricgraph UI  (http://localhost:3030)"
 echo "  11434 -> Ollama       (http://localhost:11434)"
+echo ""
+
+printf "${B}AI models:${R}\n"
+echo "  Chat:  $CHAT_MODEL"
+echo "  Embed: $EMBED_MODEL (${EMBED_DIMS}d)"
+# Show which models are currently pulled on Ollama
+if MODELS=$(curl -sf http://127.0.0.1:11434/api/tags 2>/dev/null); then
+    PULLED=$(echo "$MODELS" | python3 -c "import sys,json; print(', '.join(m['name'] for m in json.load(sys.stdin)['models']))" 2>/dev/null || echo "?")
+    echo "  Pulled: $PULLED"
+else
+    echo "  Pulled: (Ollama not reachable)"
+fi
 echo ""
 
 printf "${B}Production endpoints:${R}\n"

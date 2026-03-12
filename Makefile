@@ -291,8 +291,10 @@ deploy:
 	@printf "$(_C)[deploy]$(_0) Pulling AI models...\n"
 	@$(call _load_env,./kube/research-ai-prod.env); \
 	for i in 1 2 3 4 5; do curl -sf http://127.0.0.1:11434/api/tags >/dev/null && break || sleep 5; done; \
-	curl -sf http://127.0.0.1:11434/api/pull -d "{\"name\":\"$$EMBED_MODEL\"}" | tail -1; \
-	curl -sf http://127.0.0.1:11434/api/pull -d "{\"name\":\"$$CHAT_MODEL\"}" | tail -1
+	for model in $$EMBED_MODEL $$CHAT_MODEL nomic-embed-text tinyllama; do \
+		printf "  pulling $$model... "; \
+		curl -sf http://127.0.0.1:11434/api/pull -d "{\"name\":\"$$model\"}" | tail -1; \
+	done
 	@printf "$(_G)[deploy]$(_0) Done.\n"
 	@$(MAKE) -s dev-env-info
 

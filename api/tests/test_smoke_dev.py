@@ -150,10 +150,12 @@ class TestDevAPIFunctionality:
                 f"{DEV_BASE}/api/generate",
                 json={"prompt": "What is this?"},
             )
-            assert resp.status_code in (200, 503), (
+            assert resp.status_code in (200, 404, 503), (
                 f"Generate returned unexpected {resp.status_code}.\n"
                 f"  -> Response: {resp.text[:200]}"
             )
+            if resp.status_code == 404:
+                pytest.skip("Ollama model not pulled — run: make deploy")
         except (httpx.ConnectError, httpx.ReadTimeout):
             pytest.skip("Could not reach API - dev pod not running?")
 
@@ -166,10 +168,12 @@ class TestDevAPIFunctionality:
                     "messages": [{"role": "user", "content": "Hello"}],
                 },
             )
-            assert resp.status_code in (200, 503), (
+            assert resp.status_code in (200, 404, 503), (
                 f"Chat returned unexpected {resp.status_code}.\n"
                 f"  -> Response: {resp.text[:200]}"
             )
+            if resp.status_code == 404:
+                pytest.skip("Ollama model not pulled — run: make deploy")
         except (httpx.ConnectError, httpx.ReadTimeout):
             pytest.skip("Could not reach API - dev pod not running?")
 
@@ -179,10 +183,12 @@ class TestDevAPIFunctionality:
                 f"{DEV_BASE}/api/embed",
                 json={"prompt": "test embedding"},
             )
-            assert resp.status_code in (200, 503), (
+            assert resp.status_code in (200, 404, 503), (
                 f"Embed returned unexpected {resp.status_code}.\n"
                 f"  -> Response: {resp.text[:200]}"
             )
+            if resp.status_code == 404:
+                pytest.skip("Ollama model not pulled — run: make deploy")
         except (httpx.ConnectError, httpx.ReadTimeout):
             pytest.skip("Could not reach API - dev pod not running?")
 
