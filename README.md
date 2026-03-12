@@ -54,6 +54,8 @@ Edit `kube/research-ai-dev.env` and set at least:
 - `REMOTE_SERVER` — SSH user@host for the production server
 - `REMOTE_NEO4J_PASS` — Neo4j password (ask a team member)
 
+All environment variables (logging, AI models, embeddings) are documented in the example file.
+
 ### 2. Verify SSH access
 
 ```bash
@@ -68,7 +70,10 @@ make dev
 
 This builds the containers, opens an SSH tunnel to the remote services, runs the test suite, and serves the app at **https://localhost:3000**.
 
-See [docs/development.md](docs/development.md) for the full development guide, WSL setup, Makefile reference, and deployment workflow.
+See [docs/development.md](docs/development.md) for the full development guide, WSL setup, Makefile reference, and deployment workflow. Additional docs:
+- [docs/architecture.md](docs/architecture.md) — System architecture and data flow
+- [docs/api-reference.md](docs/api-reference.md) — API endpoint reference
+- [docs/frontend.md](docs/frontend.md) — Frontend component guide
 
 ## License
 

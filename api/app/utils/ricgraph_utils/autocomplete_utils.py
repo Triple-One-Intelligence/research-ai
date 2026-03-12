@@ -1,8 +1,13 @@
-from app.utils.database_utils import query_utils, database_utils
+import logging
+
 from neo4j import Result
 from neo4j.exceptions import ServiceUnavailable
+
+from app.utils.database_utils import query_utils, database_utils
 from app.utils.schemas import Suggestions, Person, Organization
 from app.utils.ricgraph_utils.queries.autocomplete_queries import AUTOCOMPLETE_CYPHER
+
+log = logging.getLogger(__name__)
 
 class AutocompleteError(RuntimeError):
     pass
@@ -68,7 +73,7 @@ def get_autocomplete_suggestions(user_query: str, limit: int = 10) -> Suggestion
         # Propagate driver-not-initialized errors so the API layer can return 503.
         raise
     except Exception as exception:
-        print(f"Autocomplete query failed for query={query!r}")
+        log.error("Autocomplete query failed for query=%r", query)
         raise AutocompleteError("Autocomplete query failed") from exception
 
     return Suggestions(persons=persons_out, organizations=orgs_out)

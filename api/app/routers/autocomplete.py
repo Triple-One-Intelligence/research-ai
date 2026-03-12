@@ -11,8 +11,12 @@ Endpoint
   - response: Suggestions  -- pydantic model defined in `app.utils.schemas`
 """
 
+import logging
+
 from fastapi import APIRouter, Query, HTTPException
 from neo4j.exceptions import ServiceUnavailable
+
+log = logging.getLogger(__name__)
 
 from app.utils.ricgraph_utils.autocomplete_utils import (
     get_autocomplete_suggestions,
@@ -54,16 +58,16 @@ def suggest(
         raise HTTPException(status_code=400, detail=str(exception))
     except ServiceUnavailable:
         # Neo4j is temporarily unavailable – signal this as a 503 to clients.
-        print(f"Autocomplete service unavailable for query={query!r}")
+        log.warning("Autocomplete service unavailable for query=%r", query)
         raise HTTPException(status_code=503, detail="Autocomplete service unavailable.")
     except AutocompleteError:
-        print(f"Autocomplete service error for query={query!r}")
+        log.error("Autocomplete service error for query=%r", query)
         raise HTTPException(status_code=500, detail="Autocomplete query failed.")
     except RuntimeError:
         # Typically raised when the Neo4j driver has not been initialized yet.
-        print(f"Autocomplete backend not initialized for query={query!r}")
+        log.error("Autocomplete backend not initialized for query=%r", query)
         raise HTTPException(status_code=503, detail="Autocomplete backend not initialized.")
     except Exception:
-        print(f"Unexpected error while handling autocomplete for query={query!r}")
+        log.error("Unexpected error while handling autocomplete for query=%r", query)
         raise HTTPException(status_code=500, detail="Autocomplete query failed.")
         

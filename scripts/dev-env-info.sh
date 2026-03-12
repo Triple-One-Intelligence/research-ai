@@ -44,6 +44,12 @@ REMOTE_NEO4J_PASS=$NEO4J_PASS
 RICGRAPH_URL=http://localhost:18080
 AI_SERVICE_URL=http://localhost:11434
 
+# --- LOGGING ---
+LOGLEVEL=INFO
+
+# --- CHAT MODEL ---
+CHAT_MODEL=tinyllama
+
 # --- EMBEDDINGS ---
 EMBED_MODEL=nomic-embed-text
 EMBED_DIMENSIONS=768

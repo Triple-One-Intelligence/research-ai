@@ -1,54 +1,47 @@
-import os
+"""Router for AI endpoints: chat, RAG generation, and embeddings."""
+
 import json
-from typing import List, Dict, Any, Literal, Optional
+import logging
+from typing import TypedDict
+
 import httpx
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+
 from app.utils.database_utils.database_utils import get_graph, VECTOR_INDEX_NAME
-from app.utils.ai_utils.ai_utils import async_embed
+# Refactoring: Shotgun Surgery fix — constants centralized in ai_utils
+from app.utils.ai_utils.ai_utils import (
+    AI_SERVICE_URL, CHAT_MODEL, async_embed, send_async_ai_request,
+)
 from app.utils.ricgraph_utils.queries import rag_queries
+from app.utils.schemas.ai import (
+    ChatRequest, EmbedRequest, EntityRef, RagGenerateRequest,
+)
+
+
+# Refactoring: Replace Data Value with Object (Primitive Obsession fix)
+# Was list[dict], now a typed structure so callers know the shape.
+class SimilarPublication(TypedDict):
+    doi: str
+    title: str | None
+    year: int | None
+    category: str | None
+    abstract: str | None
+
+log = logging.getLogger(__name__)
+
+# Refactoring: Replace Magic Number with Symbolic Constant
+# Number of candidates fetched from the vector index before filtering to top_k.
+# A higher multiplier improves recall when scoped to a specific entity.
+VECTOR_SEARCH_MULTIPLIER = 25
 
 router = APIRouter()
-
-AI_SERVICE_URL = os.environ["AI_SERVICE_URL"]
-CHAT_MODEL = os.getenv("CHAT_MODEL", "tinyllama")
-EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
-DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
-
-# --------------------------------------------------------------------
-# Schemas
-# --------------------------------------------------------------------
-
-class Message(BaseModel):
-    role: str
-    content: str
-
-class ChatRequest(BaseModel):
-    model: str = CHAT_MODEL
-    messages: List[Message]
-    stream: bool = True
-    options: Optional[Dict[str, Any]] = None
-
-class EmbedRequest(BaseModel):
-    model: str = EMBED_MODEL
-    prompt: str
-
-class EntityRef(BaseModel):
-    id: str
-    type: Literal["person", "organization"]
-    label: str
-
-class RagGenerateRequest(BaseModel):
-    prompt: str
-    entity: Optional[EntityRef] = None
-    top_k: int = 8
 
 # --------------------------------------------------------------------
 # RAG helpers
 # --------------------------------------------------------------------
 
-async def get_similar_publications(prompt: str, entity: Optional[EntityRef], top_k: int) -> list[dict]:
+async def get_similar_publications(prompt: str, entity: EntityRef | None, top_k: int) -> list[SimilarPublication]:
     """Embed the user prompt and retrieve the most similar publications
     from the vector index, optionally scoped to an entity."""
     prompt_embedding = await async_embed(prompt)
@@ -60,7 +53,7 @@ async def get_similar_publications(prompt: str, entity: Optional[EntityRef], top
             query = rag_queries.ORG_SIMILAR_PUBLICATIONS
         params = {
             "indexName": VECTOR_INDEX_NAME,
-            "searchK": top_k * 25,
+            "searchK": top_k * VECTOR_SEARCH_MULTIPLIER,
             "prompt_embedding": prompt_embedding,
             "entityId": entity.id,
             "limit": top_k,
@@ -87,7 +80,7 @@ async def get_similar_publications(prompt: str, entity: Optional[EntityRef], top
         ]
 
 
-def format_similar_publications_for_rag(similar_publications: list[dict]) -> str:
+def format_similar_publications_for_rag(similar_publications: list[SimilarPublication]) -> str:
     """Turn a list of similar publications into a single string for RAG context.
     Each publication is formatted with its DOI, title, year, and optionally
     category and abstract."""
@@ -114,8 +107,10 @@ def format_entity_context(entity: EntityRef) -> str:
     )
 
 
-def _build_rag_system_prompt(entity: Optional[EntityRef], publications_context: str) -> str:
-    """Build the system prompt incorporating RAG context."""
+def _build_rag_system_prompt(entity: EntityRef | None, publications_context: str) -> str:
+    """Build the system prompt incorporating RAG context.
+
+    Pattern: Builder — constructs the prompt step-by-step from parts."""
     parts = [
         "Use ONLY the given context data as evidence. "
         "Be concise, neutral, and avoid speculation beyond the evidence. "
@@ -133,9 +128,11 @@ def _build_rag_system_prompt(entity: Optional[EntityRef], publications_context: 
 # Streaming helper
 # --------------------------------------------------------------------
 
-def _streaming_chat_response(payload: dict, debug_info: Optional[dict] = None):
+def _streaming_chat_response(payload: dict, debug_info: dict | None = None):
     """Return a StreamingResponse that proxies Ollama /api/chat as SSE.
-    If debug_info is provided, it is sent as the first SSE event."""
+    If debug_info is provided, it is sent as the first SSE event.
+
+    Pattern: Proxy — wraps the Ollama API and transforms its response format."""
     url = f"{AI_SERVICE_URL}/api/chat"
 
     async def stream_ollama():
@@ -197,7 +194,7 @@ async def rag_generate(req: RagGenerateRequest):
     }
 
     debug_info = None
-    if DEBUG:
+    if log.isEnabledFor(logging.DEBUG):
         debug_info = {
             "model": CHAT_MODEL,
             "user_prompt": req.prompt,
@@ -211,21 +208,9 @@ async def rag_generate(req: RagGenerateRequest):
     return _streaming_chat_response(payload, debug_info=debug_info)
 
 
+# Refactoring: Feature Envy fix — was duplicating httpx logic from ai_utils
 @router.post("/embed")
 async def embed(req: EmbedRequest):
     """Sends an embedding request to the Ollama container."""
     url = f"{AI_SERVICE_URL}/api/embeddings"
-
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                url,
-                json=req.model_dump(exclude_none=True),
-                timeout=30.0,
-            )
-            response.raise_for_status()
-            return response.json()
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=503, detail=f"Error connecting to AI service: {e}")
-        except httpx.HTTPStatusError as e:
-            raise HTTPException(status_code=response.status_code, detail=f"AI service error: {response.text}")
+    return await send_async_ai_request(url, req.model_dump(exclude_none=True))
