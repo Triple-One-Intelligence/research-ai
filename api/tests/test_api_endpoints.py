@@ -279,6 +279,22 @@ class TestGenerateEndpoint:
         assert call_args[0][1].type == "organization"
         assert call_args[0][2] == 5  # top_k
 
+    @patch("app.routers.ai.get_similar_publications")
+    def test_generate_reraises_http_exception(self, mock_get_pubs, client):
+        """When get_similar_publications raises HTTPException, it should pass through."""
+        from fastapi import HTTPException
+        mock_get_pubs.side_effect = HTTPException(status_code=404, detail="Model not found")
+        response = client.post("/generate", json={"prompt": "test question"})
+        assert response.status_code == 404
+
+    @patch("app.routers.ai.get_similar_publications")
+    def test_generate_generic_error_returns_503(self, mock_get_pubs, client):
+        """When get_similar_publications raises an unexpected error, return 503."""
+        mock_get_pubs.side_effect = RuntimeError("Neo4j connection lost")
+        response = client.post("/generate", json={"prompt": "test question"})
+        assert response.status_code == 503
+        assert "RAG retrieval failed" in response.json()["detail"]
+
 
 class TestRagHelpers:
     def test_format_similar_publications_for_rag(self):

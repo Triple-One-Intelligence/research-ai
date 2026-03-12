@@ -186,7 +186,7 @@ async def rag_generate(req: RagGenerateRequest):
         raise  # Re-raise AI service errors (503, 404) as-is
     except Exception as e:
         log.error("RAG retrieval failed: %s", e)
-        raise HTTPException(status_code=503, detail=f"RAG retrieval failed: {e}")
+        raise HTTPException(status_code=503, detail="RAG retrieval failed")
     rag_context = format_similar_publications_for_rag(similar_docs)
     system_prompt = _build_rag_system_prompt(req.entity, rag_context)
 

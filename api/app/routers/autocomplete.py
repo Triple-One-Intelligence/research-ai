@@ -16,14 +16,14 @@ import logging
 from fastapi import APIRouter, Query, HTTPException
 from neo4j.exceptions import ServiceUnavailable
 
-log = logging.getLogger(__name__)
-
 from app.utils.ricgraph_utils.autocomplete_utils import (
     get_autocomplete_suggestions,
     AutocompleteError,
     InvalidQueryError,
 )
 from app.utils.schemas import Suggestions
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/autocomplete")
 

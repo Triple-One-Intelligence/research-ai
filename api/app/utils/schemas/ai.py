@@ -1,10 +1,12 @@
 """Pydantic schemas for the AI router endpoints."""
 
+import os
 from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from app.utils.ai_utils.ai_utils import CHAT_MODEL, EMBED_MODEL
+CHAT_MODEL = os.getenv("CHAT_MODEL", "tinyllama")
+EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 
 
 class Message(BaseModel):
