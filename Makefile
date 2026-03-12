@@ -196,7 +196,11 @@ test-dev: test-image
 	@$(TEST_RUN) python -m pytest $(DEV_TESTS) -v --tb=short --color=yes
 
 test-deploy: test-image
-	@$(TEST_RUN) python -m pytest tests/test_smoke_deploy.py -v --tb=short --color=yes
+	@$(call _load_env,./kube/research-ai-prod.env); \
+	podman run --rm -t --network host -v ./api:/work:ro -e FORCE_COLOR=1 \
+		-e CADDY_HOSTNAME=$$CADDY_HOSTNAME -e VERIFY_SSL=false \
+		-e REMOTE_NEO4J_USER=$$REMOTE_NEO4J_USER -e REMOTE_NEO4J_PASS=$$REMOTE_NEO4J_PASS \
+		$(TEST_IMG) python -m pytest tests/test_smoke_deploy.py -v --tb=short --color=yes
 
 # ── Data ─────────────────────────────────────────────────────────────────────
 
@@ -273,6 +277,7 @@ deploy:
 	install -m 0644 kube/research-ai-prod.env          /etc/research-ai/
 	$(call _load_env,./kube/research-ai-prod.env); \
 		envsubst < kube/ricgraph.ini > /etc/research-ai/ricgraph.ini && chmod 0640 /etc/research-ai/ricgraph.ini
+	podman network create research-ai-net --subnet=10.89.0.0/24 --gateway=10.89.0.1 2>/dev/null || true
 	podman volume create caddy-data 2>/dev/null || true
 	podman volume create caddy-config 2>/dev/null || true
 	podman volume create neo4j-data 2>/dev/null || true

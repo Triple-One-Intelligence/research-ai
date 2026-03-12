@@ -2,6 +2,5 @@
 Description=Research AI Internal Network
 
 [Network]
-NetworkName=research-ai-net
 Subnet=10.89.0.0/24
 Gateway=10.89.0.1

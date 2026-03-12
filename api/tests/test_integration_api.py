@@ -72,17 +72,14 @@ class TestAutocompleteIntegration:
         assert isinstance(data["persons"], list)
         assert isinstance(data["organizations"], list)
 
-    def test_short_query_returns_empty(self):
+    def test_short_query_returns_400(self):
         resp = _client.get(
             f"{API_BASE}/autocomplete",
             params={"query": "a"},
         )
         if resp.status_code == 503:
             pytest.skip("Neo4j not reachable")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["persons"] == []
-        assert data["organizations"] == []
+        assert resp.status_code == 400
 
     def test_limit_is_respected(self):
         resp = _client.get(
