@@ -1,7 +1,7 @@
 [Unit]
 Description=Research AI API
 After=research-ai-neo4j.service
-Requires=research-ai-neo4j.service
+Wants=research-ai-neo4j.service
 
 [Service]
 Restart=always
