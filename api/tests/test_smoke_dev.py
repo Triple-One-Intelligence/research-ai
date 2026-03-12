@@ -144,6 +144,48 @@ class TestDevAPIFunctionality:
         except (httpx.ConnectError, httpx.ReadTimeout):
             pytest.skip("Could not reach API - dev pod not running?")
 
+    def test_generate_endpoint_responds(self):
+        try:
+            resp = _client.post(
+                f"{DEV_BASE}/api/generate",
+                json={"prompt": "What is this?"},
+            )
+            assert resp.status_code in (200, 503), (
+                f"Generate returned unexpected {resp.status_code}.\n"
+                f"  -> Response: {resp.text[:200]}"
+            )
+        except (httpx.ConnectError, httpx.ReadTimeout):
+            pytest.skip("Could not reach API - dev pod not running?")
+
+    def test_chat_endpoint_responds(self):
+        try:
+            resp = _client.post(
+                f"{DEV_BASE}/api/chat",
+                json={
+                    "model": "llama3.1:8b",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+            )
+            assert resp.status_code in (200, 503), (
+                f"Chat returned unexpected {resp.status_code}.\n"
+                f"  -> Response: {resp.text[:200]}"
+            )
+        except (httpx.ConnectError, httpx.ReadTimeout):
+            pytest.skip("Could not reach API - dev pod not running?")
+
+    def test_embed_endpoint_responds(self):
+        try:
+            resp = _client.post(
+                f"{DEV_BASE}/api/embed",
+                json={"prompt": "test embedding"},
+            )
+            assert resp.status_code in (200, 503), (
+                f"Embed returned unexpected {resp.status_code}.\n"
+                f"  -> Response: {resp.text[:200]}"
+            )
+        except (httpx.ConnectError, httpx.ReadTimeout):
+            pytest.skip("Could not reach API - dev pod not running?")
+
 
 # -- Neo4j Connectivity (through tunnel) --------------------------------------
 

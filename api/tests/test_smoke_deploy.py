@@ -130,6 +130,61 @@ class TestProdHTTPEndpoints:
         except httpx.ConnectError as e:
             pytest.fail(f"Could not reach connections over HTTPS: {e}")
 
+    def test_https_api_generate(self):
+        """HTTPS: /generate should accept POST and return SSE stream."""
+        try:
+            resp = httpx.post(
+                f"{PROD_BASE_HTTPS}/api/generate",
+                json={"prompt": "What is this?"},
+                timeout=TIMEOUT, verify=VERIFY_SSL,
+            )
+            assert resp.status_code in (200, 503), (
+                f"Generate returned {resp.status_code}: {resp.text[:200]}"
+            )
+            if resp.status_code == 200:
+                assert "text/event-stream" in resp.headers.get("content-type", "")
+        except httpx.ConnectError as e:
+            pytest.fail(f"Could not reach /generate over HTTPS: {e}")
+        except httpx.ReadTimeout:
+            pass  # Model loading on first call — endpoint is reachable
+
+    def test_https_api_chat(self):
+        """HTTPS: /chat should accept POST and return SSE stream."""
+        try:
+            resp = httpx.post(
+                f"{PROD_BASE_HTTPS}/api/chat",
+                json={
+                    "model": "llama3.1:8b",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+                timeout=TIMEOUT, verify=VERIFY_SSL,
+            )
+            assert resp.status_code in (200, 503), (
+                f"Chat returned {resp.status_code}: {resp.text[:200]}"
+            )
+            if resp.status_code == 200:
+                assert "text/event-stream" in resp.headers.get("content-type", "")
+        except httpx.ConnectError as e:
+            pytest.fail(f"Could not reach /chat over HTTPS: {e}")
+        except httpx.ReadTimeout:
+            pass  # Model loading on first call — endpoint is reachable
+
+    def test_https_api_embed(self):
+        """HTTPS: /embed should accept POST."""
+        try:
+            resp = httpx.post(
+                f"{PROD_BASE_HTTPS}/api/embed",
+                json={"prompt": "test embedding"},
+                timeout=TIMEOUT, verify=VERIFY_SSL,
+            )
+            assert resp.status_code in (200, 503), (
+                f"Embed returned {resp.status_code}: {resp.text[:200]}"
+            )
+        except httpx.ConnectError as e:
+            pytest.fail(f"Could not reach /embed over HTTPS: {e}")
+        except httpx.ReadTimeout:
+            pass  # Model loading on first call — endpoint is reachable
+
 
 # -- Neo4j Health (via Bolt on localhost) --------------------------------------
 
