@@ -5,7 +5,9 @@ set -euo pipefail
 
 G='\033[32m' C='\033[36m' B='\033[1m' R='\033[0m'
 
-SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+SERVER_IP=$(curl -sf --max-time 3 https://ifconfig.me 2>/dev/null \
+         || curl -sf --max-time 3 https://api.ipify.org 2>/dev/null \
+         || hostname -I 2>/dev/null | awk '{print $1}')
 SERVER_HOST=$(hostname -f 2>/dev/null || hostname)
 PROD_ENV="/etc/research-ai/research-ai-prod.env"
 
@@ -50,10 +52,8 @@ AI_SERVICE_URL=http://localhost:11434
 # --- LOGGING ---
 LOGLEVEL=INFO
 
-# --- CHAT MODEL ---
+# --- AI MODELS (must match prod — vector index uses these dimensions) ---
 CHAT_MODEL=$CHAT_MODEL
-
-# --- EMBEDDINGS ---
 EMBED_MODEL=$EMBED_MODEL
 EMBED_DIMENSIONS=$EMBED_DIMS
 OPENALEX_MAILTO=

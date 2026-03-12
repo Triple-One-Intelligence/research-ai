@@ -180,7 +180,13 @@ async def rag_generate(req: RagGenerateRequest):
     if not req.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt must not be empty")
 
-    similar_docs = await get_similar_publications(req.prompt, req.entity, req.top_k)
+    try:
+        similar_docs = await get_similar_publications(req.prompt, req.entity, req.top_k)
+    except HTTPException:
+        raise  # Re-raise AI service errors (503, 404) as-is
+    except Exception as e:
+        log.error("RAG retrieval failed: %s", e)
+        raise HTTPException(status_code=503, detail=f"RAG retrieval failed: {e}")
     rag_context = format_similar_publications_for_rag(similar_docs)
     system_prompt = _build_rag_system_prompt(req.entity, rag_context)
 
