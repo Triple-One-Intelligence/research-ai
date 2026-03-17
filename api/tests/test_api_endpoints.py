@@ -308,13 +308,16 @@ class TestRagHelpers:
              "category": None, "abstract": None},
         ]
         result = format_similar_publications_for_rag(pubs)
+        # Numbered document format for citation-aware models
+        assert "Document [1]" in result
+        assert "Document [2]" in result
         assert "DOI: 10.1/a" in result
         assert "Abstract: The abstract" in result
         assert "DOI: 10.1/b" in result
-        # Second pub has no category/abstract, those fields should be absent
-        lines = result.split("\n\n")
-        assert "Category:" not in lines[1]
-        assert "Abstract:" not in lines[1]
+        # Second document block has no category/abstract
+        blocks = result.split("\n\n")
+        assert "Category:" not in blocks[1]
+        assert "Abstract:" not in blocks[1]
 
     def test_format_similar_publications_empty(self):
         from app.routers.ai import format_similar_publications_for_rag

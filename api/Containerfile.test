@@ -1,4 +1,4 @@
 FROM research-ai-api:dev
-RUN pip install --no-cache-dir pytest httpx
+RUN pip install --no-cache-dir pytest pytest-asyncio httpx
 WORKDIR /work
 CMD ["python", "-m", "pytest"]
