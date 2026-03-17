@@ -1,14 +1,24 @@
+"""FastAPI application entry point — configures logging, CORS, routers, and lifespan."""
+
+import logging
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import connections, autocomplete, ai
 
-from contextlib import asynccontextmanager
+from app.routers import ai, autocomplete, connections
 import app.utils.database_utils.database_utils as database_utils
 
-# responsible for start up and shut down tasks
+logging.basicConfig(
+    level=os.environ.get("LOGLEVEL", "INFO").upper(),
+    format="%(levelname)s: %(message)s",
+)
+log = logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     database_utils.startup()
@@ -21,7 +31,7 @@ app = FastAPI(
     description="API",
     version="0.0.1",
     root_path="/api",
-    debug=True,
+    debug=os.environ.get("LOGLEVEL", "INFO").upper() == "DEBUG",
     lifespan=lifespan
 )
 

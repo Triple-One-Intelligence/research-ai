@@ -9,6 +9,7 @@ export type EntityRef = {
 
 export type EntitySuggestion = EntityRef;
 
+// Reserved for future use
 export type YearRange = { from: number; to: number };
 
 export type PromptTemplate = {

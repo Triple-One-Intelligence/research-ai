@@ -37,6 +37,16 @@ Open `kube/research-ai-dev.env` and fill in the values. The required fields are:
 | `REMOTE_SERVER` | SSH target for the tunnel, e.g. `root@145.38.194.46` |
 | `REMOTE_NEO4J_PASS` | Neo4j password on the production server |
 
+Optional variables (defaults are fine for most cases):
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `LOGLEVEL` | `INFO` | Python log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Set to `DEBUG` to enable RAG debug info in SSE responses and FastAPI debug mode. |
+| `CHAT_MODEL` | `tinyllama` | Ollama model for chat/RAG generation |
+| `EMBED_MODEL` | `nomic-embed-text` | Ollama model for vector embeddings |
+| `EMBED_DIMENSIONS` | `768` | Embedding vector dimensions (must match the model) |
+| `OPENALEX_MAILTO` | *(empty)* | Email for OpenAlex polite pool (faster rate limits) |
+
 The rest can stay at their defaults for local development.
 
 ### Verify SSH access
@@ -96,6 +106,27 @@ make wui      # Tail frontend logs only
 make enrich        # Fetch abstracts + generate embeddings
 make enrich-force  # Re-enrich all publications (including already done)
 make harvest       # Run Ricgraph harvesting
+```
+
+## Logging
+
+The backend uses Python's `logging` module. The log level is controlled by the `LOGLEVEL` environment variable (default: `INFO`).
+
+```bash
+# In kube/research-ai-dev.env:
+LOGLEVEL=DEBUG    # Verbose — includes RAG debug info in SSE streams
+LOGLEVEL=INFO     # Normal — startup, requests, enrichment progress
+LOGLEVEL=WARNING  # Quiet — only warnings and errors
+```
+
+Setting `LOGLEVEL=DEBUG` also enables FastAPI's debug mode (detailed error pages).
+
+To view logs during development:
+
+```bash
+make wapi    # Tail API container logs
+make wui     # Tail frontend container logs
+make watch   # Tail all container logs
 ```
 
 ## WSL (Windows) Setup

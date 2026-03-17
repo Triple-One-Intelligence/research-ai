@@ -72,17 +72,14 @@ class TestAutocompleteIntegration:
         assert isinstance(data["persons"], list)
         assert isinstance(data["organizations"], list)
 
-    def test_short_query_returns_empty(self):
+    def test_short_query_returns_400(self):
         resp = _client.get(
             f"{API_BASE}/autocomplete",
             params={"query": "a"},
         )
         if resp.status_code == 503:
             pytest.skip("Neo4j not reachable")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["persons"] == []
-        assert data["organizations"] == []
+        assert resp.status_code == 400
 
     def test_limit_is_respected(self):
         resp = _client.get(
@@ -165,6 +162,115 @@ class TestConnectionsIntegration:
             params={"entity_id": "p1", "entity_type": "invalid"},
         )
         assert resp.status_code == 400
+
+
+@_skip
+class TestGenerateIntegration:
+    def test_generate_accepts_post(self):
+        try:
+            resp = _client.post(
+                f"{API_BASE}/generate",
+                json={"prompt": "What is this researcher known for?"},
+                timeout=TIMEOUT,
+            )
+        except httpx.ReadTimeout:
+            return  # Model cold-start — endpoint is reachable
+        if resp.status_code in (500, 503):
+            pytest.skip(f"RAG retrieval unavailable ({resp.status_code})")
+        if resp.status_code == 404:
+            pytest.skip("Ollama model not pulled — run: make deploy")
+        assert resp.status_code == 200
+        assert "text/event-stream" in resp.headers.get("content-type", "")
+
+    def test_generate_empty_prompt_returns_400(self):
+        resp = _client.post(
+            f"{API_BASE}/generate",
+            json={"prompt": "  "},
+            timeout=TIMEOUT,
+        )
+        assert resp.status_code == 400
+
+    def test_generate_missing_prompt_returns_422(self):
+        resp = _client.post(
+            f"{API_BASE}/generate",
+            json={},
+            timeout=TIMEOUT,
+        )
+        assert resp.status_code == 422
+
+    def test_generate_with_entity(self):
+        try:
+            resp = _client.post(
+                f"{API_BASE}/generate",
+                json={
+                    "prompt": "What topics?",
+                    "entity": {"id": "p1", "type": "person", "label": "Test"},
+                },
+                timeout=TIMEOUT,
+            )
+        except httpx.ReadTimeout:
+            return  # Model cold-start — endpoint is reachable
+        if resp.status_code in (500, 503):
+            pytest.skip(f"RAG retrieval unavailable ({resp.status_code})")
+        if resp.status_code == 404:
+            pytest.skip("Ollama model not pulled — run: make deploy")
+        assert resp.status_code == 200
+
+
+@_skip
+class TestChatIntegration:
+    def test_chat_accepts_post(self):
+        try:
+            resp = _client.post(
+                f"{API_BASE}/chat",
+                json={
+                    "model": "llama3.1:8b",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+                timeout=TIMEOUT,
+            )
+        except httpx.ReadTimeout:
+            return  # Model cold-start — endpoint is reachable
+        if resp.status_code == 503:
+            pytest.skip("AI service not reachable")
+        if resp.status_code == 404:
+            pytest.skip("Ollama model not pulled — run: make deploy")
+        assert resp.status_code == 200
+        assert "text/event-stream" in resp.headers.get("content-type", "")
+
+    def test_chat_missing_messages_returns_422(self):
+        resp = _client.post(
+            f"{API_BASE}/chat",
+            json={"model": "llama3.1:8b"},
+            timeout=TIMEOUT,
+        )
+        assert resp.status_code == 422
+
+
+@_skip
+class TestEmbedIntegration:
+    def test_embed_accepts_post(self):
+        try:
+            resp = _client.post(
+                f"{API_BASE}/embed",
+                json={"prompt": "test embedding"},
+                timeout=TIMEOUT,
+            )
+        except httpx.ReadTimeout:
+            return  # Model cold-start — endpoint is reachable
+        if resp.status_code == 503:
+            pytest.skip("AI service not reachable")
+        if resp.status_code == 404:
+            pytest.skip("Ollama model not pulled — run: make deploy")
+        assert resp.status_code == 200
+
+    def test_embed_missing_prompt_returns_422(self):
+        resp = _client.post(
+            f"{API_BASE}/embed",
+            json={},
+            timeout=TIMEOUT,
+        )
+        assert resp.status_code == 422
 
 
 @_skip

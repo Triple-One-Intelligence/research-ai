@@ -1,4 +1,8 @@
-from typing import Any, Dict, List, Optional, TypedDict, Union
+"""Utilities for retrieving and formatting entity connections from the Ricgraph database."""
+
+import logging
+from typing import Any, TypedDict
+
 from app.utils.database_utils import database_utils
 from app.utils.schemas import Person, Publication, Organization
 from app.utils.schemas.connections import Member
@@ -7,7 +11,9 @@ from app.utils.ricgraph_utils.queries.connections_queries import (
     PERSON_ORGANIZATIONS, ORG_MEMBERS, ORG_PUBLICATIONS, ORG_RELATED_ORGS,
 )
 
-EXCLUDE_CATEGORIES: List[str] = []
+log = logging.getLogger(__name__)
+
+EXCLUDE_CATEGORIES: list[str] = []
 """Categories of publications to exclude from connections queries.
 
 An empty list means "no exclusions". This is passed directly into the Cypher
@@ -20,13 +26,14 @@ class ConnectionsError(RuntimeError):
 class InvalidEntityTypeError(ValueError):
     pass
 
-def clean_name(raw: Optional[str]) -> str:
+# Refactoring: Extract Method — data cleaning separated from query logic.
+def clean_name(raw: str | None) -> str:
     if not raw:
         return ""
     name = raw.split("#")[0].strip()
     return name[1:].strip() if name.startswith(",") else name
 
-def clean_title(raw: Any) -> Optional[str]:
+def clean_title(raw: Any) -> str | None:
     if raw is None:
         return None
     if isinstance(raw, list):
@@ -35,7 +42,7 @@ def clean_title(raw: Any) -> Optional[str]:
         return raw.strip() or None
     return None
 
-def parse_year(raw: Any) -> Optional[int]:
+def parse_year(raw: Any) -> int | None:
     if isinstance(raw, int):
         return raw
     if isinstance(raw, str) and raw.strip():
@@ -45,17 +52,19 @@ def parse_year(raw: Any) -> Optional[int]:
             return None
     return None
 
-PeopleOrMembers = Union[Person, Member]
+PeopleOrMembers = Person | Member
 
 class ConnectionsPayload(TypedDict):
-    collaborators: List[Person]
-    publications: List[Publication]
-    organizations: List[Organization]
-    members: List[Member]
+    collaborators: list[Person]
+    publications: list[Publication]
+    organizations: list[Organization]
+    members: list[Member]
 
-def format_people(rows: List[Dict[str, Any]], *, as_members: bool = False) -> List[PeopleOrMembers]:
-    """Format person rows as Person or Member models."""
-    out: List[PeopleOrMembers] = []
+def format_people(rows: list[dict[str, Any]], *, as_members: bool = False) -> list[PeopleOrMembers]:
+    """Format person rows as Person or Member models.
+
+    Pattern: Factory Method — creates Person or Member based on as_members flag."""
+    out: list[PeopleOrMembers] = []
     for row in rows:
         name = clean_name(row.get("rawName"))
         if as_members:
@@ -64,12 +73,12 @@ def format_people(rows: List[Dict[str, Any]], *, as_members: bool = False) -> Li
             out.append(Person(author_id=row["author_id"], name=name))
     return out
 
-def format_organizations(rows: List[Dict[str, Any]]) -> List[Organization]:
+def format_organizations(rows: list[dict[str, Any]]) -> list[Organization]:
     return [Organization(organization_id=row["organization_id"], name=row["name"]) for row in rows]
 
-def format_publications(rows: List[Dict[str, Any]]) -> List[Publication]:
-    grouped: Dict[str, List[Publication]] = {}
-    no_title: List[Publication] = []
+def format_publications(rows: list[dict[str, Any]]) -> list[Publication]:
+    grouped: dict[str, list[Publication]] = {}
+    no_title: list[Publication] = []
 
     for row in rows:
         title = clean_title(row.get("title"))
@@ -82,7 +91,7 @@ def format_publications(rows: List[Dict[str, Any]]) -> List[Publication]:
         else:
             no_title.append(entry)
 
-    out: List[Publication] = []
+    out: list[Publication] = []
     for entries in grouped.values():
         rep = entries[0].model_copy()
         if len(entries) > 1:
@@ -146,6 +155,7 @@ def organization_connections(
         "members": format_people(members, as_members=True),
     }
 
+# Pattern: Facade — callers don't need to know about person_connections vs organization_connections.
 def get_connections(
     entity_id: str,
     entity_type: str,
@@ -162,5 +172,5 @@ def get_connections(
             return person_connections(entity_id, max_publications, max_collaborators, max_organizations)
         return organization_connections(entity_id, max_publications, max_organizations, max_members)
     except Exception as exception:
-        print(f"Connections query failed for entity_id={entity_id!r}")
+        log.error("Connections query failed for entity_id=%r", entity_id)
         raise ConnectionsError("Connections query failed") from exception

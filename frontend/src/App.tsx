@@ -58,7 +58,7 @@ const streamSSE = async (
 };
 
 
-// Main App component – orchestrates state and renders the three-panel layout.
+// Pattern: Mediator — App centralizes state and communication between panels.
 const App = () => {
   const [selectedEntity, setSelectedEntity] = useState<EntitySuggestion | null>(null);
   const [responseText, setResponseText] = useState<string>('');
@@ -133,66 +133,44 @@ const App = () => {
         />
         <div className="middle-panel">
           {debugInfo && (
-            <details className="rag-debug" style={{
-              marginBottom: '1rem',
-              padding: '0.75rem',
-              background: '#1a1a2e',
-              border: '1px solid #444',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              color: '#ccc',
-            }}>
-              <summary style={{ cursor: 'pointer', fontWeight: 'bold', color: '#7eb8da' }}>
+            <details className="rag-debug">
+              <summary>
                 RAG Debug &middot; {(debugInfo.publications_found as number) ?? 0} pubs &middot; {(debugInfo.model as string) ?? '?'}
               </summary>
-              <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-
+              <div className="rag-debug-sections">
                 <details>
-                  <summary style={{ cursor: 'pointer', color: '#a8d8a8' }}>User prompt</summary>
-                  <pre style={{ margin: '0.3rem 0 0 1rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                    {debugInfo.user_prompt as string}
-                  </pre>
+                  <summary>User prompt</summary>
+                  <pre>{debugInfo.user_prompt as string}</pre>
                 </details>
 
                 <details>
-                  <summary style={{ cursor: 'pointer', color: '#a8d8a8' }}>Entity</summary>
-                  <pre style={{ margin: '0.3rem 0 0 1rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                    {JSON.stringify(debugInfo.entity, null, 2)}
-                  </pre>
+                  <summary>Entity</summary>
+                  <pre>{JSON.stringify(debugInfo.entity, null, 2)}</pre>
                 </details>
 
                 <details>
-                  <summary style={{ cursor: 'pointer', color: '#a8d8a8' }}>System prompt</summary>
-                  <pre style={{ margin: '0.3rem 0 0 1rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '300px', overflow: 'auto' }}>
-                    {debugInfo.system_prompt as string}
-                  </pre>
+                  <summary>System prompt</summary>
+                  <pre className="rag-debug-scroll">{debugInfo.system_prompt as string}</pre>
                 </details>
 
                 <details>
-                  <summary style={{ cursor: 'pointer', color: '#a8d8a8' }}>
-                    Publications ({(debugInfo.publications_found as number) ?? 0})
-                  </summary>
-                  <div style={{ margin: '0.3rem 0 0 1rem', maxHeight: '300px', overflow: 'auto' }}>
+                  <summary>Publications ({(debugInfo.publications_found as number) ?? 0})</summary>
+                  <div className="rag-debug-scroll">
                     {((debugInfo.publications as Array<Record<string, unknown>>) ?? []).map((pub, i) => (
-                      <details key={i} style={{ marginBottom: '0.3rem' }}>
-                        <summary style={{ cursor: 'pointer', color: '#d4c89a' }}>
+                      <details key={i} className="rag-debug-pub">
+                        <summary>
                           {pub.title as string ?? 'Untitled'} ({pub.year as string ?? '?'})
                         </summary>
-                        <pre style={{ margin: '0.2rem 0 0 1rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.75rem' }}>
-                          {JSON.stringify(pub, null, 2)}
-                        </pre>
+                        <pre>{JSON.stringify(pub, null, 2)}</pre>
                       </details>
                     ))}
                   </div>
                 </details>
 
                 <details>
-                  <summary style={{ cursor: 'pointer', color: '#a8d8a8' }}>Full messages (sent to LLM)</summary>
-                  <pre style={{ margin: '0.3rem 0 0 1rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '300px', overflow: 'auto' }}>
-                    {JSON.stringify(debugInfo.full_messages, null, 2)}
-                  </pre>
+                  <summary>Full messages (sent to LLM)</summary>
+                  <pre className="rag-debug-scroll">{JSON.stringify(debugInfo.full_messages, null, 2)}</pre>
                 </details>
-
               </div>
             </details>
           )}
