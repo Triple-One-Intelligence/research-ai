@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from app.utils.database_utils.database_utils import get_graph, VECTOR_INDEX_NAME
 # Refactoring: Shotgun Surgery fix — constants centralized in ai_utils
 from app.utils.ai_utils.ai_utils import (
-    AI_SERVICE_URL, CHAT_MODEL, async_embed, send_async_ai_request,
+    AI_SERVICE_URL, CHAT_MODEL, CHAT_MAX_TOKENS, async_embed, send_async_ai_request,
 )
 from app.utils.ricgraph_utils.queries import rag_queries
 from app.utils.schemas.ai import (
@@ -81,22 +81,22 @@ async def get_similar_publications(prompt: str, entity: EntityRef | None, top_k:
 
 
 def format_similar_publications_for_rag(similar_publications: list[SimilarPublication]) -> str:
-    """Turn a list of similar publications into a single string for RAG context.
-    Each publication is formatted with its DOI, title, year, and optionally
-    category and abstract."""
-    lines = []
-    for doc in similar_publications:
-        parts = [
-            f"DOI: {doc.get('doi', 'n/a')}",
-            f"Title: {doc.get('title', 'n/a')}",
-            f"Year: {doc.get('year', 'n/a')}",
-        ]
+    """Turn a list of similar publications into numbered documents for RAG context.
+
+    Uses a numbered document format (Document [1], Document [2], …) so that
+    citation-aware models like Command-R can produce inline references."""
+    blocks = []
+    for idx, doc in enumerate(similar_publications, 1):
+        lines = [f"Document [{idx}]"]
+        lines.append(f"DOI: {doc.get('doi', 'n/a')}")
+        lines.append(f"Title: {doc.get('title', 'n/a')}")
+        lines.append(f"Year: {doc.get('year', 'n/a')}")
         if doc.get("category"):
-            parts.append(f"Category: {doc['category']}")
+            lines.append(f"Category: {doc['category']}")
         if doc.get("abstract"):
-            parts.append(f"Abstract: {doc['abstract']}")
-        lines.append(" | ".join(parts))
-    return "\n\n".join(lines)
+            lines.append(f"Abstract: {doc['abstract']}")
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
 
 
 def format_entity_context(entity: EntityRef) -> str:
@@ -110,16 +110,18 @@ def format_entity_context(entity: EntityRef) -> str:
 def _build_rag_system_prompt(entity: EntityRef | None, publications_context: str) -> str:
     """Build the system prompt incorporating RAG context.
 
-    Pattern: Builder — constructs the prompt step-by-step from parts."""
+    Pattern: Builder — constructs the prompt step-by-step from parts.
+    Instructs the model to cite sources using document numbers [1], [2], etc."""
     parts = [
-        "Use ONLY the given context data as evidence. "
+        "Use ONLY the given context documents as evidence. "
+        "Cite your sources using the document numbers, e.g. [1], [2]. "
         "Be concise, neutral, and avoid speculation beyond the evidence. "
         "If evidence is insufficient, say so briefly."
     ]
     if entity:
         parts.append(f"\n{format_entity_context(entity)}")
     if publications_context:
-        parts.append(f"\n\nRelevant publications:\n{publications_context}")
+        parts.append(f"\n\n{publications_context}")
     else:
         parts.append("\n\nNo publications with abstracts were found for this entity.")
     return "\n".join(parts)
@@ -137,7 +139,7 @@ def _streaming_chat_response(payload: dict):
     async def stream_ollama():
         try:
             async with httpx.AsyncClient() as client:
-                async with client.stream("POST", url, json=payload, timeout=120.0) as resp:
+                async with client.stream("POST", url, json=payload, timeout=300.0) as resp:
                     resp.raise_for_status()
                     async for line in resp.aiter_lines():
                         if not line:
@@ -196,6 +198,7 @@ async def rag_generate(req: RagGenerateRequest):
             {"role": "user", "content": req.prompt},
         ],
         "stream": True,
+        "options": {"num_predict": CHAT_MAX_TOKENS},
     }
 
     if log.isEnabledFor(logging.DEBUG):

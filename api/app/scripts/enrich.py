@@ -15,7 +15,7 @@ import time
 import httpx
 import app.utils.database_utils.database_utils as database_utils
 # Refactoring: Shotgun Surgery fix — imports from centralized config in ai_utils
-from app.utils.ai_utils.ai_utils import AI_SERVICE_URL, EMBED_MODEL, EMBED_DIMENSIONS
+from app.utils.ai_utils.ai_utils import AI_SERVICE_URL, EMBED_MODEL, EMBED_DIMENSIONS, EMBED_NUM_GPU
 
 log = logging.getLogger(__name__)
 
