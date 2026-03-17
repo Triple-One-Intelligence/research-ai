@@ -128,16 +128,13 @@ def _build_rag_system_prompt(entity: EntityRef | None, publications_context: str
 # Streaming helper
 # --------------------------------------------------------------------
 
-def _streaming_chat_response(payload: dict, debug_info: dict | None = None):
+def _streaming_chat_response(payload: dict):
     """Return a StreamingResponse that proxies Ollama /api/chat as SSE.
-    If debug_info is provided, it is sent as the first SSE event.
 
     Pattern: Proxy — wraps the Ollama API and transforms its response format."""
     url = f"{AI_SERVICE_URL}/api/chat"
 
     async def stream_ollama():
-        if debug_info:
-            yield f"data: {json.dumps({'debug': debug_info})}\n\n"
         try:
             async with httpx.AsyncClient() as client:
                 async with client.stream("POST", url, json=payload, timeout=120.0) as resp:
@@ -153,6 +150,7 @@ def _streaming_chat_response(payload: dict, debug_info: dict | None = None):
                             yield "data: [DONE]\n\n"
         except (httpx.RequestError, httpx.HTTPStatusError) as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield "data: [DONE]\n\n"
 
     return StreamingResponse(
         stream_ollama(),
@@ -168,6 +166,7 @@ def _streaming_chat_response(payload: dict, debug_info: dict | None = None):
 async def chat(req: ChatRequest):
     """Streaming chat without RAG context."""
     payload = req.model_dump(exclude_none=True)
+    payload["model"] = CHAT_MODEL  # Always use the configured model
     payload["stream"] = True
     return _streaming_chat_response(payload)
 
@@ -199,24 +198,21 @@ async def rag_generate(req: RagGenerateRequest):
         "stream": True,
     }
 
-    debug_info = None
     if log.isEnabledFor(logging.DEBUG):
-        debug_info = {
-            "model": CHAT_MODEL,
-            "user_prompt": req.prompt,
-            "entity": req.entity.model_dump() if req.entity else None,
-            "publications_found": len(similar_docs),
-            "publications": similar_docs,
-            "system_prompt": system_prompt,
-            "full_messages": payload["messages"],
-        }
+        log.debug("RAG generate — model=%s, entity=%s, publications_found=%d",
+                  CHAT_MODEL,
+                  req.entity.model_dump() if req.entity else None,
+                  len(similar_docs))
+        log.debug("System prompt: %s", system_prompt)
 
-    return _streaming_chat_response(payload, debug_info=debug_info)
+    return _streaming_chat_response(payload)
 
 
 # Refactoring: Feature Envy fix — was duplicating httpx logic from ai_utils
 @router.post("/embed")
 async def embed(req: EmbedRequest):
     """Sends an embedding request to the Ollama container."""
-    url = f"{AI_SERVICE_URL}/api/embeddings"
-    return await send_async_ai_request(url, req.model_dump(exclude_none=True))
+    return await send_async_ai_request(
+        f"{AI_SERVICE_URL}/api/embed",
+        {"model": req.model, "input": req.prompt},
+    )

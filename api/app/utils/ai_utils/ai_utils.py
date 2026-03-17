@@ -30,7 +30,8 @@ async def send_async_ai_request(url: str, request_params: dict) -> dict:
         except httpx.RequestError as e:
             raise HTTPException(status_code=503, detail=f"Error connecting to AI service: {e}")
         except httpx.HTTPStatusError as e:
-            raise HTTPException(status_code=response.status_code, detail=f"AI service error: {response.text}")
+            log.error("AI service error (status %d): %s", response.status_code, response.text)
+            raise HTTPException(status_code=502, detail="AI service returned an error.")
 
 
 async def async_embed(input: str) -> list[float]:
@@ -42,4 +43,7 @@ async def async_embed(input: str) -> list[float]:
         "dimensions": EMBED_DIMENSIONS,
     }
     result = await send_async_ai_request(url, params)
-    return result["embeddings"][0]
+    embeddings = result.get("embeddings")
+    if not embeddings or not embeddings[0]:
+        raise HTTPException(status_code=502, detail="AI service returned empty embeddings.")
+    return embeddings[0]

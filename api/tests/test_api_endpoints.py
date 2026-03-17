@@ -3,6 +3,7 @@
 import os
 from unittest.mock import patch, MagicMock, AsyncMock
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.utils.schemas.ai import EntityRef
@@ -151,7 +152,7 @@ class TestChatEndpoint:
 
 
 class TestEmbedEndpoint:
-    @patch("app.routers.ai.httpx.AsyncClient")
+    @patch("app.utils.ai_utils.ai_utils.httpx.AsyncClient")
     def test_embed_success(self, mock_client_cls, client):
         mock_response = MagicMock()
         mock_response.json.return_value = {"embedding": [0.1, 0.2]}
@@ -170,7 +171,7 @@ class TestEmbedEndpoint:
         assert response.status_code == 200
         assert response.json()["embedding"] == [0.1, 0.2]
 
-    @patch("app.routers.ai.httpx.AsyncClient")
+    @patch("app.utils.ai_utils.ai_utils.httpx.AsyncClient")
     def test_embed_uses_send_async_ai_request(self, mock_client_cls, client):
         """Verify /embed delegates to send_async_ai_request (not raw httpx)."""
         mock_response = MagicMock()
@@ -187,9 +188,9 @@ class TestEmbedEndpoint:
         assert response.status_code == 200
         # Verify the post was called with the AI_SERVICE_URL embeddings endpoint
         call_args = mock_client.post.call_args
-        assert "/api/embeddings" in call_args[0][0]
+        assert "/api/embed" in call_args[0][0]
 
-    @patch("app.routers.ai.httpx.AsyncClient")
+    @patch("app.utils.ai_utils.ai_utils.httpx.AsyncClient")
     def test_embed_service_unavailable(self, mock_client_cls, client):
         import httpx
 
@@ -355,3 +356,43 @@ class TestRagHelpers:
         from app.routers.ai import VECTOR_SEARCH_MULTIPLIER
         assert isinstance(VECTOR_SEARCH_MULTIPLIER, int)
         assert VECTOR_SEARCH_MULTIPLIER > 1
+
+
+class TestGetSimilarPublications:
+    @pytest.mark.asyncio
+    async def test_ai_service_down(self):
+        from app.routers.ai import get_similar_publications
+        with patch("app.routers.ai.async_embed", new_callable=AsyncMock) as mock_embed:
+            mock_embed.side_effect = HTTPException(status_code=503, detail="AI service down")
+            with pytest.raises(HTTPException, match="503"):
+                await get_similar_publications("test prompt", None, top_k=5)
+
+    @pytest.mark.asyncio
+    async def test_empty_results(self):
+        from app.routers.ai import get_similar_publications
+        mock_session = MagicMock()
+        mock_session.run.return_value = iter([])
+        mock_driver = MagicMock()
+        mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+
+        with patch("app.routers.ai.async_embed", new_callable=AsyncMock, return_value=[0.1] * 768), \
+             patch("app.routers.ai.get_graph", return_value=mock_driver):
+            result = await get_similar_publications("test", None, top_k=5)
+            assert result == []
+
+    @pytest.mark.asyncio
+    async def test_person_scoped(self):
+        from app.routers.ai import get_similar_publications
+        entity = EntityRef(id="person-123", type="person", label="Test Person")
+        mock_session = MagicMock()
+        mock_session.run.return_value = iter([])
+        mock_driver = MagicMock()
+        mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+
+        with patch("app.routers.ai.async_embed", new_callable=AsyncMock, return_value=[0.1] * 768), \
+             patch("app.routers.ai.get_graph", return_value=mock_driver):
+            await get_similar_publications("test", entity, top_k=5)
+            call_args = mock_session.run.call_args
+            assert "entityId" in call_args.kwargs or "entityId" in str(call_args)

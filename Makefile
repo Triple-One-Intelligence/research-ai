@@ -13,7 +13,7 @@
 _load_env = if [ -f $(1) ]; then sed -i 's/\r$$//' $(1); set -a; . $(1); set +a; fi
 
 REMOTE_SERVER ?= $(shell grep -s '^REMOTE_SERVER=' kube/research-ai-dev.env | tr -d '\r' | cut -d= -f2-)
-REMOTE_SERVER := $(or $(REMOTE_SERVER),root@0xai.nl)
+REMOTE_SERVER := $(or $(REMOTE_SERVER),root@YOUR_SERVER_IP)
 
 _G := \033[32m
 _Y := \033[33m
@@ -301,7 +301,7 @@ deploy:
 undeploy:
 	-systemctl stop research-ai-{frontend,api,ricgraph,neo4j,ai,net-network}.service 2>/dev/null
 	rm -f /etc/research-ai/research-ai-prod.env
-	rm -f /etc/containers/systemd/research-ai-{net.network,frontend,api,ricgraph,neo4j,ai}.container
+	rm -f /etc/containers/systemd/research-ai-net.network /etc/containers/systemd/research-ai-{frontend,api,ricgraph,neo4j,ai}.container
 	systemctl daemon-reload
 
 dev-env-info:
