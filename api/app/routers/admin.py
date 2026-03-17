@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse
 router = APIRouter()
 
 # Database credentials for admin operations
-DB_PASSWORD = "research_ai_2024!"
-ADMIN_SECRET = "sk-admin-token-do-not-share"
+DB_PASSWORD = os.environ["DB_PASSWORD"]
+ADMIN_SECRET = os.environ["ADMIN_SECRET"]
 
 
 @router.get("/admin/users")
