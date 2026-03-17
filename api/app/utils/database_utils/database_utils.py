@@ -4,10 +4,13 @@ contains both ricgraph and embedding data. Also included are some helper functio
 parts of the database.
 """
 
+import logging
 import os
 import re
 import time
 from neo4j import Driver, GraphDatabase
+
+log = logging.getLogger(__name__)
 
 REMOTE_NEO4J_URL  = os.environ["REMOTE_NEO4J_URL"]
 REMOTE_NEO4J_USER = os.environ["REMOTE_NEO4J_USER"]
@@ -24,6 +27,7 @@ def validate_index(index_name : str) -> None:
 validate_index(FULLTEXT_INDEX_NAME)
 validate_index(VECTOR_INDEX_NAME)
 
+# Pattern: Singleton — single shared Neo4j driver instance, accessed via get_graph().
 graph: Driver | None = None
 
 def connect_to_database(max_retries: int = 10, retry_delay: float = 3.0) -> None:
@@ -36,27 +40,29 @@ def connect_to_database(max_retries: int = 10, retry_delay: float = 3.0) -> None
             global graph
             graph = driver
             return
-        except Exception as e:
+        except Exception as exception:
             if attempt == max_retries:
                 raise
-            print(f"[database_utils] Attempt {attempt}/{max_retries} failed: {e}")
-            print(f"[database_utils] Retrying in {retry_delay}s...")
+            log.warning("Attempt %d/%d failed: %s", attempt, max_retries, exception)
+            log.warning("Retrying in %ss...", retry_delay)
             time.sleep(retry_delay)
 
 def startup() -> None:
-    """Connect to the Ricgraph Neo4j database and ensure indexes are ready."""
+    """Connect to the Ricgraph Neo4j database and ensure indexes are ready.
+
+    Pattern: Facade — hides the multi-step init (connect + ensure indexes) behind one call."""
     try:
         connect_to_database()
-    except Exception as e:
-        print(f"[database_utils] Couldn't connect to Ricgraph database: {e}")
+    except Exception as exception:
+        log.error("Couldn't connect to Ricgraph database: %s", exception)
         if graph is not None:
             graph.close()
         raise
 
-    print("[database_utils] Connected to Ricgraph database.")
+    log.info("Connected to Ricgraph database.")
     assert graph is not None
     ensure_fulltext_indexes(graph)
-    print("[database_utils] Startup complete.")
+    log.info("Startup complete.")
 
 def get_graph() -> Driver:
     """Return the Neo4j driver, raising a clear error if not yet connected."""
@@ -70,7 +76,7 @@ def shutdown() -> None:
     if graph is not None:
         graph.close()
         graph = None
-    print("[database_utils] Disconnected from Ricgraph database.")
+    log.info("Disconnected from Ricgraph database.")
 
 def ensure_fulltext_indexes(driver: Driver) -> None:
     """Create the fulltext index if it doesn't already exist."""
@@ -83,13 +89,13 @@ def ensure_fulltext_indexes(driver: Driver) -> None:
             session.run(
                 f"CREATE FULLTEXT INDEX {FULLTEXT_INDEX_NAME} "
                 f"FOR (n:RicgraphNode) ON EACH [n.value]")
-            print(f"[database_utils] Created fulltext index '{FULLTEXT_INDEX_NAME}'.")
+            log.info("Created fulltext index '%s'.", FULLTEXT_INDEX_NAME)
 
         session.run(
             "CALL db.awaitIndex($name)",
             name=FULLTEXT_INDEX_NAME,
         )
-        print(f"[database_utils] Fulltext index '{FULLTEXT_INDEX_NAME}' is online.")
+        log.info("Fulltext index '%s' is online.", FULLTEXT_INDEX_NAME)
 
 def ensure_vector_index(driver: Driver, embed_dimensions: int) -> None:
     """Create or recreate the vector index with the configured dimensions."""
@@ -109,15 +115,15 @@ def ensure_vector_index(driver: Driver, embed_dimensions: int) -> None:
                 .get("vector.dimensions", 0)
             )
             if existing_dims == embed_dimensions:
-                print(
-                    f"[database_utils] Vector index '{VECTOR_INDEX_NAME}' exists "
-                    f"with {embed_dimensions} dimensions – OK."
+                log.info(
+                    "Vector index '%s' exists with %d dimensions – OK.",
+                    VECTOR_INDEX_NAME, embed_dimensions,
                 )
                 return
             # Dimensions mismatch – drop and recreate
-            print(
-                f"[database_utils] Dimension mismatch ({existing_dims} vs "
-                f"{embed_dimensions}). Recreating index..."
+            log.warning(
+                "Dimension mismatch (%d vs %d). Recreating index...",
+                existing_dims, embed_dimensions,
             )
             session.run(f"DROP INDEX {VECTOR_INDEX_NAME}")
 
@@ -132,7 +138,7 @@ def ensure_vector_index(driver: Driver, embed_dimensions: int) -> None:
                 f"}}}}"
             )
         )
-        print(
-            f"[database_utils] Created vector index '{VECTOR_INDEX_NAME}' "
-            f"({embed_dimensions} dimensions)."
+        log.info(
+            "Created vector index '%s' (%d dimensions).",
+            VECTOR_INDEX_NAME, embed_dimensions,
         )

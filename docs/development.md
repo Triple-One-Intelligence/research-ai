@@ -3,101 +3,189 @@
 ## Prerequisites
 
 - [Podman](https://podman.io/) (used instead of Docker)
-- SSH access to the remote server (for `make tunnel` / `make dev`)
+- SSH access to the remote server (for the tunnel to Neo4j, Ollama, etc.)
 - Git
+- Node.js (bundled in the dev container, not needed on host)
+- Python 3 (for the test venv, auto-created by `make test`)
 
-## Configuration
+## Environment File
 
-This project requires a local environment configuration file that is not tracked in git for security reasons.
+The dev environment tunnels to the production server for Neo4j, Ricgraph, and Ollama. Connection details are stored in `kube/research-ai-dev.env` (git-ignored).
+
+### Option A: Generate from the production server
+
+SSH into the production server and run:
 
 ```bash
-# For development
-cp kube/research-ai-dev.env.example kube/research-ai-dev.env
-
-# For production
-cp kube/research-ai-prod.env.example kube/research-ai-prod.env
+ssh root@<server-ip>
+cd research-ai/
+make dev-env-info
 ```
 
-Open the newly created `.env` file and fill in the required credentials.
+This prints a ready-to-use env file. Copy everything between the `--- cut here ---` markers and save it as `kube/research-ai-dev.env` on your local machine.
+
+### Option B: Copy from the example
+
+```bash
+cp kube/research-ai-dev.env.example kube/research-ai-dev.env
+```
+
+Open `kube/research-ai-dev.env` and fill in the values. The required fields are:
+
+| Variable | Description |
+| --- | --- |
+| `REMOTE_SERVER` | SSH target for the tunnel, e.g. `root@145.38.194.46` |
+| `REMOTE_NEO4J_PASS` | Neo4j password on the production server |
+
+Optional variables (defaults are fine for most cases):
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `LOGLEVEL` | `INFO` | Python log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Set to `DEBUG` to enable RAG debug info in SSE responses and FastAPI debug mode. |
+| `CHAT_MODEL` | `tinyllama` | Ollama model for chat/RAG generation |
+| `EMBED_MODEL` | `nomic-embed-text` | Ollama model for vector embeddings |
+| `EMBED_DIMENSIONS` | `768` | Embedding vector dimensions (must match the model) |
+| `OPENALEX_MAILTO` | *(empty)* | Email for OpenAlex polite pool (faster rate limits) |
+
+The rest can stay at their defaults for local development.
+
+### Verify SSH access
+
+Before starting, make sure you can reach the server:
+
+```bash
+ssh root@<server-ip> echo ok
+```
+
+If this hangs or fails, fix your SSH config/keys first.
 
 ## Getting Started
 
 ```bash
-# Start the dev pod and SSH tunnel to the remote server
+# Start everything: tunnel + pod + tests
 make dev
+```
 
-# Or start them separately:
-make up       # Build and start the local dev pod
-make tunnel   # Open SSH tunnel to the remote Neo4j/Ollama
+This will:
+1. Open an SSH tunnel to the remote server (Neo4j, Ricgraph, Ollama)
+2. Build the API container image
+3. Start the dev pod (API, frontend, Caddy reverse proxy)
+4. Wait for the frontend (Vite) to be ready
+5. Run the full test suite (unit + integration)
+6. Print the URL: **https://localhost:3000**
 
-# Run the enrichment pipeline (fetches abstracts + generates embeddings)
-make enrich
+The dev server uses a self-signed TLS certificate. Your browser will show a security warning on first visit — accept it to proceed.
+
+### Starting components separately
+
+```bash
+make up         # Build and start the local dev pod (no tunnel)
+make tunnel     # Open SSH tunnel only
+make down       # Stop and remove the dev pod
+```
+
+### Running tests
+
+```bash
+make test        # Unit + integration tests
+make test-unit   # Unit tests only (no pod needed)
+make test-dev    # Integration tests only (needs running pod)
+```
+
+### Logs
+
+```bash
+make watch    # Tail all container logs
+make wapi     # Tail API logs only
+make wui      # Tail frontend logs only
+```
+
+### Data pipeline
+
+```bash
+make enrich        # Fetch abstracts + generate embeddings
+make enrich-force  # Re-enrich all publications (including already done)
+make harvest       # Run Ricgraph harvesting
+```
+
+## Logging
+
+The backend uses Python's `logging` module. The log level is controlled by the `LOGLEVEL` environment variable (default: `INFO`).
+
+```bash
+# In kube/research-ai-dev.env:
+LOGLEVEL=DEBUG    # Verbose — includes RAG debug info in SSE streams
+LOGLEVEL=INFO     # Normal — startup, requests, enrichment progress
+LOGLEVEL=WARNING  # Quiet — only warnings and errors
+```
+
+Setting `LOGLEVEL=DEBUG` also enables FastAPI's debug mode (detailed error pages).
+
+To view logs during development:
+
+```bash
+make wapi    # Tail API container logs
+make wui     # Tail frontend container logs
+make watch   # Tail all container logs
 ```
 
 ## WSL (Windows) Setup
 
-If you are developing on Windows using WSL, there is one extra consideration: your SSH keys live on the Windows side and need to be accessible from WSL for the tunnel to work.
+If you are developing on Windows using WSL:
 
-This is handled automatically. When you run `make dev` or `make tunnel`, it first runs `make setup-wsl-ssh` which:
+1. Your SSH keys live on the Windows side and need to be accessible from WSL. This is handled automatically — `make dev` runs `make setup-wsl-ssh` which symlinks `C:\Users\<you>\.ssh` into `~/.ssh` inside WSL. On native Linux it does nothing.
 
-1. Detects whether you are running inside WSL
-2. If so, symlinks your Windows SSH keys (`C:\Users\<you>\.ssh`) into `~/.ssh` inside WSL
-3. If you are on native Linux, it does nothing
+2. If you get permission errors on the SSH key, WSL may mount it with too-open permissions. Add to `/etc/wsl.conf`:
+   ```ini
+   [automount]
+   options = "metadata,umask=22,fmask=177"
+   ```
+   Then restart WSL with `wsl --shutdown` and try again.
 
-If the symlink already exists it is skipped. You can also run it manually:
-
-```bash
-make setup-wsl-ssh
-```
-
-### Other WSL tips
-
-- Make sure your Windows SSH key has been added to the remote server's `authorized_keys`
-- If you get permission errors on the SSH key, WSL may be mounting it with too-open permissions. You can fix this by adding to `/etc/wsl.conf`:
-  ```ini
-  [automount]
-  options = "metadata,umask=22,fmask=177"
-  ```
-  Then restart WSL with `wsl --shutdown` and try again.
+3. If you see `: not found` errors when running `make dev`, the files have Windows line endings (CRLF). Pull the latest changes — the `.gitattributes` file enforces LF endings for all script and config files.
 
 ## SELinux (Fedora / RHEL)
 
-If you are developing on an OS with a security-hardened Linux kernel (e.g. Fedora with SELinux enforcing), container volume mounts may be denied. Run:
+If containers fail to access volume mounts, run:
 
 ```bash
 make labelSELinux
 ```
 
-This relabels the project files so Podman containers can access them.
+This relabels the project files so Podman containers can read them.
 
 ## Makefile Reference
 
 | Command | Description |
 | --- | --- |
-| **Development** |  |
-| `make dev` | Builds dev images, starts the pod, and opens an SSH tunnel to the remote server. |
-| `make up` | Builds dev images and deploys the local development pod. |
-| `make down` | Stops and removes the local pod. |
-| `make tunnel` | Opens an SSH tunnel forwarding Neo4j (7687, 7474), API (8080), frontend (3030), and Ollama (11434) from the remote server. |
-| `make watch` | Tails logs for the entire pod. |
-| `make wapi` / `make wui` | Tails logs for the API or frontend container. |
-| `make labelSELinux` | Relabels files for SELinux (Fedora/RHEL). |
-| `make setup-wsl-ssh` | (WSL only) Symlinks Windows SSH keys into WSL. No-op on native Linux. |
-| **Data Pipeline** |  |
-| `make enrich` | Runs the enrichment pipeline: fetches abstracts from OpenAlex and generates vector embeddings. |
-| `make enrich-force` | Same as `enrich`, but re-processes all publications (including already enriched ones). |
-| `make harvest` | Triggers a Ricgraph harvest inside the Ricgraph container. |
-| **Production** |  |
-| `make deploy` | Builds prod images, creates the Podman network, and installs Systemd Quadlet units. |
-| `make undeploy` | Stops services and removes Quadlet units. |
-| `make logs` | Tails combined systemd journals for all services. |
-| `make logs-api` / `make logs-ui` / `make logs-ric` | Tails journals for a specific service. |
-| **Maintenance** |  |
-| `make nuke` | Wipes all containers, pods, volumes, and images from the system. |
+| **Development** | |
+| `make dev` | Full dev environment: tunnel + pod + tests |
+| `make up` / `make down` | Start / stop dev pod |
+| `make tunnel` | SSH tunnel to remote services |
+| `make tunnel-stop` | Stop the SSH tunnel |
+| `make tunnel-status` | Check if the tunnel is running |
+| `make watch` | Tail all container logs |
+| `make wapi` / `make wui` | Tail API / frontend logs |
+| `make setup-wsl-ssh` | (WSL only) Symlink Windows SSH keys |
+| `make labelSELinux` | Relabel files for SELinux |
+| **Testing** | |
+| `make test` | Unit + integration tests |
+| `make test-unit` | Unit tests only (offline) |
+| `make test-dev` | Integration tests (needs running pod) |
+| `make test-deploy` | Production smoke tests (run on server) |
+| **Data** | |
+| `make enrich` | Enrich publications (abstracts + embeddings) |
+| `make enrich-force` | Re-enrich all publications |
+| `make harvest` | Run Ricgraph harvesting |
+| **Production** | |
+| `make deploy` | Build + deploy to production |
+| `make undeploy` | Stop + remove all production services |
+| `make dev-env-info` | Print dev env config (run on server) |
+| `make logs` | Tail all production logs |
+| **Danger** | |
+| `make nuke` | Destroy ALL containers, pods, volumes, images |
 
 ## Deployment Workflow
-
-Follow these steps to deploy changes or test branches on the remote server.
 
 ### 1. Connect to the server
 

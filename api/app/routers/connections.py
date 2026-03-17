@@ -1,12 +1,13 @@
-# this file deals with API endpoints whose responses need Ricgraph
-# (e.g. to return all connections between a person and their publications)
+"""Router for entity connection endpoints backed by the Ricgraph database."""
+
+import logging
 
 from fastapi import APIRouter, Query, HTTPException
 from app.utils.schemas import Connections
 from app.utils.ricgraph_utils.connections_utils import get_connections, InvalidEntityTypeError, ConnectionsError
 
+log = logging.getLogger(__name__)
 
-# these endpoints can be reached using the /connections URL prefix
 router = APIRouter(prefix="/connections")
 
 @router.get("/entity", response_model=Connections)
@@ -34,11 +35,11 @@ def get_entity_connections(
         )
         # Build response model
         return Connections(**{**result, "entity_id": entity_id, "entity_type": entity_type})
-    except InvalidEntityTypeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    except InvalidEntityTypeError as exception:
+        raise HTTPException(status_code=400, detail=str(exception))
     except ConnectionsError:
-        print(f"Connections service error for entity_id={entity_id!r}")
-        raise HTTPException(status_code=500, detail="Connections query failed")
+        log.error("Connections service error for entity_id=%r", entity_id)
+        raise HTTPException(status_code=500, detail="Connections query failed.")
     except Exception:
-        print(f"Unexpected error while handling connections for entity_id={entity_id!r}")
-        raise HTTPException(status_code=500, detail="Connections query failed")
+        log.error("Unexpected error while handling connections for entity_id=%r", entity_id)
+        raise HTTPException(status_code=500, detail="Connections query failed.")

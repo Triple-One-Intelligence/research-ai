@@ -1,17 +1,17 @@
 {
-  debug
   local_certs
+  auto_https disable_redirects
 }
 
-localhost {
+localhost:3000 {
   tls internal
 
   handle /api/* {
     uri strip_prefix /api
-    reverse_proxy localhost:8000
+    reverse_proxy 127.0.0.1:8000
   }
 
   handle {
-    reverse_proxy localhost:5173
+    reverse_proxy 127.0.0.1:5173
   }
 }

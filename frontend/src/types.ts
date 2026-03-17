@@ -9,6 +9,7 @@ export type EntityRef = {
 
 export type EntitySuggestion = EntityRef;
 
+// Reserved for future use
 export type YearRange = { from: number; to: number };
 
 export type PromptTemplate = {
@@ -41,17 +42,14 @@ export type PublicationVersion = {
 export type Publication = {
   doi: string;
   title?: string;
-  publication_rootid?: string;
   year?: number;
   category?: string;
-  name?: string;
   versions?: PublicationVersion[];
 };
 
 export type Member = {
   author_id: string;
   name: string;
-  role?: string;
 };
 
 export type ConnectionsResponse = {

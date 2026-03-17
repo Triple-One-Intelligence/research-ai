@@ -7,16 +7,18 @@ Run inside the API container:
 """
 
 import argparse
+import logging
 import os
 import sys
 import time
 
 import httpx
 import app.utils.database_utils.database_utils as database_utils
+# Refactoring: Shotgun Surgery fix — imports from centralized config in ai_utils
+from app.utils.ai_utils.ai_utils import AI_SERVICE_URL, EMBED_MODEL, EMBED_DIMENSIONS
 
-AI_SERVICE_URL = os.environ["AI_SERVICE_URL"]
-EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
-EMBED_DIMENSIONS = int(os.getenv("EMBED_DIMENSIONS", "768"))
+log = logging.getLogger(__name__)
+
 OPENALEX_MAILTO = os.getenv("OPENALEX_MAILTO", "")
 
 
@@ -44,7 +46,7 @@ def fetch_abstract(doi: str, client: httpx.Client) -> str | None:
     try:
         resp = client.get(url, params=params, timeout=15.0)
         if resp.status_code == 404:
-            print(f"  [openalex] Could not find the given DOI: {doi}")
+            log.warning("Could not find the given DOI: %s", doi)
             return None
         resp.raise_for_status()
         data = resp.json()
@@ -54,54 +56,56 @@ def fetch_abstract(doi: str, client: httpx.Client) -> str | None:
         if inv_idx:
             return reconstruct_abstract(inv_idx)
 
-        print(f"  [openalex] Abstract was not in the inverted index format, DOI: {doi}")
+        log.warning("Abstract was not in the inverted index format, DOI: %s", doi)
         return None
     except httpx.HTTPError as e:
-        print(f"  [openalex] Error fetching {doi}: {e}")
+        log.error("Error fetching %s: %s", doi, e)
         return None
 
-
-# ── Ollama embeddings ───────────────────────────────────────────────────────
 
 def generate_embedding(text: str, client: httpx.Client) -> list[float] | None:
     """Generate an embedding vector via Ollama."""
-    url = f"{AI_SERVICE_URL}/api/embeddings"
     try:
+        # Try the newer /api/embed endpoint first (Ollama >=0.15)
         resp = client.post(
-            url,
-            json={"model": EMBED_MODEL, "prompt": text},
+            f"{AI_SERVICE_URL}/api/embed",
+            json={"model": EMBED_MODEL, "input": text},
             timeout=60.0,
         )
+        if resp.status_code == 404:
+            # Fall back to legacy /api/embeddings endpoint
+            resp = client.post(
+                f"{AI_SERVICE_URL}/api/embeddings",
+                json={"model": EMBED_MODEL, "prompt": text},
+                timeout=60.0,
+            )
+            resp.raise_for_status()
+            return resp.json().get("embedding")
         resp.raise_for_status()
-        return resp.json().get("embedding")
+        data = resp.json()
+        # /api/embed returns {"embeddings": [[...]]}
+        embeddings = data.get("embeddings")
+        if embeddings and len(embeddings) > 0:
+            return embeddings[0]
+        return None
     except httpx.HTTPError as e:
-        print(f"  [ollama] Embedding error: {e}")
+        log.error("Embedding error: %s", e)
         return None
 
 
 # ── Main enrichment loop ───────────────────────────────────────────────────
 
+# Refactoring: Duplicate Code fix — was two near-identical Cypher queries
 def find_publication_dois(driver, force: bool) -> list[str]:
     """Return DOIs for publication nodes that need enrichment."""
+    base = "MATCH (n:RicgraphNode) WHERE n.name = 'DOI' AND n.value IS NOT NULL"
+    condition = "" if force else " AND n.abstract IS NULL"
+    query = f"{base}{condition} RETURN n.value AS doi"
     with driver.session() as session:
-        if force:
-            # All publication DOIs
-            result = session.run(
-                "MATCH (n:RicgraphNode) "
-                "WHERE n.name = 'DOI' AND n.value IS NOT NULL "
-                "RETURN n.value AS doi"
-            )
-        else:
-            # Only those missing an abstract
-            result = session.run(
-                "MATCH (n:RicgraphNode) "
-                "WHERE n.name = 'DOI' AND n.value IS NOT NULL "
-                "AND n.abstract IS NULL "
-                "RETURN n.value AS doi"
-            )
-        return [r["doi"] for r in result]
+        return [r["doi"] for r in session.run(query)]
 
 
+# Refactoring: Separate Query from Modifier — this only writes, find_publication_dois only reads.
 def store_enrichment(driver, doi: str, abstract: str, embedding: list[float]):
     """Write abstract + embedding back to the node."""
     with driver.session() as session:
@@ -116,7 +120,7 @@ def store_enrichment(driver, doi: str, abstract: str, embedding: list[float]):
 
 def run(force: bool = False, batch_size: int = 50):
     if not AI_SERVICE_URL:
-        print("[enrich] ERROR: AI_SERVICE_URL env var must be set.")
+        log.error("AI_SERVICE_URL env var must be set.")
         sys.exit(1)
 
     database_utils.connect_to_database()
@@ -127,43 +131,40 @@ def run(force: bool = False, batch_size: int = 50):
         dois = find_publication_dois(driver, force)
         total = len(dois)
         if total == 0:
-            print("[enrich] No publications to enrich. Done.")
+            log.info("No publications to enrich. Done.")
             return
 
-        print(f"[enrich] Found {total} publication(s) to enrich.")
+        log.info("Found %d publication(s) to enrich.", total)
         enriched = 0
         skipped = 0
 
         with httpx.Client() as client:
             for i, doi in enumerate(dois, 1):
-                print(f"  [{i}/{total}] {doi}")
+                log.info("[%d/%d] %s", i, total, doi)
 
                 abstract = fetch_abstract(doi, client)
                 if not abstract:
-                    print("    -> No abstract found, skipping.")
+                    log.info("No abstract found, skipping.")
                     skipped += 1
                     continue
 
                 embedding = generate_embedding(abstract, client)
                 if not embedding:
-                    print("    -> Embedding failed, skipping.")
+                    log.warning("Embedding failed, skipping.")
                     skipped += 1
                     continue
 
                 store_enrichment(driver, doi, abstract, embedding)
                 enriched += 1
-                print(f"    -> OK ({len(abstract)} chars, {len(embedding)}d vector)")
+                log.info("OK (%d chars, %dd vector)", len(abstract), len(embedding))
 
                 # Be polite to OpenAlex (they ask for <10 req/s)
                 time.sleep(0.15)
                 if i % batch_size == 0:
-                    print(f"  [batch] Processed {i}/{total}, pausing briefly...")
+                    log.info("Processed %d/%d, pausing briefly...", i, total)
                     time.sleep(1)
 
-        print(
-            f"[enrich] Done. Enriched: {enriched}, Skipped: {skipped}, "
-            f"Total: {total}"
-        )
+        log.info("Done. Enriched: %d, Skipped: %d, Total: %d", enriched, skipped, total)
     finally:
         driver.close()
 

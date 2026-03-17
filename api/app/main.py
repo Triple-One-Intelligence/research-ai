@@ -1,15 +1,24 @@
+"""FastAPI application entry point — configures logging, CORS, routers, and lifespan."""
+
+import logging
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.ai import router as ai_router
-from app.routers import connections, autocomplete
 
-from contextlib import asynccontextmanager
+from app.routers import ai, autocomplete, connections
 import app.utils.database_utils.database_utils as database_utils
 
-# responsible for start up and shut down tasks
+logging.basicConfig(
+    level=os.environ.get("LOGLEVEL", "INFO").upper(),
+    format="%(levelname)s: %(message)s",
+)
+log = logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     database_utils.startup()
@@ -22,11 +31,11 @@ app = FastAPI(
     description="API",
     version="0.0.1",
     root_path="/api",
-    debug=True,
+    debug=os.environ.get("LOGLEVEL", "INFO").upper() == "DEBUG",
     lifespan=lifespan
 )
 
-cors_env = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+cors_env = os.environ.get("CORS_ORIGINS", "http://localhost:5173,https://localhost:3000")
 origins = [o.strip() for o in cors_env.split(",")]
 
 app.add_middleware(
@@ -39,9 +48,7 @@ app.add_middleware(
 
 app.include_router(connections.router)
 app.include_router(autocomplete.router)
-app.include_router(ai_router)
-
-memory_db = {"fruits": []}
+app.include_router(ai.router)
 
 @app.get("/health")
 def health():

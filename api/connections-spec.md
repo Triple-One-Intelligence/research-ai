@@ -3,8 +3,24 @@
 ## Endpoint
 
 ```
-GET /api/connections/entity?entity_id={id}&entity_type={person|organization}
+GET /api/connections/entity
 ```
+
+**Query parameters**
+
+| Parameter           | Type   | Required | Default | Constraints  | Description |
+|---------------------|--------|----------|---------|--------------|-------------|
+| `entity_id`         | string | yes      | —       | —            | ID of the entity (Ricgraph person or organization key). |
+| `entity_type`       | string | yes      | —       | `person` or `organization` | Type of the entity. |
+| `max_publications`  | int    | no       | 50      | 1–200        | Maximum number of publications to return. |
+| `max_collaborators` | int    | no       | 50      | 1–200        | Maximum number of collaborators to return (person only). |
+| `max_organizations` | int    | no       | 50      | 1–200        | Maximum number of organizations to return. |
+| `max_members`       | int    | no       | 50      | 1–200        | Maximum number of members to return (organization only). |
+
+**Error responses**
+
+- **400** — `entity_type` is not `person` or `organization` (message from `InvalidEntityTypeError`).
+- **500** — Database or internal error (`ConnectionsError` or unhandled exception); detail: `"Connections query failed"`.
 
 ## Response schema
 
@@ -13,7 +29,7 @@ GET /api/connections/entity?entity_id={id}&entity_type={person|organization}
   "entity_id": "string",          // echoed from query param
   "entity_type": "string",        // "person" or "organization"
 
-  "collaborators": [              // co-authors / related persons
+  "collaborators": [              // co-authors / related persons (empty for organization)
     {
       "author_id": "string",      // Ricgraph person _key
       "name": "string"            // display name, e.g. "Jansen, B."
@@ -24,10 +40,11 @@ GET /api/connections/entity?entity_id={id}&entity_type={person|organization}
     {
       "doi": "string",            // required — unique identifier
       "title": "string | null",   // optional
-      "publication_rootid": "string | null",
       "year": "number | null",    // e.g. 2024
       "category": "string | null",// e.g. "journal-article", "conference-paper", "report"
-      "name": "string | null"     // first author name (optional)
+      "versions": [               // optional; present when multiple versions (same title) are merged
+        { "doi": "string", "year": "number | null", "category": "string | null" }
+      ]
     }
   ],
 
@@ -41,8 +58,7 @@ GET /api/connections/entity?entity_id={id}&entity_type={person|organization}
   "members": [                    // members of an organization (empty for person entities)
     {
       "author_id": "string",
-      "name": "string",
-      "role": "string | null"     // optional, e.g. "Professor", "PhD Candidate"
+      "name": "string"
     }
   ]
 }
@@ -63,18 +79,16 @@ GET /api/connections/entity?entity_id={id}&entity_type={person|organization}
     {
       "doi": "10.1234/example-001",
       "title": "Machine Learning in Academic Research",
-      "publication_rootid": null,
       "year": 2024,
       "category": "journal-article",
-      "name": "Jansen, B."
+      "versions": null
     },
     {
       "doi": "10.1234/example-002",
       "title": "Graph-Based Knowledge Discovery",
-      "publication_rootid": null,
       "year": 2023,
       "category": "conference-paper",
-      "name": "De Vries, C.M."
+      "versions": null
     }
   ],
   "organizations": [
@@ -96,10 +110,9 @@ GET /api/connections/entity?entity_id={id}&entity_type={person|organization}
     {
       "doi": "10.1234/example-004",
       "title": "Annual Report on Research Output 2024",
-      "publication_rootid": null,
       "year": 2024,
       "category": "report",
-      "name": null
+      "versions": null
     }
   ],
   "organizations": [
@@ -107,17 +120,19 @@ GET /api/connections/entity?entity_id={id}&entity_type={person|organization}
     { "organization_id": "org-4", "name": "NWO" }
   ],
   "members": [
-    { "author_id": "person-1", "name": "De Groot, A.", "role": "Professor" },
-    { "author_id": "person-2", "name": "Jansen, B.", "role": "PhD Candidate" },
-    { "author_id": "person-3", "name": "De Vries, C.M.", "role": "Postdoc" }
+    { "author_id": "person-1", "name": "De Groot, A." },
+    { "author_id": "person-2", "name": "Jansen, B." },
+    { "author_id": "person-3", "name": "De Vries, C.M." }
   ]
 }
 ```
 
 ## Notes for backend implementer
 
-- `doi` is the only required field on publications; all others may be `null`.
-- `members` should be empty `[]` when `entity_type` is `"person"`.
-- `collaborators` should be empty `[]` when `entity_type` is `"organization"` (use `members` instead).
+- `doi` is the only required field on publications; `title`, `year`, `category`, and `versions` may be null or omitted.
+- Publications with the same normalized title are deduplicated; when multiple versions exist, the first is kept and the rest are listed in `versions` (each with `doi`, `year`, `category`). See `format_publications` in `api/app/utils/ricgraph_utils/connections_utils.py`.
+- `members` is always `[]` when `entity_type` is `"person"`.
+- `collaborators` is always `[]` when `entity_type` is `"organization"` (use `members` for organization personnel).
 - The frontend renders each section as a collapsible card. Sections with 0 items are hidden automatically.
-- Pydantic models: `ConnectionsResponse`, `Member` in `api/app/schemas/connections.py`.
+- **Pydantic models**: `Connections`, `Member` in `api/app/utils/schemas/connections.py`; `Person`, `Publication`, `Organization` in `api/app/utils/schemas/` (person.py, publication.py, organization.py).
+- **Router**: `api/app/routers/connections.py` (prefix `/connections`). App is mounted with `root_path="/api"`, so full path is `/api/connections/entity`.

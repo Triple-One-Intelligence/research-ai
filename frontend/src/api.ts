@@ -1,25 +1,16 @@
-
 import axios from 'axios';
-import type { EntitySuggestion, EntityRef, ConnectionsResponse } from './types';
+import type { EntitySuggestion, EntityRef, ConnectionsResponse, PersonRef, OrganizationRef } from './types';
 
+// Pattern: Singleton — single shared axios instance for all API calls
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "/api"  
+  baseURL: import.meta.env.VITE_API_URL || "/api"
 });
 
-// Backend response types
-interface Person {
-  author_id: string;
-  name: string;
-}
-
-interface Organization {
-  organization_id: string;
-  name: string;
-}
-
+// Refactoring: Duplicate Code fix — PersonRef and OrganizationRef imported from types.ts
+// Pattern: Adapter — transforms backend schema (author_id/organization_id) to frontend EntitySuggestion (id)
 interface SuggestionsResponse {
-  persons: Person[];
-  organizations: Organization[];  
+  persons: PersonRef[];
+  organizations: OrganizationRef[];
 }
 
 export const searchEntities = async (
@@ -29,13 +20,11 @@ export const searchEntities = async (
   const params = new URLSearchParams();
   params.append('query', query);
   params.append('limit', limit.toString());
- 
 
   const response = await api.get<SuggestionsResponse>(`/autocomplete?${params.toString()}`);
-  
-  // Transform backend response to frontend type EntitySuggestion[]
+
   const suggestions: EntitySuggestion[] = [];
-  
+
   response.data.persons?.forEach((p) => {
     suggestions.push({
       id: p.author_id,
@@ -43,7 +32,7 @@ export const searchEntities = async (
       label: p.name,
     });
   });
-  
+
   response.data.organizations?.forEach((o) => {
     suggestions.push({
       id: o.organization_id,
@@ -51,7 +40,7 @@ export const searchEntities = async (
       label: o.name,
     });
   });
-  
+
   return suggestions;
 };
 

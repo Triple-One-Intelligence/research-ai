@@ -2,7 +2,7 @@
 
 import os
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 # Set required env vars before any app imports
 os.environ.setdefault("REMOTE_NEO4J_URL", "bolt://localhost:7687")

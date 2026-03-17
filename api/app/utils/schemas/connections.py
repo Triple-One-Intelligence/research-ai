@@ -1,19 +1,19 @@
 from pydantic import BaseModel
-from typing import List, Optional
+
+from .organization import Organization
 from .person import Person
 from .publication import Publication
-from .organization import Organization
+
 
 class Member(BaseModel):
-    """A person who is a member of an organization, with optional role."""
+    """A person who is a member of an organization."""
     author_id: str
     name: str
-    role: Optional[str] = None
 
 class Connections(BaseModel):
     entity_id: str
     entity_type: str
-    collaborators: List[Person]
-    publications: List[Publication]
-    organizations: List[Organization]
-    members: List[Member]
+    collaborators: list[Person]
+    publications: list[Publication]
+    organizations: list[Organization]
+    members: list[Member]

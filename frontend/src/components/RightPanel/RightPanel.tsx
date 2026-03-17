@@ -170,7 +170,6 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
               <span className="entity-type-badge person">👤</span>
               <div className="member-info">
                 <span title={m.name}>{m.name}</span>
-                {m.role && <span className="member-role" title={m.role}>{m.role}</span>}
               </div>
             </li>
           ))}
