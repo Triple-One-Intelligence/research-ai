@@ -114,9 +114,10 @@ def _build_rag_system_prompt(entity: EntityRef | None, publications_context: str
     Instructs the model to cite sources using document numbers [1], [2], etc."""
     parts = [
         "Use ONLY the given context documents as evidence. "
-        "Cite your sources using the document numbers, e.g. [1], [2]. "
-        "Be concise, neutral, and avoid speculation beyond the evidence. "
-        "If evidence is insufficient, say so briefly."
+        "Cite your sources inline using document numbers, e.g. [1], [2]. "
+        "Always include the DOI when referencing a specific publication. "
+        "Do not invent information that is not present in the documents. "
+        "If evidence is insufficient, say so. Respond in the language of the user query."
     ]
     if entity:
         parts.append(f"\n{format_entity_context(entity)}")

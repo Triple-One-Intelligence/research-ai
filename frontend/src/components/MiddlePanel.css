@@ -32,7 +32,73 @@
   font-size: 0.95rem;
   line-height: 1.6;
   color: #2c3e50;
-  white-space: pre-wrap;
+}
+
+/* Markdown content styling */
+.llm-output-box h1,
+.llm-output-box h2,
+.llm-output-box h3 {
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  color: #1a2530;
+}
+
+.llm-output-box h1 { font-size: 1.3rem; }
+.llm-output-box h2 { font-size: 1.15rem; }
+.llm-output-box h3 { font-size: 1.05rem; }
+
+.llm-output-box p {
+  margin: 0.5em 0;
+}
+
+.llm-output-box ul,
+.llm-output-box ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.llm-output-box li {
+  margin: 0.25em 0;
+}
+
+.llm-output-box a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.llm-output-box a:hover {
+  text-decoration: underline;
+}
+
+.llm-output-box strong {
+  color: #1a2530;
+}
+
+.llm-output-box code {
+  background-color: #e8e8e8;
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.llm-output-box pre {
+  background-color: #e8e8e8;
+  padding: 0.75em;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.llm-output-box blockquote {
+  border-left: 3px solid #cbd5e1;
+  margin: 0.5em 0;
+  padding: 0.25em 1em;
+  color: #64748b;
+}
+
+.llm-output-box hr {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 1em 0;
 }
 
 .llm-output-box.generating::after {
