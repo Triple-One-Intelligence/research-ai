@@ -30,7 +30,7 @@ on:
 
 jobs:
   # ──────────────────────────────────────────────
-  # Auto code review on PR open / reopen
+  # Full code review on PR open / reopen
   # ──────────────────────────────────────────────
   pr-review:
     if: github.event_name == 'pull_request'
@@ -46,138 +46,118 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Clean up previous Claude review comments
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          REPO=${{ github.repository }}
-
-          echo "Cleaning up old inline review comments..."
-          gh api "repos/${REPO}/pulls/${PR_NUMBER}/comments" --paginate --jq \
-            '.[] | select(.user.login == "github-actions[bot]" or .user.type == "Bot") | .id' | \
-          while read -r comment_id; do
-            gh api -X DELETE "repos/${REPO}/pulls/${PR_NUMBER}/comments/${comment_id}" || true
-          done
-
-          echo "Collapsing old summary comments..."
-          gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate --jq \
-            '.[] | select((.user.login == "github-actions[bot]" or .user.type == "Bot") and (.body | test("Claude|Review|review|🔴|🟡|🔵|🧪"))) | "\(.id)|\(.node_id)"' | \
-          while IFS='|' read -r comment_id node_id; do
-            gh api graphql -f query='
-              mutation {
-                minimizeComment(input: {subjectId: "'"${node_id}"'", classifier: OUTDATED}) {
-                  minimizedComment { isMinimized }
-                }
-              }
-            ' || true
-          done
-
-          echo "Cleanup complete."
-
       - name: Run Claude Code Review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--model claude-opus-4-6 --allowedTools Bash Read Glob Grep"
+          classify_inline_comments: "false"
+          claude_args: >-
+            --model claude-opus-4-6
+            --allowedTools
+            "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Glob,Grep"
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
-            You are a code reviewer for the research-ai project (FastAPI + React + Neo4j/Ricgraph).
+            You are a senior code reviewer for the research-ai project (FastAPI + React + Neo4j/Ricgraph).
 
-            IMPORTANT: Only review the CHANGED files in this PR. Do NOT review the entire codebase.
+            IMPORTANT: Only review CHANGED files. Do NOT review the entire codebase.
 
             ## Steps
-            1. Run `gh pr view ${{ github.event.pull_request.number }}` to get the PR details and HEAD commit SHA
-            2. Run `gh pr diff ${{ github.event.pull_request.number }}` to see exactly what changed
-            3. Review ONLY the changes shown in the diff
-            4. If a change looks like it could break something, you may read related files for context — but do not review files not affected by the PR
-            5. For EACH issue found, post a SEPARATE comment using `gh pr comment` (one `gh pr comment` call per issue)
-            6. After all issue comments, post ONE final summary comment using `gh pr comment`
+            1. Run `gh pr view ${{ github.event.pull_request.number }}` for PR details and HEAD SHA.
+            2. Run `gh pr diff ${{ github.event.pull_request.number }}` to see the diff.
+            3. Review ONLY the changes in the diff. You may read related files for context if needed.
+            4. For EACH issue, post a SEPARATE inline comment using `mcp__github_inline_comment__create_inline_comment`.
+            5. After all inline comments, post ONE summary comment using `gh pr comment`.
 
-            ## MANDATORY Review Categories
-            You MUST check EVERY category below for EVERY file in the diff. Do NOT skip any category.
+            ## How to post inline comments
 
-            ### 1. Security — ALWAYS CHECK
-            - Hardcoded secrets, API keys, credentials, tokens, or passwords
-            - SQL / Cypher / NoSQL injection vulnerabilities
-            - Command injection (subprocess, os.system, eval, exec)
-            - Cross-site scripting (XSS) in frontend code
-            - Insecure CORS configurations
-            - Missing input validation or sanitization on user-facing inputs
-            - Path traversal or directory traversal risks
-            - Sensitive data exposure in logs, responses, error messages
-            - Authentication or authorization bypass risks
-            - Insecure deserialization
-            - Missing rate limiting on public endpoints
+            Use `mcp__github_inline_comment__create_inline_comment` with these parameters:
+            - `path`: the file path relative to repo root
+            - `line`: the ending line number in the NEW version of the file (right side of diff)
+            - `startLine`: (optional) starting line for multi-line comments
+            - `side`: always use `"RIGHT"` unless commenting on deleted code (use `"LEFT"`)
+            - `confirmed`: always set to `true` so comments post immediately
+            - `body`: the comment body in markdown (see format below)
 
-            ### 2. Syntax and Bugs — ALWAYS CHECK
-            - Syntax errors, typos, or malformed code
-            - Logic errors, off-by-one mistakes, wrong comparisons
-            - Race conditions or concurrency issues
-            - Incorrect use of APIs, libraries, or framework features
-            - Unhandled exceptions or missing error propagation
-            - Null/undefined reference risks
-            - Type mismatches or incorrect type annotations
-            - Resource leaks (unclosed files, connections, streams)
-            - Incorrect async/await usage
+            ## Inline comment body format
 
-            ### 3. Code Quality — ALWAYS CHECK
-            - Unclear or inconsistent naming conventions
-            - DRY violations (duplicated logic that should be extracted)
-            - Missing or inadequate error handling (bare except, swallowed errors)
-            - Unused imports, dead code, or unreachable code paths
-            - Performance anti-patterns (N+1 queries, unbounded data fetching, blocking in async)
-            - Breaking changes to existing interfaces or contracts
-            - Overly complex logic that could be simplified
+            There are TWO formats. Choose based on whether the fix can be expressed as a direct code replacement.
 
-            ### 4. Test Coverage — ALWAYS CHECK FOR BACKEND CODE
-            For any new or modified Python code under `api/`:
-            - Suggest specific unit tests with example pytest code
-            - Suggest integration tests for new or modified API endpoints
-            - Identify untested edge cases, error paths, and boundary conditions
-            For frontend code:
-            - Note if critical logic lacks tests
-
-            ## Comment Format — EACH ISSUE IS A SEPARATE COMMENT
-            For every issue you find, post a SEPARATE `gh pr comment` so each one can be discussed independently.
-
-            Each issue comment MUST follow this exact format:
+            ### Format A — FIXABLE (use whenever the code can be directly replaced)
+            Use a GitHub suggestion block. This gives the author a one-click "Commit suggestion" button.
+            Prefer this format whenever possible — it's the best developer experience.
 
             {SEVERITY_EMOJI} **{Severity}** — {Category}
 
-            📍 **Location:** [`{filepath}` L{start}-L{end}](https://github.com/${{ github.repository }}/blob/{HEAD_SHA}/{filepath}#L{start}-L{end})
+            {One-line description of the problem and why it matters.}
 
-            **Current code (what's wrong):**
-            ```{language}
-            {the exact problematic code from the diff}
+            ```suggestion
+            {the corrected code that will REPLACE the entire selected line range}
             ```
 
-            **Issue:** {one-line description of the problem}
+            > 💡 {Optional: brief note if additional changes are needed elsewhere, e.g. "Also add `from X import Y` at the top of the file."}
 
-            **Why this matters:** {brief explanation of the risk or impact}
+            ### Format B — NON-FIXABLE (architectural issues, missing features, design concerns)
+            Use when the issue can't be fixed by replacing the selected lines — e.g., "this entire endpoint should
+            not exist", "add authentication middleware to the router", "this needs a completely different approach".
 
-            **Fix — replace with:**
-            ```{language}
-            {the corrected code}
+            {SEVERITY_EMOJI} **{Severity}** — {Category}
+
+            {Clear description of the problem, why it matters, and what the developer should do about it.
+            Be specific and actionable — don't just say "fix this", explain the approach.}
+
+            ### Format C — TEST (missing test coverage)
+            Use for suggesting new tests. These can't be suggested inline.
+
+            🧪 **Test** — Missing test coverage
+
+            {What needs testing and why.}
+
+            ```python
+            {example pytest code}
             ```
 
-            ---
+            ### Rules for suggestion blocks (Format A):
+            - The suggestion block REPLACES the ENTIRE line range from startLine to line.
+            - The replacement must be syntactically complete and valid.
+            - Include proper indentation matching the file.
+            - Do NOT include lines outside the startLine-line range.
+            - For single-line fixes, omit startLine and only set line.
 
-            Use these severity emojis exactly:
+            ### Choosing the right format:
+            - Hardcoded secret → Format A (replace with os.environ["..."])
+            - Bare except → Format A (replace with except Exception)
+            - Cypher injection → Format A (replace with parameterized query)
+            - "This entire endpoint should be removed" → Format B
+            - "All routes need authentication" → Format B
+            - "Missing tests for X" → Format C
+
+            ## Severity levels
             - 🔴 **Critical** — Must fix before merge (security vulnerabilities, data loss, breaking bugs)
             - 🟡 **Warning** — Should fix (potential bugs, missing error handling, performance issues)
             - 🔵 **Suggestion** — Consider fixing (code quality, readability, best practices)
-            - 🧪 **Test** — Missing test coverage (include example pytest code in the fix)
+            - 🧪 **Test** — Missing test coverage (include example pytest code)
 
-            IMPORTANT for the location link:
-            - Get the HEAD commit SHA from `gh pr view` output
-            - Build the GitHub link as: https://github.com/${{ github.repository }}/blob/{SHA}/{filepath}#L{start}-L{end}
-            - This makes the location clickable so the reviewer can jump straight to the code
+            ## Review categories — check ALL for EVERY changed file
 
-            ## Summary Comment — POST LAST, AS A SINGLE COMMENT
-            After ALL individual issue comments, post ONE final summary comment:
+            ### 1. Security
+            Hardcoded secrets, injection (SQL/Cypher/command/XSS), insecure CORS, missing input validation,
+            path traversal, sensitive data in logs/responses, auth bypass, insecure deserialization, missing rate limiting.
+
+            ### 2. Syntax and Bugs
+            Syntax errors, logic errors, race conditions, incorrect API/library usage, unhandled exceptions,
+            null/undefined refs, type mismatches, resource leaks, incorrect async/await.
+
+            ### 3. Code Quality
+            Naming, DRY violations, bare excepts, unused/dead code, performance anti-patterns (N+1, unbounded fetch,
+            blocking in async), breaking changes, unnecessary complexity.
+
+            ### 4. Test Coverage (backend code under api/)
+            Suggest specific pytest tests with example code. Integration tests for endpoints. Identify untested
+            edge cases and error paths. For frontend: note if critical logic lacks tests.
+
+            ## Summary comment — post LAST as ONE `gh pr comment`
 
             ## 📋 Code Review Summary
 
@@ -193,23 +173,22 @@ jobs:
             **Files reviewed:**
             | File | Security | Syntax | Quality | Tests |
             |------|----------|--------|---------|-------|
-            | [`{filepath}`](link) | ✓ | ✓ | ✓ | ✓ / N/A |
-
-            **Test suggestions:** (consolidated list with example code)
+            | `{filepath}` | ✅ | ✅ | ✅ | ✅ / N/A |
 
             ## Rules
-            - Post each issue as a SEPARATE comment using `gh pr comment`. Do NOT combine issues into one comment.
-            - The summary is the ONLY comment that combines multiple things.
+            - Each issue is a SEPARATE inline comment. The summary is the ONLY `gh pr comment`.
             - Do NOT modify any files, create commits, or push code.
             - Do NOT skip any review category for any file.
             - Do NOT flag subjective style preferences unless they violate project conventions.
-            - Every issue MUST show the current wrong code AND the fix.
-            - Every location MUST be a clickable GitHub link.
-            - If a file has zero issues, confirm you reviewed it in the summary.
-            - If the PR is trivial (typo, config change), post one comment saying so and approve.
+            - Use suggestion blocks (Format A) whenever the fix is a direct code replacement — this gives accept buttons.
+            - Use Format B only when the issue truly can't be fixed by replacing lines (design/architectural concerns).
+            - Use Format C for missing tests.
+            - If a file has zero issues, confirm it in the summary table.
+            - If the PR is trivial (typo, config-only), post one summary comment saying so.
+            - Only post comments on GitHub — do not output review text as messages.
 
   # ──────────────────────────────────────────────
-  # @claude mention — do whatever the person asks
+  # @claude mention — smart assistant
   # ──────────────────────────────────────────────
   claude-mention:
     if: >
@@ -234,105 +213,160 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--model claude-opus-4-6 --allowedTools Bash Read Glob Grep"
+          classify_inline_comments: "false"
+          claude_args: >-
+            --model claude-opus-4-6
+            --allowedTools
+            "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Read,Glob,Grep"
           trigger_phrase: "@claude"
           prompt: |
-            You are Claude, an AI assistant for the research-ai project (FastAPI + React + Neo4j/Ricgraph).
+            You are Claude, a senior AI assistant for the research-ai project (FastAPI + React + Neo4j/Ricgraph).
 
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
 
-            A team member mentioned you in a PR comment. Read their message carefully.
+            A team member mentioned you in a PR comment. Read their message carefully and decide what to do.
+
+            ## Capabilities
+
+            You can:
+            - Read any file in the repo, the PR diff, and PR metadata
+            - Post inline comments on specific lines with `mcp__github_inline_comment__create_inline_comment`
+            - Post general PR comments with `gh pr comment`
+            - Query GitHub API with `gh api`
+            - Use suggestion blocks for one-click fixes
 
             ## Deciding what to do
 
-            **If the user asks you to do a PR review** (e.g. "review this PR", "re-review", "do a code review",
-            "check this PR", "review the changes"), follow the FULL PR REVIEW PROCEDURE below.
+            Read the user's message and follow their instructions. You are their assistant — do what they ask.
 
-            **If the user asks anything else** (e.g. "explain this function", "is this approach okay?",
-            "check only security", "fix this bug"), do exactly what they asked — nothing more, nothing less.
-            You have full access to read the codebase, the PR diff, and any files.
-            Always respond by posting a comment on the PR using `gh pr comment`.
-            Do NOT modify any files, create commits, or push code unless explicitly asked to.
+            **If asked for a PR review or re-review** ("review this PR", "re-review", "check this PR", "check again"):
+            First silently run CLEANUP (see below), then follow the FULL REVIEW PROCEDURE.
+
+            **If asked about code issues, fixes, or anything that touches the diff** ("fix this", "is this still broken",
+            "check if X is fixed", "look at the issues"):
+            First silently run CLEANUP (see below), then do what the user asked.
+            For fix requests: do NOT modify files unless the user explicitly says to commit/push.
+            Instead, post inline comments with suggestion blocks showing the fix.
+
+            **If asked something that doesn't involve reviewing code** ("explain this function", "what does X do?",
+            "how does this work?"):
+            Skip cleanup. Just read the relevant code and respond with a `gh pr comment`.
+
+            **If asked anything else**: do exactly what they asked, nothing more.
 
             ---
 
-            ## FULL PR REVIEW PROCEDURE
+            ## CLEANUP — resolve outdated threads (run silently, no comments about it)
 
-            When the user requests a PR review, follow these steps exactly:
+            When cleanup is needed (see above), run the following bash script BEFORE doing anything else.
+            Do NOT post any comment about cleanup. Do NOT mention that you resolved threads. Just do it silently.
 
-            1. Run `gh pr view ${{ github.event.issue.number || github.event.pull_request.number }}` to get the PR details and HEAD commit SHA
-            2. Run `gh pr diff ${{ github.event.issue.number || github.event.pull_request.number }}` to see exactly what changed
-            3. Review ONLY the changes shown in the diff
-            4. If a change looks like it could break something, you may read related files for context — but do not review files not affected by the PR
-            5. For EACH issue found, post a SEPARATE comment using `gh pr comment` (one per issue)
-            6. After all issue comments, post ONE final summary comment
+            ```
+            PR_NUMBER={the PR number}
+            REPO=${{ github.repository }}
 
-            ### Review Categories — check ALL of these for EVERY file in the diff:
+            THREADS=$(gh api graphql -f query='
+              query($owner: String!, $repo: String!, $pr: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $pr) {
+                    reviewThreads(first: 100) {
+                      nodes {
+                        id
+                        isResolved
+                        isOutdated
+                        comments(first: 1) {
+                          nodes { author { login } }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ' -f owner="${REPO%/*}" -f repo="${REPO#*/}" -F pr="$PR_NUMBER" \
+              --jq '.data.repository.pullRequest.reviewThreads.nodes[]
+                    | select(.isOutdated == true and .isResolved == false
+                      and (.comments.nodes[0].author.login == "github-actions[bot]"
+                        or .comments.nodes[0].author.login == "claude[bot]"))
+                    | .id')
 
-            **1. Security:** Hardcoded secrets, injection (SQL/Cypher/command/XSS), insecure CORS, missing input validation, path traversal, data exposure in logs, auth bypass, insecure deserialization, missing rate limiting.
+            for THREAD_ID in $THREADS; do
+              gh api graphql -f query='
+                mutation($id: ID!) {
+                  resolveReviewThread(input: {threadId: $id}) {
+                    thread { isResolved }
+                  }
+                }
+              ' -f id="$THREAD_ID" || true
+            done
 
-            **2. Syntax and Bugs:** Syntax errors, logic errors, race conditions, incorrect API usage, unhandled exceptions, null refs, type mismatches, resource leaks, incorrect async/await.
+            gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate --jq \
+              '.[] | select((.user.login == "github-actions[bot]" or .user.type == "Bot")
+                and (.body | test("Code Review Summary"))) | .node_id' | \
+            while read -r node_id; do
+              gh api graphql -f query='
+                mutation($id: ID!) {
+                  minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) {
+                    minimizedComment { isMinimized }
+                  }
+                }
+              ' -f id="$node_id" || true
+            done
+            ```
 
-            **3. Code Quality:** Naming, DRY violations, bare excepts, unused/dead code, performance anti-patterns, breaking changes, unnecessary complexity.
+            ---
 
-            **4. Test Coverage (backend code under api/):** Suggest specific pytest tests, integration tests for endpoints, identify untested edge cases. For frontend: note if critical logic lacks tests.
+            ## FULL REVIEW PROCEDURE
 
-            If the user's message says to skip a category (e.g. "don't check tests"), respect that.
+            1. Run `gh pr view` and `gh pr diff` to understand the changes.
+            2. Review ONLY the diff. Read related files for context if needed.
+            3. For EACH issue, post a SEPARATE inline comment with `mcp__github_inline_comment__create_inline_comment`:
+               - `confirmed: true` always
+               - `side: "RIGHT"` for new code, `"LEFT"` for deleted code
+               - Use suggestion blocks for fixable issues
+            4. Post ONE summary comment at the end with `gh pr comment`.
 
-            ### Comment format for each issue:
+            ### Review categories (check ALL for every changed file):
+            **Security** | **Syntax and Bugs** | **Code Quality** | **Test Coverage**
+            (If the user says to skip a category, respect that.)
 
+            ### Inline comment format:
+            **Format A — fixable** (use suggestion block for one-click accept):
             {SEVERITY_EMOJI} **{Severity}** — {Category}
-
-            📍 **Location:** [`{filepath}` L{start}-L{end}](https://github.com/${{ github.repository }}/blob/{HEAD_SHA}/{filepath}#L{start}-L{end})
-
-            **Current code (what's wrong):**
-            ```{language}
-            {the exact problematic code from the diff}
+            {Description of the problem and why it matters.}
+            ```suggestion
+            {corrected code replacing the selected line range}
             ```
 
-            **Issue:** {one-line description}
+            **Format B — non-fixable** (architectural/design issues):
+            {SEVERITY_EMOJI} **{Severity}** — {Category}
+            {Clear, actionable description of the problem and what to do about it.}
 
-            **Why this matters:** {brief explanation}
-
-            **Fix — replace with:**
-            ```{language}
-            {corrected code}
+            **Format C — tests:**
+            🧪 **Test** — {description}
+            ```python
+            {example pytest code}
             ```
 
-            ---
+            Use Format A whenever the fix can be expressed as a code replacement. Use B only for design concerns.
 
-            Severity emojis:
-            - 🔴 **Critical** — Must fix before merge
-            - 🟡 **Warning** — Should fix
-            - 🔵 **Suggestion** — Consider fixing
-            - 🧪 **Test** — Missing test coverage
+            ### Severity: 🔴 Critical | 🟡 Warning | 🔵 Suggestion | 🧪 Test
 
-            ### Summary comment (post LAST, as ONE comment):
-
+            ### Summary (ONE `gh pr comment` at the end):
             ## 📋 Code Review Summary
-
             | Severity | Count |
             |----------|-------|
-            | 🔴 Critical | {n} |
-            | 🟡 Warning | {n} |
-            | 🔵 Suggestion | {n} |
-            | 🧪 Test | {n} |
+            | 🔴 / 🟡 / 🔵 / 🧪 | {n} |
 
-            **Verdict:** {✅ APPROVE | ⚠️ REQUEST CHANGES | 💬 COMMENT}
-
-            **Files reviewed:**
-            | File | Security | Syntax | Quality | Tests |
-            |------|----------|--------|---------|-------|
-            | [`{filepath}`](link) | ✓ | ✓ | ✓ | ✓ / N/A |
+            **Verdict:** ✅ APPROVE | ⚠️ REQUEST CHANGES | 💬 COMMENT
 
             ### Rules
-            - Each issue is a SEPARATE `gh pr comment`. The summary is the ONLY combined comment.
-            - Do NOT modify files, create commits, or push code.
-            - Every issue MUST show current wrong code AND the fix.
-            - Every location MUST be a clickable GitHub link.
-            - If a file has zero issues, confirm it in the summary.
-            - If the PR is trivial, post one comment saying so and approve.
+            - Each issue is a SEPARATE inline comment. Summary is the ONLY `gh pr comment`.
+            - Do NOT modify files or push code unless explicitly told to.
+            - Use suggestion blocks (Format A) whenever the fix is a direct code replacement.
+            - Use Format B only for truly non-fixable design/architectural issues.
+            - Use Format C for test suggestions.
+            - Only post comments on GitHub — do not output review text as messages.
 
   # ──────────────────────────────────────────────
   # Manual trigger: review files without a PR
@@ -356,7 +390,11 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--model claude-opus-4-6 --allowedTools Bash Read Glob Grep"
+          classify_inline_comments: "false"
+          claude_args: >-
+            --model claude-opus-4-6
+            --allowedTools
+            "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Glob,Grep"
           prompt: |
             You are a code reviewer for the research-ai project (FastAPI + React + Neo4j/Ricgraph).
 
@@ -371,13 +409,13 @@ jobs:
             If focus is "code-quality": check naming, DRY, error handling, dead code, performance, complexity.
 
             ## Output
-            One comment per issue:
-            - Severity: 🔴 Critical | 🟡 Warning | 🔵 Suggestion | 🧪 Test
-            - File and line, what is wrong and why, concrete fix with code
 
-            End with summary: issue counts by severity, files reviewed, categories checked.
+            For each issue, use `mcp__github_inline_comment__create_inline_comment` with `confirmed: true`.
+            Use suggestion blocks for fixable issues. Severity: 🔴 Critical | 🟡 Warning | 🔵 Suggestion | 🧪 Test.
+
+            End with a summary via `gh pr comment`: issue counts by severity, files reviewed, categories checked.
 
             ## Rules
             - Do NOT modify any files or push code.
             - Only review the specified scope.
-            - Every issue must include a concrete fix.
+            - Every fixable issue must use a suggestion block.

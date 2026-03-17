@@ -15,10 +15,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Archive branch
+      - name: Tag and delete merged branch
         env:
           BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           git fetch origin "$BRANCH"
-          git push origin "refs/remotes/origin/$BRANCH:refs/heads/archive/$BRANCH"
+          MERGE_SHA=$(git rev-parse "refs/remotes/origin/$BRANCH")
+          git tag "archive/$BRANCH" "$MERGE_SHA"
+          git push origin "refs/tags/archive/$BRANCH"
           git push origin --delete "$BRANCH"
