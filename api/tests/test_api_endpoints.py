@@ -319,6 +319,23 @@ class TestRagHelpers:
         assert "Category:" not in blocks[1]
         assert "Abstract:" not in blocks[1]
 
+    def test_format_similar_publications_single_doc(self):
+        from app.routers.ai import format_similar_publications_for_rag
+        pubs = [{"doi": "10.1/x", "title": "T", "year": 2024, "category": None, "abstract": None}]
+        result = format_similar_publications_for_rag(pubs)
+        assert result.startswith("Document [1]")
+        assert "\n\n" not in result  # single doc has no block separator
+
+    def test_format_similar_publications_preserves_document_order(self):
+        from app.routers.ai import format_similar_publications_for_rag
+        pubs = [
+            {"doi": f"10.1/{i}", "title": f"T{i}", "year": 2020+i, "category": None, "abstract": None}
+            for i in range(5)
+        ]
+        result = format_similar_publications_for_rag(pubs)
+        for i in range(1, 6):
+            assert f"Document [{i}]" in result
+
     def test_format_similar_publications_empty(self):
         from app.routers.ai import format_similar_publications_for_rag
         assert format_similar_publications_for_rag([]) == ""

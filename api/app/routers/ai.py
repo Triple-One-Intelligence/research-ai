@@ -171,6 +171,7 @@ async def chat(req: ChatRequest):
     payload = req.model_dump(exclude_none=True)
     payload["model"] = CHAT_MODEL  # Always use the configured model
     payload["stream"] = True
+    payload["options"] = {"num_predict": CHAT_MAX_TOKENS}
     return _streaming_chat_response(payload)
 
 

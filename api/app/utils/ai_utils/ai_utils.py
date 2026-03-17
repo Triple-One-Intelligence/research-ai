@@ -49,8 +49,7 @@ async def async_embed(input: str) -> list[float]:
         "input": input,
         "model": EMBED_MODEL,
     }
-    if EMBED_NUM_GPU >= 0:
-        params["options"] = {"num_gpu": EMBED_NUM_GPU}
+    params["options"] = {"num_gpu": EMBED_NUM_GPU}
     result = await send_async_ai_request(url, params)
     embeddings = result.get("embeddings")
     if not embeddings or not embeddings[0]:
