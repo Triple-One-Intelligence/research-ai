@@ -3,7 +3,7 @@ Dit zijn de prompts die worden gebruikt om de LLM aan te sturen bij het generere
 Elke prompt is geschreven zodat de output consistent en user friendly is. 
  */
 
-export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'recentPublications' | 'uvCV';
+export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'recentPublications';
 
 const BASE_PROMPT = `
 JE ROL
@@ -154,21 +154,6 @@ REGELS
 
 ${BASE_PROMPT}
 `,
-
-    uvCV: (name) => `Maak een uitgebreide CV voor het Utrecht University (UU) profiel van ${name} op basis van hun onderzoek, publicaties en samenwerkingen. Gebruik de volgende secties:
-
-1. Persoonlijke Gegevens & Contact
-2. Professionele Samenvatting (2-3 zinnen met kernexpertise)
-3. Onderwijs & Kwalificaties
-4. Werkervaring & Academische Posities
-5. Onderzoeksgebieden & Expertise
-6. Belangrijkste Publicaties (top 5-10 naar relevantie)
-7. Onderzoeksprojecten & Subsidies (indien beschikbaar)
-8. Samenwerkingen & Netwerken
-9. Academische Diensten (redactieraden, commissies, etc.)
-10. Onderscheidingen & Erkenning (indien van toepassing)
-
-Gebruik formele, professionele taal. Houd opmaak schoon en scanbaar.${BASE_PROMPT}`,
   };
 
   return prompts[type](entityName);

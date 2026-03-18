@@ -2,7 +2,7 @@
  * AI Prompts for English language
  */
 
-export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'recentPublications' | 'uvCV';
+export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'recentPublications';
 
 const BASE_PROMPT = `
 ROLE
@@ -144,21 +144,6 @@ RULES
 
 ${BASE_PROMPT}
 `,
-
-    uvCV: (name) => `Create a comprehensive CV for the Utrecht University (UU) profile of ${name} based on their research, publications, and collaborations. Format it for professional use with the following sections:
-
-1. Personal Information & Contact
-2. Professional Summary (2-3 sentences highlighting key expertise)
-3. Education & Qualifications
-4. Work Experience & Academic Positions
-5. Research Areas & Expertise
-6. Key Publications (top 5-10 by relevance)
-7. Research Projects & Grants (if available)
-8. Collaborations & Networks
-9. Academic Service (editorial boards, committees, etc.)
-10. Awards & Recognition (if applicable)
-
-Use formal, professional language throughout. Keep formatting clean and scannable.${BASE_PROMPT}`,
   };
 
   return prompts[type](entityName);

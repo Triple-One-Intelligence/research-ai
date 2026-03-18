@@ -18,7 +18,7 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
   const { t, i18n } = useTranslation();
   const [customPrompt, setCustomPrompt] = useState('');
 
-  const getLocalizedPrompt = (type: 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'recentPublications' | 'uvCV') => {
+  const getLocalizedPrompt = (type: 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'recentPublications') => {
     const promptModule = i18n.language === 'nl' ? nlPrompts : enPrompts;
     return promptModule.getPrompt(type, selectedEntity?.label || '');
   };
@@ -64,14 +64,6 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
           >
             <span className="prompt-icon">📚</span>
             {t('leftPanel.recentPublications')}
-          </button>
-          <button
-            className="prompt-btn"
-            onClick={() => onAsk(getLocalizedPrompt('uvCV'))}
-            disabled={isGenerating}
-          >
-            <span className="prompt-icon">🎓</span>
-            {t('leftPanel.uvProfileCV')}
           </button>
         </div>
       )}
