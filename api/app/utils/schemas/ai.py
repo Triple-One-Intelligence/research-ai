@@ -8,7 +8,7 @@ from app.utils.ai_utils.ai_utils import CHAT_MODEL, EMBED_MODEL
 
 
 class Message(BaseModel):
-    role: str
+    role: Literal["user", "stystem"]
     content: str
 
 

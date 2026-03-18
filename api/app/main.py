@@ -9,7 +9,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import ai, autocomplete, connections
+from app.routers import ai, autocomplete, connections, prompts
 import app.utils.database_utils.database_utils as database_utils
 
 logging.basicConfig(
@@ -49,6 +49,7 @@ app.add_middleware(
 app.include_router(connections.router)
 app.include_router(autocomplete.router)
 app.include_router(ai.router)
+app.include_router(prompts.router)
 
 @app.get("/health")
 def health():
