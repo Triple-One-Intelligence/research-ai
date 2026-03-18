@@ -3,7 +3,7 @@ Dit zijn de prompts die worden gebruikt om de LLM aan te sturen bij het generere
 Elke prompt is geschreven zodat de output consistent en user friendly is. 
  */
 
-export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'publications' | 'uvCV';
+export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'recentPublications' | 'uvCV';
 
 const BASE_PROMPT = `
 JE ROL
@@ -117,16 +117,43 @@ ${BASE_PROMPT}`,
 
 Presenteer bevindingen in een duidelijk, gestructureerd formaat met elke organisatie als apart item.${BASE_PROMPT}`,
 
-    publications: (name) => `Identificeer publicaties die relevant zijn voor het onderzoeksgebied van ${name}. Voor elke publicatie:
+    recentPublications: (name) => `
+Selecteer de meest recente publicaties van ${name} op basis van de aangeleverde context.
 
-1. Titel van de publicatie
-2. Publicatiejaar
-3. Onderzoeksgebied of vakgebied
-4. Korte samenvatting of abstract
-5. Belangrijkste auteurs
-6. Type publicatie (journal artikel, congrespapier, etc.)
+INSTRUCTIE
+- Gebruik alleen publicaties die expliciet in de context voorkomen.
+- Sorteer strikt van meest recent naar minst recent.
+- Gebruik publicatiejaar als primair selectiecriterium.
+- Neem geen oudere publicatie op als een recentere expliciet beschikbare publicatie ontbreekt.
+- Toon maximaal 8 publicaties.
 
-Prioriteer publicaties die het werk en expertise van de onderzoeker het beste vertegenwoordigen. Presenteer resultaten in chronologische volgorde (meest recent eerst).${BASE_PROMPT}`,
+GEEF DE OUTPUT EXACT IN DIT MARKDOWN-FORMAAT
+
+**Recente publicaties**
+
+- **Titel:** ...
+  **Jaar:** ...
+  **Type:** ...
+  **Beschrijving:** ...
+  **Auteurs:** ...
+  **Bron:** ...
+
+- **Titel:** ...
+  **Jaar:** ...
+  **Type:** ...
+  **Beschrijving:** ...
+  **Auteurs:** ...
+  **Bron:** ...
+
+REGELS
+- Elk veld moet op een aparte regel staan.
+- Laat een lege regel tussen publicaties.
+- Gebruik geen doorlopende tekst op één regel.
+- Verzint geen ontbrekende informatie.
+- Schrijf exact "Onvoldoende data beschikbaar" als data ontbreekt.
+
+${BASE_PROMPT}
+`,
 
     uvCV: (name) => `Maak een uitgebreide CV voor het Utrecht University (UU) profiel van ${name} op basis van hun onderzoek, publicaties en samenwerkingen. Gebruik de volgende secties:
 

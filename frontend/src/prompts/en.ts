@@ -1,9 +1,8 @@
 /**
  * AI Prompts for English language
- * These prompts are used to generate comprehensive responses about researchers and organizations
  */
 
-export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'publications' | 'uvCV';
+export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'recentPublications' | 'uvCV';
 
 const BASE_PROMPT = `
 ROLE
@@ -117,16 +116,34 @@ ${BASE_PROMPT}`,
 
 Present findings in a clear, structured format with each organization as a separate item.${BASE_PROMPT}`,
 
-    publications: (name) => `Identify publications relevant to ${name}'s research focus. For each publication found, include:
+    recentPublications: (name) => `
+Show all explicitly identified publications of ${name} based on the provided context, sorted from most recent to least recent.
 
-1. Publication title
-2. Year of publication
-3. Research area or field
-4. Brief abstract or summary
-5. Key authors involved
-6. Publication type (journal article, conference paper, etc.)
+STRUCTURE
 
-Prioritize publications that best represent the researcher's work and expertise. Present findings in chronological order (most recent first).${BASE_PROMPT}`,
+**Recent Publications**
+
+- **Title:** <title>
+  **Year:** <year or "Insufficient data available">
+  **Type:** <type or "Insufficient data available">
+  **Description:** <short factual description in 1–2 sentences>
+  **Authors:** <authors or "Insufficient data available">
+  **Source:** <source reference>
+
+RULES
+- Use only publications that are explicitly present in the context.
+- Show all identified publications, unless there are more than 8. In that case, show the 8 most recent publications.
+- Sort strictly from most recent to least recent.
+- Use publication year as the leading sorting criterion.
+- Put each field on a new line.
+- Leave one blank line between publications.
+- Base the description only on information in the context.
+- Do not invent abstracts, findings, or authors.
+- If there is insufficient data for a field, write exactly: "Insufficient data available".
+- If no publications can be identified, write exactly: "Insufficient data available".
+
+${BASE_PROMPT}
+`,
 
     uvCV: (name) => `Create a comprehensive CV for the Utrecht University (UU) profile of ${name} based on their research, publications, and collaborations. Format it for professional use with the following sections:
 
