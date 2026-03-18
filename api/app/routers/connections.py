@@ -3,7 +3,13 @@
 import logging
 
 from fastapi import APIRouter, Query, HTTPException
-from app.utils.schemas import Connections
+from app.utils.schemas import (
+    Connections,
+    CollaboratorsResponse,
+    PublicationsResponse,
+    OrganizationsResponse,
+    MembersResponse,
+)
 from app.utils.ricgraph_utils.connections_utils import get_connections, InvalidEntityTypeError, ConnectionsError
 
 log = logging.getLogger(__name__)
@@ -42,4 +48,116 @@ def get_entity_connections(
         raise HTTPException(status_code=500, detail="Connections query failed.")
     except Exception:
         log.error("Unexpected error while handling connections for entity_id=%r", entity_id)
+        raise HTTPException(status_code=500, detail="Connections query failed.")
+
+
+@router.get("/collaborators", response_model=CollaboratorsResponse)
+def get_collaborators(
+    entity_id: str = Query(..., description="ID of the entity"),
+    entity_type: str = Query(..., description="'person' or 'organization'"),
+    max_collaborators: int = Query(50, ge=1, le=200, description="Maximum number of collaborators to return"),
+):
+    """Return collaborator connections for a given entity."""
+    try:
+        result = get_connections(
+            entity_id=entity_id,
+            entity_type=entity_type,
+            max_collaborators=max_collaborators,
+        )
+        return CollaboratorsResponse(
+            entity_id=entity_id,
+            entity_type=entity_type,
+            collaborators=result["collaborators"],
+        )
+    except InvalidEntityTypeError as exception:
+        raise HTTPException(status_code=400, detail=str(exception))
+    except ConnectionsError:
+        log.error("Connections service error for entity_id=%r", entity_id)
+        raise HTTPException(status_code=500, detail="Connections query failed.")
+    except Exception:
+        log.error("Unexpected error while handling collaborators for entity_id=%r", entity_id)
+        raise HTTPException(status_code=500, detail="Connections query failed.")
+
+
+@router.get("/publications", response_model=PublicationsResponse)
+def get_publications(
+    entity_id: str = Query(..., description="ID of the entity"),
+    entity_type: str = Query(..., description="'person' or 'organization'"),
+    max_publications: int = Query(50, ge=1, le=200, description="Maximum number of publications to return"),
+):
+    """Return publication connections for a given entity."""
+    try:
+        result = get_connections(
+            entity_id=entity_id,
+            entity_type=entity_type,
+            max_publications=max_publications,
+        )
+        return PublicationsResponse(
+            entity_id=entity_id,
+            entity_type=entity_type,
+            publications=result["publications"],
+        )
+    except InvalidEntityTypeError as exception:
+        raise HTTPException(status_code=400, detail=str(exception))
+    except ConnectionsError:
+        log.error("Connections service error for entity_id=%r", entity_id)
+        raise HTTPException(status_code=500, detail="Connections query failed.")
+    except Exception:
+        log.error("Unexpected error while handling publications for entity_id=%r", entity_id)
+        raise HTTPException(status_code=500, detail="Connections query failed.")
+
+
+@router.get("/organizations", response_model=OrganizationsResponse)
+def get_organizations(
+    entity_id: str = Query(..., description="ID of the entity"),
+    entity_type: str = Query(..., description="'person' or 'organization'"),
+    max_organizations: int = Query(50, ge=1, le=200, description="Maximum number of organizations to return"),
+):
+    """Return organization connections for a given entity."""
+    try:
+        result = get_connections(
+            entity_id=entity_id,
+            entity_type=entity_type,
+            max_organizations=max_organizations,
+        )
+        return OrganizationsResponse(
+            entity_id=entity_id,
+            entity_type=entity_type,
+            organizations=result["organizations"],
+        )
+    except InvalidEntityTypeError as exception:
+        raise HTTPException(status_code=400, detail=str(exception))
+    except ConnectionsError:
+        log.error("Connections service error for entity_id=%r", entity_id)
+        raise HTTPException(status_code=500, detail="Connections query failed.")
+    except Exception:
+        log.error("Unexpected error while handling organizations for entity_id=%r", entity_id)
+        raise HTTPException(status_code=500, detail="Connections query failed.")
+
+
+@router.get("/members", response_model=MembersResponse)
+def get_members(
+    entity_id: str = Query(..., description="ID of the entity"),
+    entity_type: str = Query(..., description="'person' or 'organization'"),
+    max_members: int = Query(50, ge=1, le=200, description="Maximum number of members to return"),
+):
+    """Return member connections for a given organization entity."""
+    try:
+        result = get_connections(
+            entity_id=entity_id,
+            entity_type=entity_type,
+            max_members=max_members,
+        )
+        return MembersResponse(
+            entity_id=entity_id,
+            entity_type=entity_type,
+            members=result["members"],
+        )
+    except InvalidEntityTypeError as exception:
+        raise HTTPException(status_code=400, detail=str(exception))
+    except ConnectionsError:
+        log.error("Connections service error for entity_id=%r", entity_id)
+        raise HTTPException(status_code=500, detail="Connections query failed.")
+    except Exception:
+        log.error("Unexpected error while handling members for entity_id=%r", entity_id)
         raise HTTPException(status_code=500, detail="Connections query failed.")

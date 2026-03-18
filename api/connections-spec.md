@@ -127,6 +127,110 @@ GET /api/connections/entity
 }
 ```
 
+## Endpoint — collaborators
+
+```
+GET /api/connections/collaborators
+```
+
+**Query parameters**
+
+| Parameter           | Type   | Required | Default | Constraints  | Description |
+|---------------------|--------|----------|---------|--------------|-------------|
+| `entity_id`         | string | yes      | —       | —            | ID of the entity (Ricgraph person or organization key). |
+| `entity_type`       | string | yes      | —       | `person` or `organization` | Type of the entity. |
+| `max_collaborators` | int    | no       | 50      | 1–200        | Maximum number of collaborators to return. |
+
+## Response schema
+
+```json
+{
+  "entity_id": "string",
+  "entity_type": "string",
+  "collaborators": [
+    { "author_id": "string", "name": "string" }
+  ]
+}
+```
+
+## Endpoint — publications
+
+```
+GET /api/connections/publications
+```
+
+**Query parameters**
+
+| Parameter           | Type   | Required | Default | Constraints  | Description |
+|---------------------|--------|----------|---------|--------------|-------------|
+| `entity_id`         | string | yes      | —       | —            | ID of the entity (Ricgraph person or organization key). |
+| `entity_type`       | string | yes      | —       | `person` or `organization` | Type of the entity. |
+| `max_publications`  | int    | no       | 50      | 1–200        | Maximum number of publications to return. |
+
+## Response schema
+
+```json
+{
+  "entity_id": "string",
+  "entity_type": "string",
+  "publications": [
+    { "doi": "string", "title": "string | null", "year": "number | null", "category": "string | null", "versions": [] }
+  ]
+}
+```
+
+## Endpoint — organizations
+
+```
+GET /api/connections/organizations
+```
+
+**Query parameters**
+
+| Parameter            | Type   | Required | Default | Constraints  | Description |
+|----------------------|--------|----------|---------|--------------|-------------|
+| `entity_id`          | string | yes      | —       | —            | ID of the entity (Ricgraph person or organization key). |
+| `entity_type`        | string | yes      | —       | `person` or `organization` | Type of the entity. |
+| `max_organizations`  | int    | no       | 50      | 1–200        | Maximum number of organizations to return. |
+
+## Response schema
+
+```json
+{
+  "entity_id": "string",
+  "entity_type": "string",
+  "organizations": [
+    { "organization_id": "string", "name": "string" }
+  ]
+}
+```
+
+## Endpoint — members
+
+```
+GET /api/connections/members
+```
+
+**Query parameters**
+
+| Parameter         | Type   | Required | Default | Constraints  | Description |
+|-------------------|--------|----------|---------|--------------|-------------|
+| `entity_id`       | string | yes      | —       | —            | ID of the entity (Ricgraph person or organization key). |
+| `entity_type`     | string | yes      | —       | `person` or `organization` | Type of the entity. |
+| `max_members`     | int    | no       | 50      | 1–200        | Maximum number of members to return. |
+
+## Response schema
+
+```json
+{
+  "entity_id": "string",
+  "entity_type": "string",
+  "members": [
+    { "author_id": "string", "name": "string" }
+  ]
+}
+```
+
 ## Notes for backend implementer
 
 - `doi` is the only required field on publications; `title`, `year`, `category`, and `versions` may be null or omitted.

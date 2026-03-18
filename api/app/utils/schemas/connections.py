@@ -17,3 +17,27 @@ class Connections(BaseModel):
     publications: list[Publication]
     organizations: list[Organization]
     members: list[Member]
+
+
+class CollaboratorsResponse(BaseModel):
+    entity_id: str
+    entity_type: str
+    collaborators: list[Person]
+
+
+class PublicationsResponse(BaseModel):
+    entity_id: str
+    entity_type: str
+    publications: list[Publication]
+
+
+class OrganizationsResponse(BaseModel):
+    entity_id: str
+    entity_type: str
+    organizations: list[Organization]
+
+
+class MembersResponse(BaseModel):
+    entity_id: str
+    entity_type: str
+    members: list[Member]
