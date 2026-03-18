@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import EntitySearchBar from './EntitySearchBar';
 import type { EntitySuggestion } from '../../types';
@@ -12,9 +12,16 @@ interface LeftPanelProps {
   onEntityClear: () => void;
 }
 
+// Left column: lets the user pick an entity and compose a custom prompt.
+// It also provides one-click prompt templates based on the selected entity.
 const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEntityClear }: LeftPanelProps) => {
   const { t } = useTranslation();
   const [customPrompt, setCustomPrompt] = useState('');
+
+  // The prompt text is entity-specific; when switching persons/entities it must be reset.
+  useEffect(() => {
+    setCustomPrompt('');
+  }, [selectedEntity?.id, selectedEntity?.type]);
 
   return (
     <aside className="left-panel">
