@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import './MiddlePanel.css';
 import { useTranslation } from 'react-i18next';
 
@@ -27,11 +28,28 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({ text, isGenerating }) 
         ref={outputBoxRef}
         className={`llm-output-box ${isGenerating ? 'generating' : ''}`}
       >
-        {text || (isGenerating ? null : (
-          <span style={{ color: '#888', fontStyle: 'italic' }}>
-            {t('middlePanel.outputPlaceholder')}
-          </span>
-        ))}
+        {text ? (
+          <ReactMarkdown
+            components={{
+              a: ({ href, children, ...props }) => (
+                <a
+                  href={href?.startsWith('https://') ? href : undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  {...props}
+                >
+                  {children}
+                </a>
+              ),
+            }}
+          >{text}</ReactMarkdown>
+        ) : (
+          isGenerating ? null : (
+            <span style={{ color: '#888', fontStyle: 'italic' }}>
+              {t('middlePanel.outputPlaceholder')}
+            </span>
+          )
+        )}
       </div>
     </div>
   );

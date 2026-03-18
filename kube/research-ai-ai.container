@@ -21,7 +21,12 @@ AddDevice=nvidia.com/gpu=all
 # Expose to localhost on the server so the SSH tunnel can reach it
 PublishPort=127.0.0.1:11434:11434 
 
-Volume=ai-data:/root/.ollama
+# Keep models loaded indefinitely (no auto-unload after idle timeout).
+Environment=OLLAMA_KEEP_ALIVE=-1
+
+# Ollama model storage — uses a host directory so models persist across
+# container recreates. ~/.ollama is the conventional default location.
+Volume=/root/.ollama:/root/.ollama
 
 [Install]
 WantedBy=multi-user.target
