@@ -3,7 +3,7 @@ Dit zijn de prompts die worden gebruikt om de LLM aan te sturen bij het generere
 Elke prompt is geschreven zodat de output consistent en user friendly is. 
  */
 
-export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'recentPublications';
+export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'topCollaborators' | 'recentPublications';
 
 const BASE_PROMPT = `
 JE ROL
@@ -116,6 +116,36 @@ ${BASE_PROMPT}`,
 5. Jaren van actieve samenwerking
 
 Presenteer bevindingen in een duidelijk, gestructureerd formaat met elke organisatie als apart item.${BASE_PROMPT}`,
+
+  topCollaborators: (name) => `
+Identificeer de 5 meest onderbouwde personen waarmee ${name} samenwerkt op basis van de aangeleverde context.
+
+RANGSCHIKKING
+Gebruik deze volgorde:
+1. gezamenlijke publicaties
+2. gedeelde projecten of onderzoekslijnen
+3. herhaalde relatievermeldingen in de context
+4. recente samenwerking
+
+STRUCTUUR
+
+**Top samenwerkingspartners**
+1. **Persoon**
+   - Type relatie:
+   - Onderbouwing:
+   - Belangrijkste gezamenlijke publicaties of projecten:
+   - Periode:
+   - Relevantie van de samenwerking:
+
+INHOUDSREGELS
+- Gebruik alleen personen die expliciet in de context voorkomen.
+- Gebruik alleen informatie die expliciet of direct afleidbaar is uit de context.
+- Vermijd speculatie over de aard of sterkte van de relatie.
+- Als gegevens ontbreken, schrijf: "Onvoldoende data beschikbaar".
+- Als de ranking niet voldoende onderbouwd kan worden, vermeld dit expliciet en toon alleen de personen die wel voldoende ondersteund zijn.
+
+${BASE_PROMPT}
+`,
 
     recentPublications: (name) => `
 Selecteer de meest recente publicaties van ${name} op basis van de aangeleverde context.

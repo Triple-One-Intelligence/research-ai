@@ -8,6 +8,7 @@
     "executiveSummary": "Executive Summary",
     "strengthsGaps": "Strengths & Gaps",
     "topOrganizations": "Top 5 Collaborating Organizations",
+    "topCollaborators": "Top Collaboration Partners",
     "recentPublications": "Recent Publications",
     "promptPlaceholder": "Write your question or instruction for the LLM…",
     "askButton": "Ask the LLM",

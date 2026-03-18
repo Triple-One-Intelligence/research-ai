@@ -2,7 +2,7 @@
  * AI Prompts for English language
  */
 
-export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'recentPublications';
+export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'topCollaborators' | 'recentPublications';
 
 const BASE_PROMPT = `
 ROLE
@@ -115,6 +115,36 @@ ${BASE_PROMPT}`,
 5. Years of active collaboration
 
 Present findings in a clear, structured format with each organization as a separate item.${BASE_PROMPT}`,
+
+  topCollaborators: (name) => `
+Identify the 5 most well-supported people with whom ${name} collaborates based on the provided context.
+
+RANKING
+Use the following order:
+1. co-authored publications
+2. shared projects or research lines
+3. repeated mentions of the relationship in the context
+4. recent collaboration
+
+STRUCTURE
+
+**Top Collaboration Partners**
+1. **Person**
+   - Type of relationship:
+   - Evidence:
+   - Main shared publications or projects:
+   - Period:
+   - Relevance of the collaboration:
+
+CONTENT RULES
+- Use only people who are explicitly present in the context.
+- Use only information that is explicitly stated in or directly supported by the context.
+- Avoid speculation about the nature or strength of the relationship.
+- If information is missing, write exactly: "Insufficient data available".
+- If the ranking cannot be sufficiently supported, state this explicitly and show only the people who are adequately supported.
+
+${BASE_PROMPT}
+`,
 
     recentPublications: (name) => `
 Show all explicitly identified publications of ${name} based on the provided context, sorted from most recent to least recent.
