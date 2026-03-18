@@ -155,6 +155,117 @@ def organization_connections(
         "members": format_people(members, as_members=True),
     }
 
+# Type-specific retrieval helpers (for per-endpoint queries)
+
+def get_collaborators(
+    entity_id: str,
+    entity_type: str,
+    max_collaborators: int,
+) -> list[Person]:
+    if entity_type not in ("person", "organization"):
+        raise InvalidEntityTypeError("entity_type must be 'person' or 'organization'")
+
+    if entity_type == "organization":
+        return []
+
+    try:
+        driver = database_utils.get_graph()
+        with driver.session() as session:
+            collaborators = session.run(
+                PERSON_COLLABORATORS,
+                rootValue=entity_id,
+                excludeCategories=EXCLUDE_CATEGORIES,
+                limit=max_collaborators,
+            ).data()
+        return format_people(collaborators)
+    except Exception as exception:
+        log.error("Connections query failed for entity_id=%r", entity_id)
+        raise ConnectionsError("Connections query failed") from exception
+
+def get_publications(
+    entity_id: str,
+    entity_type: str,
+    max_publications: int,
+) -> list[Publication]:
+    if entity_type not in ("person", "organization"):
+        raise InvalidEntityTypeError("entity_type must be 'person' or 'organization'")
+
+    try:
+        driver = database_utils.get_graph()
+        with driver.session() as session:
+            if entity_type == "person":
+                publications = session.run(
+                    PERSON_PUBLICATIONS,
+                    rootValue=entity_id,
+                    excludeCategories=EXCLUDE_CATEGORIES,
+                    limit=max_publications,
+                ).data()
+            else:
+                publications = session.run(
+                    ORG_PUBLICATIONS,
+                    entityId=entity_id,
+                    excludeCategories=EXCLUDE_CATEGORIES,
+                    limit=max_publications,
+                ).data()
+
+        return format_publications(publications)
+    except Exception as exception:
+        log.error("Connections query failed for entity_id=%r", entity_id)
+        raise ConnectionsError("Connections query failed") from exception
+
+def get_organizations(
+    entity_id: str,
+    entity_type: str,
+    max_organizations: int,
+) -> list[Organization]:
+    if entity_type not in ("person", "organization"):
+        raise InvalidEntityTypeError("entity_type must be 'person' or 'organization'")
+
+    try:
+        driver = database_utils.get_graph()
+        with driver.session() as session:
+            if entity_type == "person":
+                organizations = session.run(
+                    PERSON_ORGANIZATIONS,
+                    rootValue=entity_id,
+                    limit=max_organizations,
+                ).data()
+            else:
+                organizations = session.run(
+                    ORG_RELATED_ORGS,
+                    entityId=entity_id,
+                    limit=max_organizations,
+                ).data()
+
+        return format_organizations(organizations)
+    except Exception as exception:
+        log.error("Connections query failed for entity_id=%r", entity_id)
+        raise ConnectionsError("Connections query failed") from exception
+
+def get_members(
+    entity_id: str,
+    entity_type: str,
+    max_members: int,
+) -> list[Member]:
+    if entity_type not in ("person", "organization"):
+        raise InvalidEntityTypeError("entity_type must be 'person' or 'organization'")
+
+    if entity_type == "person":
+        return []
+
+    try:
+        driver = database_utils.get_graph()
+        with driver.session() as session:
+            members = session.run(
+                ORG_MEMBERS,
+                entityId=entity_id,
+                limit=max_members,
+            ).data()
+        return format_people(members, as_members=True)
+    except Exception as exception:
+        log.error("Connections query failed for entity_id=%r", entity_id)
+        raise ConnectionsError("Connections query failed") from exception
+
 # Pattern: Facade — callers don't need to know about person_connections vs organization_connections.
 def get_connections(
     entity_id: str,

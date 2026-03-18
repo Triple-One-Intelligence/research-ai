@@ -10,7 +10,15 @@ from app.utils.schemas import (
     OrganizationsResponse,
     MembersResponse,
 )
-from app.utils.ricgraph_utils.connections_utils import get_connections, InvalidEntityTypeError, ConnectionsError
+from app.utils.ricgraph_utils.connections_utils import (
+    get_connections,
+    get_collaborators as get_collaborators_list,
+    get_publications as get_publications_list,
+    get_organizations as get_organizations_list,
+    get_members as get_members_list,
+    InvalidEntityTypeError,
+    ConnectionsError,
+)
 
 log = logging.getLogger(__name__)
 
@@ -59,7 +67,7 @@ def get_collaborators(
 ):
     """Return collaborator connections for a given entity."""
     try:
-        result = get_connections(
+        collaborators = get_collaborators_list(
             entity_id=entity_id,
             entity_type=entity_type,
             max_collaborators=max_collaborators,
@@ -67,7 +75,7 @@ def get_collaborators(
         return CollaboratorsResponse(
             entity_id=entity_id,
             entity_type=entity_type,
-            collaborators=result["collaborators"],
+            collaborators=collaborators,
         )
     except InvalidEntityTypeError as exception:
         raise HTTPException(status_code=400, detail=str(exception))
@@ -87,7 +95,7 @@ def get_publications(
 ):
     """Return publication connections for a given entity."""
     try:
-        result = get_connections(
+        publications = get_publications_list(
             entity_id=entity_id,
             entity_type=entity_type,
             max_publications=max_publications,
@@ -95,7 +103,7 @@ def get_publications(
         return PublicationsResponse(
             entity_id=entity_id,
             entity_type=entity_type,
-            publications=result["publications"],
+            publications=publications,
         )
     except InvalidEntityTypeError as exception:
         raise HTTPException(status_code=400, detail=str(exception))
@@ -115,7 +123,7 @@ def get_organizations(
 ):
     """Return organization connections for a given entity."""
     try:
-        result = get_connections(
+        organizations = get_organizations_list(
             entity_id=entity_id,
             entity_type=entity_type,
             max_organizations=max_organizations,
@@ -123,7 +131,7 @@ def get_organizations(
         return OrganizationsResponse(
             entity_id=entity_id,
             entity_type=entity_type,
-            organizations=result["organizations"],
+            organizations=organizations,
         )
     except InvalidEntityTypeError as exception:
         raise HTTPException(status_code=400, detail=str(exception))
@@ -143,7 +151,7 @@ def get_members(
 ):
     """Return member connections for a given organization entity."""
     try:
-        result = get_connections(
+        members = get_members_list(
             entity_id=entity_id,
             entity_type=entity_type,
             max_members=max_members,
@@ -151,7 +159,7 @@ def get_members(
         return MembersResponse(
             entity_id=entity_id,
             entity_type=entity_type,
-            members=result["members"],
+            members=members,
         )
     except InvalidEntityTypeError as exception:
         raise HTTPException(status_code=400, detail=str(exception))

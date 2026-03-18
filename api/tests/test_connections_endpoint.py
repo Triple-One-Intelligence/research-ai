@@ -267,14 +267,9 @@ class TestConnectionsEndpoint:
         })
         assert resp.status_code == 422
 
-    @patch("app.routers.connections.get_connections")
+    @patch("app.routers.connections.get_collaborators_list")
     def test_person_collaborators_endpoint_passes_limit(self, mock_gc, client):
-        mock_gc.return_value = {
-            "collaborators": [{"author_id": "p2", "name": "Example Coauthor"}],
-            "publications": [],
-            "organizations": [],
-            "members": [],
-        }
+        mock_gc.return_value = [{"author_id": "p2", "name": "Example Coauthor"}]
         resp = client.get("/connections/collaborators", params={
             "entity_id": "person-1",
             "entity_type": "person",
@@ -289,14 +284,9 @@ class TestConnectionsEndpoint:
         call_kwargs = mock_gc.call_args.kwargs
         assert call_kwargs["max_collaborators"] == 10
 
-    @patch("app.routers.connections.get_connections")
+    @patch("app.routers.connections.get_members_list")
     def test_organization_members_endpoint_passes_limit(self, mock_gc, client):
-        mock_gc.return_value = {
-            "collaborators": [],
-            "publications": [],
-            "organizations": [],
-            "members": [{"author_id": "p1", "name": "Member Example"}],
-        }
+        mock_gc.return_value = [{"author_id": "p1", "name": "Member Example"}]
         resp = client.get("/connections/members", params={
             "entity_id": "org-1",
             "entity_type": "organization",
@@ -311,14 +301,9 @@ class TestConnectionsEndpoint:
         call_kwargs = mock_gc.call_args.kwargs
         assert call_kwargs["max_members"] == 5
 
-    @patch("app.routers.connections.get_connections")
+    @patch("app.routers.connections.get_publications_list")
     def test_person_publications_endpoint_passes_limit(self, mock_gc, client):
-        mock_gc.return_value = {
-            "collaborators": [],
-            "publications": [{"doi": "10.1/a", "title": "Paper A", "year": 2024, "category": "article"}],
-            "organizations": [],
-            "members": [],
-        }
+        mock_gc.return_value = [{"doi": "10.1/a", "title": "Paper A", "year": 2024, "category": "article"}]
         resp = client.get("/connections/publications", params={
             "entity_id": "person-1",
             "entity_type": "person",
@@ -333,14 +318,9 @@ class TestConnectionsEndpoint:
         call_kwargs = mock_gc.call_args.kwargs
         assert call_kwargs["max_publications"] == 7
 
-    @patch("app.routers.connections.get_connections")
+    @patch("app.routers.connections.get_organizations_list")
     def test_person_organizations_endpoint_passes_limit(self, mock_gc, client):
-        mock_gc.return_value = {
-            "collaborators": [],
-            "publications": [],
-            "organizations": [{"organization_id": "org-2", "name": "Example Org"}],
-            "members": [],
-        }
+        mock_gc.return_value = [{"organization_id": "org-2", "name": "Example Org"}]
         resp = client.get("/connections/organizations", params={
             "entity_id": "person-1",
             "entity_type": "person",
