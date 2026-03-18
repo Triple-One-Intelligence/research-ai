@@ -6,6 +6,8 @@ import CollapsibleCard from './CollapsibleCard';
 import './RightPanel.css';
 import { useTranslation } from 'react-i18next';
 
+// Right column: fetches and displays "connections" for the currently selected entity.
+// Results are grouped into collapsible sections (collaborators, publications, organizations, members).
 /* ── Inline sub-component for a single publication ────────────── */
 
 function PublicationItem({ pub }: { pub: ConnectionsResponse['publications'][number] }) {

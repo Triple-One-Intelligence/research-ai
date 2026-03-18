@@ -10,6 +10,10 @@ interface EntitySearchBarProps {
   selectedEntity: EntitySuggestion | null;
 }
 
+// Search UI for selecting a person/organization:
+// - debounced autocomplete against `/autocomplete`
+// - keyboard navigation for the suggestion list
+// - clear selection when the user edits the chosen label
 const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarProps) => {
   const { t } = useTranslation();
   const [query, setQuery] = useState(selectedEntity?.label ?? '');

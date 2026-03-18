@@ -10,9 +10,11 @@ i18n
       en: { translation: en },
       nl: { translation: nl }
     },
+    // Persist the chosen language so refreshes keep the same UI language.
     lng: localStorage.getItem('language') || 'en',
     fallbackLng: 'en',
     interpolation: {
+      // React already escapes values; disabling i18next escaping avoids double-escaping.
       escapeValue: false
     }
   });
