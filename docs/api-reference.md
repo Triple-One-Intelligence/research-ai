@@ -93,7 +93,8 @@ Returns collaborator connections for an entity.
 |-----------|------|----------|---------|-------------|
 | `entity_id` | str | yes | — | Entity identifier |
 | `entity_type` | str | yes | — | `"person"` or `"organization"` |
-| `max_collaborators` | int | no | 50 | Max collaborators returned (range 1-200) |
+| `limit` | int | no | 50 | Max collaborators returned (range 1-200) |
+| `cursor` | str | no | — | Pagination cursor (ignored for now) |
 
 **Response:**
 
@@ -101,7 +102,8 @@ Returns collaborator connections for an entity.
 {
   "entity_id": "string",
   "entity_type": "person",
-  "collaborators": [{"author_id": "string", "name": "string"}]
+  "collaborators": [{"author_id": "string", "name": "string"}],
+  "next_cursor": "string | null"
 }
 ```
 
@@ -123,7 +125,8 @@ Returns publication connections for an entity.
 |-----------|------|----------|---------|-------------|
 | `entity_id` | str | yes | — | Entity identifier |
 | `entity_type` | str | yes | — | `"person"` or `"organization"` |
-| `max_publications` | int | no | 50 | Max publications returned (range 1-200) |
+| `limit` | int | no | 50 | Max publications returned (range 1-200) |
+| `cursor` | str | no | — | Pagination cursor (ignored for now) |
 
 **Response:**
 
@@ -131,7 +134,8 @@ Returns publication connections for an entity.
 {
   "entity_id": "string",
   "entity_type": "organization",
-  "publications": [{"doi": "string", "title": "string", "year": 2024, "category": "string", "versions": []}]
+  "publications": [{"doi": "string", "title": "string", "year": 2024, "category": "string", "versions": []}],
+  "next_cursor": "string | null"
 }
 ```
 
@@ -153,7 +157,8 @@ Returns organization connections for an entity.
 |-----------|------|----------|---------|-------------|
 | `entity_id` | str | yes | — | Entity identifier |
 | `entity_type` | str | yes | — | `"person"` or `"organization"` |
-| `max_organizations` | int | no | 50 | Max organizations returned (range 1-200) |
+| `limit` | int | no | 50 | Max organizations returned (range 1-200) |
+| `cursor` | str | no | — | Pagination cursor (ignored for now) |
 
 **Response:**
 
@@ -161,7 +166,8 @@ Returns organization connections for an entity.
 {
   "entity_id": "string",
   "entity_type": "person",
-  "organizations": [{"organization_id": "string", "name": "string"}]
+  "organizations": [{"organization_id": "string", "name": "string"}],
+  "next_cursor": "string | null"
 }
 ```
 
@@ -183,7 +189,8 @@ Returns member connections for an entity.
 |-----------|------|----------|---------|-------------|
 | `entity_id` | str | yes | — | Entity identifier |
 | `entity_type` | str | yes | — | `"person"` or `"organization"` |
-| `max_members` | int | no | 50 | Max members returned (range 1-200) |
+| `limit` | int | no | 50 | Max members returned (range 1-200) |
+| `cursor` | str | no | — | Pagination cursor (ignored for now) |
 
 **Response:**
 
@@ -191,7 +198,8 @@ Returns member connections for an entity.
 {
   "entity_id": "string",
   "entity_type": "organization",
-  "members": [{"author_id": "string", "name": "string"}]
+  "members": [{"author_id": "string", "name": "string"}],
+  "next_cursor": "string | null"
 }
 ```
 

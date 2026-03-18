@@ -1,5 +1,15 @@
 import axios from 'axios';
-import type { EntitySuggestion, EntityRef, ConnectionsResponse, PersonRef, OrganizationRef } from './types';
+import type {
+  EntitySuggestion,
+  EntityRef,
+  ConnectionsResponse,
+  PersonRef,
+  OrganizationRef,
+  CollaboratorsPageResponse,
+  PublicationsPageResponse,
+  OrganizationsPageResponse,
+  MembersPageResponse,
+} from './types';
 
 // Single source of truth for the API base URL
 export const API_BASE = import.meta.env.VITE_API_URL || "/api";
@@ -48,15 +58,84 @@ export const searchEntities = async (
 };
 
 export const fetchConnections = async (
-  entity: EntityRef
+  entity: EntityRef,
+  pageSize?: number
 ): Promise<ConnectionsResponse> => {
   const params = new URLSearchParams();
   params.append('entity_id', entity.id);
   params.append('entity_type', entity.type);
 
+  if (pageSize != null) {
+    // Request only a single page worth of each list for the initial entity load.
+    params.append('max_publications', pageSize.toString());
+    params.append('max_collaborators', pageSize.toString());
+    params.append('max_organizations', pageSize.toString());
+    params.append('max_members', pageSize.toString());
+  }
+
   const response = await api.get<ConnectionsResponse>(
     `/connections/entity?${params.toString()}`
   );
+  return response.data;
+};
+
+export const fetchCollaboratorsPage = async (
+  entity: EntityRef,
+  limit: number,
+  cursor?: string | null,
+): Promise<CollaboratorsPageResponse> => {
+  const params = new URLSearchParams();
+  params.append('entity_id', entity.id);
+  params.append('entity_type', entity.type);
+  params.append('limit', limit.toString());
+  if (cursor != null) params.append('cursor', cursor);
+
+  const response = await api.get<CollaboratorsPageResponse>(`/connections/collaborators?${params.toString()}`);
+  return response.data;
+};
+
+export const fetchPublicationsPage = async (
+  entity: EntityRef,
+  limit: number,
+  cursor?: string | null,
+): Promise<PublicationsPageResponse> => {
+  const params = new URLSearchParams();
+  params.append('entity_id', entity.id);
+  params.append('entity_type', entity.type);
+  params.append('limit', limit.toString());
+  if (cursor != null) params.append('cursor', cursor);
+
+  const response = await api.get<PublicationsPageResponse>(`/connections/publications?${params.toString()}`);
+  return response.data;
+};
+
+export const fetchOrganizationsPage = async (
+  entity: EntityRef,
+  limit: number,
+  cursor?: string | null,
+): Promise<OrganizationsPageResponse> => {
+  const params = new URLSearchParams();
+  params.append('entity_id', entity.id);
+  params.append('entity_type', entity.type);
+  params.append('limit', limit.toString());
+  if (cursor != null) params.append('cursor', cursor);
+
+  const response = await api.get<OrganizationsPageResponse>(`/connections/organizations?${params.toString()}`);
+  return response.data;
+};
+
+export const fetchMembersPage = async (
+  entity: EntityRef,
+  limit: number,
+  cursor?: string | null,
+): Promise<MembersPageResponse> => {
+  const params = new URLSearchParams();
+  params.append('entity_id', entity.id);
+  params.append('entity_type', entity.type);
+  params.append('limit', limit.toString());
+  if (cursor != null) params.append('cursor', cursor);
+
+  const response = await api.get<MembersPageResponse>(`/connections/members?${params.toString()}`);
   return response.data;
 };
 

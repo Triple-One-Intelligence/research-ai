@@ -60,3 +60,33 @@ export type ConnectionsResponse = {
   organizations: OrganizationRef[];
   members: Member[];
 };
+
+// --- Per-type paginated responses (cursor pagination skeleton) ---
+
+export type CollaboratorsPageResponse = {
+  entity_id: string;
+  entity_type: EntityType;
+  collaborators: PersonRef[];
+  next_cursor: string | null;
+};
+
+export type PublicationsPageResponse = {
+  entity_id: string;
+  entity_type: EntityType;
+  publications: Publication[];
+  next_cursor: string | null;
+};
+
+export type OrganizationsPageResponse = {
+  entity_id: string;
+  entity_type: EntityType;
+  organizations: OrganizationRef[];
+  next_cursor: string | null;
+};
+
+export type MembersPageResponse = {
+  entity_id: string;
+  entity_type: EntityType;
+  members: Member[];
+  next_cursor: string | null;
+};

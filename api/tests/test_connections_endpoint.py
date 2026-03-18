@@ -9,6 +9,7 @@ from app.utils.ricgraph_utils.connections_utils import (
     format_people, format_organizations, format_publications,
     get_connections, InvalidEntityTypeError, ConnectionsError,
 )
+from app.utils.schemas import Member, Organization, Person, Publication
 
 
 # ── Unit tests for helper functions ───────────────────────────────────────────
@@ -269,68 +270,80 @@ class TestConnectionsEndpoint:
 
     @patch("app.routers.connections.get_collaborators_list")
     def test_person_collaborators_endpoint_passes_limit(self, mock_gc, client):
-        mock_gc.return_value = [{"author_id": "p2", "name": "Example Coauthor"}]
+        mock_gc.return_value = [Person(author_id="p2", name="Example Coauthor")]
         resp = client.get("/connections/collaborators", params={
             "entity_id": "person-1",
             "entity_type": "person",
-            "max_collaborators": 10,
+            "limit": 1,
+            "cursor": "cur-1",
         })
         assert resp.status_code == 200
         data = resp.json()
         assert data["entity_id"] == "person-1"
         assert data["entity_type"] == "person"
         assert data["collaborators"] == [{"author_id": "p2", "name": "Example Coauthor"}]
+        assert data["next_cursor"] == "p2"
 
         call_kwargs = mock_gc.call_args.kwargs
-        assert call_kwargs["max_collaborators"] == 10
+        assert call_kwargs["max_collaborators"] == 1
+        assert call_kwargs["cursor"] == "cur-1"
 
     @patch("app.routers.connections.get_members_list")
     def test_organization_members_endpoint_passes_limit(self, mock_gc, client):
-        mock_gc.return_value = [{"author_id": "p1", "name": "Member Example"}]
+        mock_gc.return_value = [Member(author_id="p1", name="Member Example")]
         resp = client.get("/connections/members", params={
             "entity_id": "org-1",
             "entity_type": "organization",
-            "max_members": 5,
+            "limit": 1,
+            "cursor": "cur-2",
         })
         assert resp.status_code == 200
         data = resp.json()
         assert data["entity_id"] == "org-1"
         assert data["entity_type"] == "organization"
         assert data["members"] == [{"author_id": "p1", "name": "Member Example"}]
+        assert data["next_cursor"] == "p1"
 
         call_kwargs = mock_gc.call_args.kwargs
-        assert call_kwargs["max_members"] == 5
+        assert call_kwargs["max_members"] == 1
+        assert call_kwargs["cursor"] == "cur-2"
 
     @patch("app.routers.connections.get_publications_list")
     def test_person_publications_endpoint_passes_limit(self, mock_gc, client):
-        mock_gc.return_value = [{"doi": "10.1/a", "title": "Paper A", "year": 2024, "category": "article"}]
+        mock_gc.return_value = [Publication(doi="10.1/a", title="Paper A", year=2024, category="article")]
         resp = client.get("/connections/publications", params={
             "entity_id": "person-1",
             "entity_type": "person",
-            "max_publications": 7,
+            "limit": 1,
+            "cursor": "cur-3",
         })
         assert resp.status_code == 200
         data = resp.json()
         assert data["entity_id"] == "person-1"
         assert data["entity_type"] == "person"
         assert data["publications"][0]["doi"] == "10.1/a"
+        assert data["next_cursor"] == "10.1/a"
 
         call_kwargs = mock_gc.call_args.kwargs
-        assert call_kwargs["max_publications"] == 7
+        assert call_kwargs["max_publications"] == 1
+        assert call_kwargs["cursor"] == "cur-3"
 
     @patch("app.routers.connections.get_organizations_list")
     def test_person_organizations_endpoint_passes_limit(self, mock_gc, client):
-        mock_gc.return_value = [{"organization_id": "org-2", "name": "Example Org"}]
+        mock_gc.return_value = [Organization(organization_id="org-2", name="Example Org")]
         resp = client.get("/connections/organizations", params={
             "entity_id": "person-1",
             "entity_type": "person",
-            "max_organizations": 12,
+            "limit": 1,
+            "cursor": "cur-4",
         })
         assert resp.status_code == 200
         data = resp.json()
         assert data["entity_id"] == "person-1"
         assert data["entity_type"] == "person"
         assert data["organizations"] == [{"organization_id": "org-2", "name": "Example Org"}]
+        assert data["next_cursor"] == "org-2"
 
         call_kwargs = mock_gc.call_args.kwargs
-        assert call_kwargs["max_organizations"] == 12
+        assert call_kwargs["max_organizations"] == 1
+        assert call_kwargs["cursor"] == "cur-4"

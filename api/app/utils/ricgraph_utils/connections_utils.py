@@ -161,6 +161,7 @@ def get_collaborators(
     entity_id: str,
     entity_type: str,
     max_collaborators: int,
+    cursor: str | None = None,
 ) -> list[Person]:
     if entity_type not in ("person", "organization"):
         raise InvalidEntityTypeError("entity_type must be 'person' or 'organization'")
@@ -186,6 +187,7 @@ def get_publications(
     entity_id: str,
     entity_type: str,
     max_publications: int,
+    cursor: str | None = None,
 ) -> list[Publication]:
     if entity_type not in ("person", "organization"):
         raise InvalidEntityTypeError("entity_type must be 'person' or 'organization'")
@@ -217,6 +219,7 @@ def get_organizations(
     entity_id: str,
     entity_type: str,
     max_organizations: int,
+    cursor: str | None = None,
 ) -> list[Organization]:
     if entity_type not in ("person", "organization"):
         raise InvalidEntityTypeError("entity_type must be 'person' or 'organization'")
@@ -246,6 +249,7 @@ def get_members(
     entity_id: str,
     entity_type: str,
     max_members: int,
+    cursor: str | None = None,
 ) -> list[Member]:
     if entity_type not in ("person", "organization"):
         raise InvalidEntityTypeError("entity_type must be 'person' or 'organization'")

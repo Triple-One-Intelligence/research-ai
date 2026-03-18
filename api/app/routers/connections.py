@@ -63,19 +63,23 @@ def get_entity_connections(
 def get_collaborators(
     entity_id: str = Query(..., description="ID of the entity"),
     entity_type: str = Query(..., description="'person' or 'organization'"),
-    max_collaborators: int = Query(50, ge=1, le=200, description="Maximum number of collaborators to return"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of collaborators to return"),
+    cursor: str | None = Query(None, description="Pagination cursor (ignored for now)"),
 ):
     """Return collaborator connections for a given entity."""
     try:
         collaborators = get_collaborators_list(
             entity_id=entity_id,
             entity_type=entity_type,
-            max_collaborators=max_collaborators,
+            max_collaborators=limit,
+            cursor=cursor,
         )
+        next_cursor = collaborators[-1].author_id if collaborators and len(collaborators) == limit else None
         return CollaboratorsResponse(
             entity_id=entity_id,
             entity_type=entity_type,
             collaborators=collaborators,
+            next_cursor=next_cursor,
         )
     except InvalidEntityTypeError as exception:
         raise HTTPException(status_code=400, detail=str(exception))
@@ -91,19 +95,23 @@ def get_collaborators(
 def get_publications(
     entity_id: str = Query(..., description="ID of the entity"),
     entity_type: str = Query(..., description="'person' or 'organization'"),
-    max_publications: int = Query(50, ge=1, le=200, description="Maximum number of publications to return"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of publications to return"),
+    cursor: str | None = Query(None, description="Pagination cursor (ignored for now)"),
 ):
     """Return publication connections for a given entity."""
     try:
         publications = get_publications_list(
             entity_id=entity_id,
             entity_type=entity_type,
-            max_publications=max_publications,
+            max_publications=limit,
+            cursor=cursor,
         )
+        next_cursor = publications[-1].doi if publications and len(publications) == limit else None
         return PublicationsResponse(
             entity_id=entity_id,
             entity_type=entity_type,
             publications=publications,
+            next_cursor=next_cursor,
         )
     except InvalidEntityTypeError as exception:
         raise HTTPException(status_code=400, detail=str(exception))
@@ -119,19 +127,23 @@ def get_publications(
 def get_organizations(
     entity_id: str = Query(..., description="ID of the entity"),
     entity_type: str = Query(..., description="'person' or 'organization'"),
-    max_organizations: int = Query(50, ge=1, le=200, description="Maximum number of organizations to return"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of organizations to return"),
+    cursor: str | None = Query(None, description="Pagination cursor (ignored for now)"),
 ):
     """Return organization connections for a given entity."""
     try:
         organizations = get_organizations_list(
             entity_id=entity_id,
             entity_type=entity_type,
-            max_organizations=max_organizations,
+            max_organizations=limit,
+            cursor=cursor,
         )
+        next_cursor = organizations[-1].organization_id if organizations and len(organizations) == limit else None
         return OrganizationsResponse(
             entity_id=entity_id,
             entity_type=entity_type,
             organizations=organizations,
+            next_cursor=next_cursor,
         )
     except InvalidEntityTypeError as exception:
         raise HTTPException(status_code=400, detail=str(exception))
@@ -147,19 +159,23 @@ def get_organizations(
 def get_members(
     entity_id: str = Query(..., description="ID of the entity"),
     entity_type: str = Query(..., description="'person' or 'organization'"),
-    max_members: int = Query(50, ge=1, le=200, description="Maximum number of members to return"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of members to return"),
+    cursor: str | None = Query(None, description="Pagination cursor (ignored for now)"),
 ):
     """Return member connections for a given organization entity."""
     try:
         members = get_members_list(
             entity_id=entity_id,
             entity_type=entity_type,
-            max_members=max_members,
+            max_members=limit,
+            cursor=cursor,
         )
+        next_cursor = members[-1].author_id if members and len(members) == limit else None
         return MembersResponse(
             entity_id=entity_id,
             entity_type=entity_type,
             members=members,
+            next_cursor=next_cursor,
         )
     except InvalidEntityTypeError as exception:
         raise HTTPException(status_code=400, detail=str(exception))

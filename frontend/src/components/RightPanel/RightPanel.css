@@ -222,3 +222,24 @@
   color: #3a7bc8;
   text-decoration: underline;
 }
+
+/* Load more control */
+.load-more-row {
+  padding: 0.25rem 0.75rem 0.5rem 0.75rem;
+}
+
+.load-more-btn {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1a1a2e;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.load-more-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
