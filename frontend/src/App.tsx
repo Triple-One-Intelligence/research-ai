@@ -176,7 +176,7 @@ const App = () => {
           )}
           <MiddlePanel text={responseText} isGenerating={isGenerating} />
         </div>
-        <RightPanel selectedEntity={selectedEntity} />
+        <RightPanel selectedEntity={selectedEntity} onEntitySelect={setSelectedEntity} />
       </main>
     </div>
   );
