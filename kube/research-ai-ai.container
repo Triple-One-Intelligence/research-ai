@@ -24,9 +24,9 @@ PublishPort=127.0.0.1:11434:11434
 # Keep models loaded indefinitely (no auto-unload after idle timeout).
 Environment=OLLAMA_KEEP_ALIVE=-1
 
-# Bind mount to 500GB storage volume (production A10 server).
-# For other environments, replace with: Volume=ai-data:/root/.ollama
-Volume=/data/storage/ollama:/root/.ollama
+# Ollama model storage — uses a host directory so models persist across
+# container recreates. ~/.ollama is the conventional default location.
+Volume=/root/.ollama:/root/.ollama
 
 [Install]
 WantedBy=multi-user.target
