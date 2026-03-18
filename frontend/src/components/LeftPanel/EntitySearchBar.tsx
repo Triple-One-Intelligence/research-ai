@@ -12,7 +12,7 @@ interface EntitySearchBarProps {
 
 const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarProps) => {
   const { t } = useTranslation();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(selectedEntity?.label ?? '');
   const [suggestions, setSuggestions] = useState<EntitySuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -20,6 +20,16 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLUListElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep the input value in sync when a selection is changed externally
+  // (e.g. by clicking a collaborator/member in the right panel).
+  useEffect(() => {
+    if (!selectedEntity) return;
+    setQuery(selectedEntity.label);
+    setSuggestions([]);
+    setShowDropdown(false);
+    setActiveIndex(-1);
+  }, [selectedEntity]);
 
   // Debounced search
   const performSearch = useCallback(async (searchQuery: string) => {
@@ -48,6 +58,12 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
     setQuery(value);
     setActiveIndex(-1);
 
+    // If the user edits the currently selected entity name, clear the selection.
+    // This keeps the "selected person" and "typing for another name" in the same field.
+    if (selectedEntity && value !== selectedEntity.label) {
+      onClear();
+    }
+
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
@@ -59,7 +75,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
 
   // Handle selection
   const handleSelect = (entity: EntitySuggestion) => {
-    setQuery('');
+    setQuery(entity.label);
     setSuggestions([]);
     setShowDropdown(false);
     setActiveIndex(-1);
@@ -148,7 +164,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
             if (suggestions.length > 0) setShowDropdown(true);
           }}
           placeholder={t('leftPanel.searchPlaceholder')}
-          className="search-input"
+          className={`search-input ${selectedEntity ? 'has-selection' : ''}`}
           role="combobox"
           aria-expanded={showDropdown}
           aria-haspopup="listbox"
@@ -158,7 +174,30 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
           }
           autoComplete="off"
         />
-        {loading && <span className="search-spinner" aria-label={t('leftPanel.loading')} />}
+        <div className="search-input-actions" aria-hidden="true">
+          {loading && <span className="search-spinner" aria-label={t('leftPanel.loading')} />}
+          {selectedEntity && (
+            <div className="selected-inline">
+              <span className={`entity-type-badge inline ${selectedEntity.type}`}>
+                {selectedEntity.type === 'person' ? '👤' : '🏛️'}
+              </span>
+              <button
+                className="clear-entity-btn inline"
+                onClick={() => {
+                  onClear();
+                  setQuery('');
+                  setSuggestions([]);
+                  setShowDropdown(false);
+                  setActiveIndex(-1);
+                  inputRef.current?.focus();
+                }}
+                aria-label={t('leftPanel.clearSelection')}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {showDropdown && suggestions.length > 0 && (
@@ -197,21 +236,6 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
         <div className="no-results">{t('leftPanel.noResults')}</div>
       )}
 
-      {selectedEntity && (
-        <div className="selected-entity">
-          <span className={`entity-type-badge ${selectedEntity.type}`}>
-            {selectedEntity.type === 'person' ? '👤' : '🏛️'}
-          </span>
-          <span className="selected-label">{selectedEntity.label}</span>
-          <button 
-            className="clear-entity-btn" 
-            onClick={onClear}
-            aria-label={t('leftPanel.clearSelection')}
-          >
-            ✕
-          </button>
-        </div>
-      )}
     </div>
   );
 };
