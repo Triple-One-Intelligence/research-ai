@@ -5,6 +5,8 @@
   "leftPanel": {
     "searchLabel": "Zoek organisatie of persoon",
     "searchPlaceholder": "Typ een naam of organisatie…",
+    "executiveSummary": "Samenvatting",
+    "strengthsGaps": "Sterke en zwakke punten",
     "topOrganizations": "Top 5 Samenwerkende Organisaties",
     "relevantPublications": "Relevante Publicaties op Basis van Abstract",
     "uvProfileCV": "Maak UU Profiel CV",
@@ -14,12 +16,7 @@
     "noResults": "Geen resultaten gevonden",
     "clearSelection": "Selectie wissen",
     "searchSuggestions": "Zoeksuggesties",
-    "loading": "Laden",
-    "executiveSummaryPrompt": "Genereer een samenvatting voor deze entiteit.",
-    "strengthsGapsPrompt": "Analyseer de sterke punten en zwakke punten voor deze entiteit.",
-    "topOrganizationsPrompt": "Vind de top 5 organisaties waarmee {{entity}} samenwerkt. Geef relevante details over elk samenwerkingsverband.",
-    "publicationsPrompt": "Identificeer publicaties die relevant zijn voor het onderzoeksgebied van {{entity}}. Zoek door abstracts te analyseren die aansluiten bij hun professionele interesses en expertise.",
-    "uvCVPrompt": "Maak een uitgebreide CV voor het Utrecht University (UU) profiel van {{entity}} op basis van hun onderzoek, publicaties en samenwerkingen. Formatteer het voor professioneel gebruik."
+    "loading": "Laden"
   },
   "middlePanel": {
     "header": "AI Output",
