@@ -1,0 +1,44 @@
+name: Auto-populate PR description
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  populate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract ticket and update PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # Extract ticket ID from branch name (e.g. feat/V26J-153-description → V26J-153)
+          TICKET=$(echo "$BRANCH" | grep -oP 'V26J-\d+' | head -1)
+
+          if [ -z "$TICKET" ]; then
+            echo "No YouTrack ticket found in branch name, skipping"
+            exit 0
+          fi
+
+          YOUTRACK_URL="https://utrechtuniversity.youtrack.cloud/issue/${TICKET}"
+
+          # Extract branch type and description
+          TYPE=$(echo "$BRANCH" | grep -oP '^(feat|fix|test|docs|refactor)' || echo "")
+          DESC=$(echo "$BRANCH" | sed -E 's|^(feat|fix|test|docs|refactor)/V26J-[0-9]+-?||' | tr '-' ' ')
+
+          # Only update if the body still matches the default template (not manually edited)
+          if echo "$PR_BODY" | grep -q "Auto-filled if branch follows naming convention"; then
+            NEW_BODY=$(echo "$PR_BODY" | sed "s|<!-- Auto-filled if branch follows naming convention.*-->|[${TICKET}](${YOUTRACK_URL}) ${DESC}|")
+            NEW_BODY=$(echo "$NEW_BODY" | sed '/<!-- Otherwise, manually add the link below -->/d')
+
+            gh pr edit "$PR_NUMBER" --body "$NEW_BODY"
+            echo "Updated PR #${PR_NUMBER} with YouTrack link: ${YOUTRACK_URL}"
+          else
+            echo "PR body was manually edited, skipping auto-populate"
+          fi

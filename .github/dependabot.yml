@@ -1,0 +1,40 @@
+version: 2
+updates:
+  # Python dependencies
+  - package-ecosystem: pip
+    directory: /api
+    schedule:
+      interval: weekly
+      day: monday
+    reviewers:
+      - Lukasvd123
+    labels:
+      - dependencies
+      - python
+    open-pull-requests-limit: 5
+
+  # npm dependencies
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    reviewers:
+      - Lukasvd123
+    labels:
+      - dependencies
+      - javascript
+    open-pull-requests-limit: 5
+
+  # GitHub Actions versions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    reviewers:
+      - Lukasvd123
+    labels:
+      - dependencies
+      - ci
+    open-pull-requests-limit: 5

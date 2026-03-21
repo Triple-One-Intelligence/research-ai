@@ -1,0 +1,14 @@
+# Default: all PRs require review from at least one of these
+*                       @Lukasvd123 @jandre-d
+
+# Backend (API, tests, data pipeline)
+/api/                   @Lukasvd123
+/api/tests/             @Lukasvd123
+
+# Frontend
+/frontend/              @Lukasvd123
+
+# Infrastructure (deploy, containers, CI/CD)
+/kube/                  @Lukasvd123 @jandre-d
+/.github/               @Lukasvd123 @jandre-d
+Makefile                @Lukasvd123 @jandre-d
