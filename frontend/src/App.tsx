@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import './App.css';
 import { LeftPanel } from './components/LeftPanel';
@@ -58,12 +58,52 @@ const streamSSE = async (
 };
 
 
+const MIN_COL = 200;
+const MAX_COL = 700;
+
 // Pattern: Mediator — App centralizes state and communication between panels.
 const App = () => {
   const [selectedEntity, setSelectedEntity] = useState<EntitySuggestion | null>(null);
   const [responseText, setResponseText] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [debugInfo, setDebugInfo] = useState<Record<string, unknown> | null>(null);
+
+  const [leftWidth, setLeftWidth] = useState(380);
+  const [rightWidth, setRightWidth] = useState(360);
+  const dragging = useRef<{ side: 'left' | 'right'; startX: number; startWidth: number } | null>(null);
+
+  const onMouseMove = useCallback((e: MouseEvent) => {
+    if (!dragging.current) return;
+    const delta = e.clientX - dragging.current.startX;
+    const newWidth = Math.min(MAX_COL, Math.max(MIN_COL,
+      dragging.current.side === 'left'
+        ? dragging.current.startWidth + delta
+        : dragging.current.startWidth - delta
+    ));
+    if (dragging.current.side === 'left') setLeftWidth(newWidth);
+    else setRightWidth(newWidth);
+  }, []);
+
+  const onMouseUp = useCallback(() => {
+    dragging.current = null;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+  }, [onMouseMove]);
+
+  const startDrag = useCallback((side: 'left' | 'right', e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = {
+      side,
+      startX: e.clientX,
+      startWidth: side === 'left' ? leftWidth : rightWidth,
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }, [leftWidth, rightWidth, onMouseMove, onMouseUp]);
 
   const handleGenerate = (prompt: string) => {
     if (isGenerating) return;
@@ -131,7 +171,7 @@ const App = () => {
           </button>
         </div>
       </header>
-      <main className="app-main">
+      <main className="app-main" style={{ gridTemplateColumns: `${leftWidth}px 8px 1fr 8px ${rightWidth}px` }}>
         <LeftPanel
           selectedEntity={selectedEntity}
           onAsk={handleGenerate}
@@ -139,6 +179,7 @@ const App = () => {
           onEntitySelect={setSelectedEntity}
           onEntityClear={() => setSelectedEntity(null)}
         />
+        <div className="resize-handle" onMouseDown={(e) => startDrag('left', e)} />
         <div className="middle-panel">
           {debugInfo && (
             <details className="rag-debug">
@@ -184,6 +225,7 @@ const App = () => {
           )}
           <MiddlePanel text={responseText} isGenerating={isGenerating} />
         </div>
+        <div className="resize-handle" onMouseDown={(e) => startDrag('right', e)} />
         <RightPanel selectedEntity={selectedEntity} />
       </main>
     </div>
