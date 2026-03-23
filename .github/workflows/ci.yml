@@ -286,12 +286,11 @@ jobs:
         if: always()
         run: podman image prune -f 2>/dev/null || true
 
-  # ── Deploy (self-hosted, requires approval) ───────────────────
+  # ── Deploy (self-hosted, auto after tests pass) ───────────────
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: [test-integration]
     runs-on: [self-hosted, linux, production]
-    environment: production
     steps:
       - uses: actions/checkout@v4
 
