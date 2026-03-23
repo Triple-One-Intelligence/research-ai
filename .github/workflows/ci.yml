@@ -126,14 +126,16 @@ jobs:
             && echo "Ollama: up" \
             || echo "::warning::Ollama not reachable on port 11434 — AI tests will skip"
 
-      - name: Calculate preview port
+      - name: Calculate preview port and host IP
         id: port
         run: |
           PORT=$(( 4000 + PR_NUMBER ))
           POD_NAME="preview-pr-${PR_NUMBER}"
+          HOST_IP=$(ip -4 route show default | awk '{print $7}' | head -1)
           echo "port=${PORT}" >> "$GITHUB_OUTPUT"
           echo "pod=${POD_NAME}" >> "$GITHUB_OUTPUT"
-          echo "Preview will be on port ${PORT}"
+          echo "host_ip=${HOST_IP}" >> "$GITHUB_OUTPUT"
+          echo "Preview will be on port ${PORT}, host IP ${HOST_IP}"
 
       - name: Tear down existing preview pod
         run: podman pod rm -f "preview-pr-${PR_NUMBER}" 2>/dev/null || true
@@ -148,7 +150,7 @@ jobs:
           podman pod create \
             --name "${{ steps.port.outputs.pod }}" \
             -p "${{ steps.port.outputs.port }}:3000" \
-            --add-host=host.containers.internal:host-gateway
+            --add-host=host.containers.internal:${{ steps.port.outputs.host_ip }}
 
       - name: Start API
         run: |
@@ -210,12 +212,25 @@ jobs:
           EXISTING_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
             --jq ".[] | select(.body | contains(\"${MARKER}\")) | .id" 2>/dev/null | head -1)
 
-          BODY="${MARKER}
-          🚀 **Preview environment** for this PR is running:
+          # Build status summary
+          STATUS="✅ All checks passed"
+          if [ "${{ job.status }}" = "failure" ]; then
+            STATUS="❌ Some checks failed — see details below"
+          fi
 
-          **URL:** \`https://${HOSTNAME}:${PORT}\`
-          **Branch:** \`${{ github.head_ref }}\`
-          **Commit:** \`${{ github.sha }}\`
+          BODY="${MARKER}
+          ${STATUS}
+
+          🚀 **Preview environment** for this PR:
+
+          **URL:** [https://${HOSTNAME}:${PORT}](https://${HOSTNAME}:${PORT})
+          **Branch:** \`${{ github.head_ref }}\` | **Commit:** \`${GITHUB_SHA::7}\`
+
+          | Check | Status |
+          |-------|--------|
+          | Build images | ${{ steps.port.outcome != 'failure' && '✅' || '❌' }} |
+          | Preview pod | ${{ job.status == 'failure' && '❌' || '✅' }} |
+          | Integration tests | ${{ job.status == 'success' && '✅' || '⚠️ see logs' }} |
 
           > Preview stays live until this PR is closed or merged."
 
