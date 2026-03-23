@@ -103,15 +103,19 @@ def extract_organization_cursor(organizations: list[Organization], limit: int) -
 
 def extract_publication_cursor(publications: list[Publication], limit: int) -> str | None:
     """Build next-page cursor for publication lists."""
-    return extract_cursor(
-        publications,
-        limit,
-        id_attr="doi",
-        name_attr="title",
-        encode=lambda title, doi: encode_cursor(
-            {"sort_key": publication_sort_key(title, doi), "doi": doi}
-        ),
-    )
+    if not publications or len(publications) <= limit or limit < 1:
+        return None
+
+    last_item = publications[limit - 1]
+    doi = getattr(last_item, "doi", None)
+    if not isinstance(doi, str) or not doi:
+        return None
+
+    title = getattr(last_item, "title", None)
+    if not isinstance(title, str):
+        title = None
+
+    return encode_cursor({"sort_key": publication_sort_key(title, doi), "doi": doi})
 
 T = TypeVar("T")
 
