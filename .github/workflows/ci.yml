@@ -131,37 +131,32 @@ jobs:
           echo "host_ip=${HOST_IP}" >> "$GITHUB_OUTPUT"
           echo "Preview: frontend=:${UI_PORT}, api=:${API_PORT}"
 
-      - name: Check if preview pod already exists
-        id: existing
+      - name: Tear down existing preview pod
         run: |
-          if podman pod exists "preview-pr-${PR_NUMBER}" 2>/dev/null; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Preview pod already running — will hot-reload"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "No existing pod — will create from scratch"
-          fi
+          systemctl --user disable --now "pod-preview-pr-${PR_NUMBER}.service" 2>/dev/null || true
+          podman pod rm -f "preview-pr-${PR_NUMBER}" 2>/dev/null || true
 
-      - name: Build API image
-        if: steps.existing.outputs.exists == 'false'
-        run: podman build -t "research-ai-api:pr-${PR_NUMBER}" -f ./api/Containerfile . -q
+      - name: Build images
+        run: |
+          podman build -t "research-ai-api:pr-${PR_NUMBER}" -f ./api/Containerfile . -q
+          podman build -t "research-ai-frontend:pr-${PR_NUMBER}" \
+            --build-arg VITE_API_URL="/preview/${PR_NUMBER}/api" \
+            --build-arg VITE_PREVIEW_PR="${PR_NUMBER}" \
+            --build-arg VITE_BASE_PATH="/preview/${PR_NUMBER}/" \
+            -f ./frontend/Containerfile.preview . -q
 
-      - name: Create preview pod (first run only)
-        if: steps.existing.outputs.exists == 'false'
+      - name: Create and start preview pod
         run: |
           POD="${{ steps.port.outputs.pod }}"
           UI_PORT="${{ steps.port.outputs.ui_port }}"
           API_PORT="${{ steps.port.outputs.api_port }}"
 
-          # allow_host_loopback lets containers reach Neo4j/Ollama on localhost
-          # without exposing them on the network
           podman pod create \
             --name "$POD" \
             --network slirp4netns:allow_host_loopback=true \
             -p "${UI_PORT}:5173" \
             -p "${API_PORT}:8000"
 
-          # API container
           podman run -d \
             --pod "$POD" \
             --name "${POD}-api" \
@@ -170,39 +165,12 @@ jobs:
             -v "${{ github.workspace }}/api:/work:ro" \
             "research-ai-api:pr-${PR_NUMBER}"
 
-          # Frontend dev server — source mounted for hot-reload, node_modules in separate volume
-          podman volume create "${POD}-node-modules" 2>/dev/null || true
           podman run -d \
             --pod "$POD" \
             --name "${POD}-frontend" \
-            -e VITE_API_URL="/preview/${PR_NUMBER}/api" \
-            -e VITE_PREVIEW_PR="${PR_NUMBER}" \
-            -e VITE_BASE_PATH="/preview/${PR_NUMBER}/" \
-            -v "${{ github.workspace }}/frontend:/work" \
-            -v "${POD}-node-modules:/work/node_modules" \
-            -w /work \
-            docker.io/library/node:20-alpine \
-            sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 5173"
-
-      - name: Hot-reload existing pod (subsequent pushes)
-        if: steps.existing.outputs.exists == 'true'
-        run: |
-          POD="${{ steps.port.outputs.pod }}"
-          # Frontend: Vite auto-detects file changes via polling — nothing to do
-          # API: restart to pick up code changes (mounted read-only)
-          podman build -t "research-ai-api:pr-${PR_NUMBER}" -f ./api/Containerfile . -q
-          podman rm -f "${POD}-api" 2>/dev/null || true
-          podman run -d \
-            --pod "$POD" \
-            --name "${POD}-api" \
-            --env-file /home/github-runner/.env.ci \
-            -e CORS_ORIGINS="https://researchaicloud.researchai.src.surf-hosted.nl" \
-            -v "${{ github.workspace }}/api:/work:ro" \
-            "research-ai-api:pr-${PR_NUMBER}"
-          echo "Hot-reloaded — frontend via Vite, API via container restart"
+            "research-ai-frontend:pr-${PR_NUMBER}"
 
       - name: Keep pod alive via systemd
-        if: steps.existing.outputs.exists == 'false'
         run: |
           POD="${{ steps.port.outputs.pod }}"
           mkdir -p ~/.config/systemd/user
@@ -213,7 +181,6 @@ jobs:
           systemctl --user enable --now "pod-${POD}.service"
 
       - name: Register preview route in production Caddy
-        if: steps.existing.outputs.exists == 'false'
         run: |
           UI_PORT="${{ steps.port.outputs.ui_port }}"
           API_PORT="${{ steps.port.outputs.api_port }}"
