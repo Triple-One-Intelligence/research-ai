@@ -169,10 +169,11 @@ jobs:
             --pod "$POD" \
             --name "${POD}-frontend" \
             -e VITE_API_URL="/preview/${PR_NUMBER}/api" \
+            -e VITE_ALLOW_ALL_HOSTS=true \
             -v "${{ github.workspace }}/frontend:/work" \
             -w /work \
             docker.io/library/node:20-alpine \
-            sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+            sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173 --allowedHosts all"
 
       - name: Keep pod alive via systemd
         run: |

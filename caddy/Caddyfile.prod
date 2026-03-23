@@ -2,6 +2,10 @@
     # PR preview pods (managed by CI)
     import /etc/caddy/previews/*
 
+    handle /preview/* {
+        respond "Preview not found — this PR has no active preview." 404
+    }
+
     handle_path /api/* {
         reverse_proxy research-ai-api:8000
     }
