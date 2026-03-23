@@ -269,6 +269,7 @@ ci-deploy:
 		--build-arg VITE_API_URL=$$VITE_API_URL
 	sudo install -m 0644 kube/research-ai-frontend.container /etc/containers/systemd/
 	sudo install -m 0644 kube/research-ai-api.container     /etc/containers/systemd/
+	sudo install -m 0644 caddy/Caddyfile.prod /etc/research-ai/Caddyfile.prod
 	sudo systemctl daemon-reload
 	sudo systemctl restart research-ai-api.service
 	sudo systemctl restart research-ai-frontend.service
