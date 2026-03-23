@@ -16,6 +16,11 @@ import './RightPanel.css';
 import { useTranslation } from 'react-i18next';
 
 const PAGE_SIZE = 10;
+const getEntityKey = (entity: { id: string; type: string }) => `${entity.type}:${entity.id}`;
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+};
 
 /* ── Inline sub-component for a single publication ────────────── */
 
@@ -146,7 +151,7 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
       });
 
     return () => { cancelled = true; };
-  }, [selectedEntity]);
+  }, [selectedEntity, t]);
 
   const mergeUniqueById = <T,>(
     existing: T[],
@@ -160,24 +165,27 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
 
   const onLoadMoreCollaborators = async () => {
     if (!selectedEntity || collaboratorsLoading || !collaboratorsHasMore) return;
+    const requestEntityKey = getEntityKey(selectedEntity);
     setCollaboratorsLoading(true);
     setError(null);
     try {
       const page = await fetchCollaboratorsPage(selectedEntity, PAGE_SIZE, collaboratorsNextCursor);
       setConnections((prev) => {
-        if (!prev) return prev;
+        if (!prev || getEntityKey({ id: prev.entity_id, type: prev.entity_type }) !== requestEntityKey) {
+          return prev;
+        }
         const { merged, addedCount } = mergeUniqueById(
           prev.collaborators,
           page.collaborators,
           (p) => p.author_id,
         );
-        const shouldContinue = addedCount > 0 && page.cursor != null;
-        setCollaboratorsHasMore(shouldContinue);
+        setCollaboratorsHasMore(page.cursor != null);
         setCollaboratorsNextCursor(page.cursor);
+        if (addedCount === 0) return prev;
         return { ...prev, collaborators: merged };
       });
-    } catch (err: any) {
-      setError(err?.message ?? t('rightPanel.loadFailedFallback'));
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, t('rightPanel.loadFailedFallback')));
     } finally {
       setCollaboratorsLoading(false);
     }
@@ -185,24 +193,27 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
 
   const onLoadMorePublications = async () => {
     if (!selectedEntity || publicationsLoading || !publicationsHasMore) return;
+    const requestEntityKey = getEntityKey(selectedEntity);
     setPublicationsLoading(true);
     setError(null);
     try {
       const page = await fetchPublicationsPage(selectedEntity, PAGE_SIZE, publicationsNextCursor);
       setConnections((prev) => {
-        if (!prev) return prev;
+        if (!prev || getEntityKey({ id: prev.entity_id, type: prev.entity_type }) !== requestEntityKey) {
+          return prev;
+        }
         const { merged, addedCount } = mergeUniqueById(
           prev.publications,
           page.publications,
           (p) => p.doi,
         );
-        const shouldContinue = addedCount > 0 && page.cursor != null;
-        setPublicationsHasMore(shouldContinue);
+        setPublicationsHasMore(page.cursor != null);
         setPublicationsNextCursor(page.cursor);
+        if (addedCount === 0) return prev;
         return { ...prev, publications: merged };
       });
-    } catch (err: any) {
-      setError(err?.message ?? t('rightPanel.loadFailedFallback'));
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, t('rightPanel.loadFailedFallback')));
     } finally {
       setPublicationsLoading(false);
     }
@@ -210,24 +221,27 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
 
   const onLoadMoreOrganizations = async () => {
     if (!selectedEntity || organizationsLoading || !organizationsHasMore) return;
+    const requestEntityKey = getEntityKey(selectedEntity);
     setOrganizationsLoading(true);
     setError(null);
     try {
       const page = await fetchOrganizationsPage(selectedEntity, PAGE_SIZE, organizationsNextCursor);
       setConnections((prev) => {
-        if (!prev) return prev;
+        if (!prev || getEntityKey({ id: prev.entity_id, type: prev.entity_type }) !== requestEntityKey) {
+          return prev;
+        }
         const { merged, addedCount } = mergeUniqueById(
           prev.organizations,
           page.organizations,
           (o) => o.organization_id,
         );
-        const shouldContinue = addedCount > 0 && page.cursor != null;
-        setOrganizationsHasMore(shouldContinue);
+        setOrganizationsHasMore(page.cursor != null);
         setOrganizationsNextCursor(page.cursor);
+        if (addedCount === 0) return prev;
         return { ...prev, organizations: merged };
       });
-    } catch (err: any) {
-      setError(err?.message ?? t('rightPanel.loadFailedFallback'));
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, t('rightPanel.loadFailedFallback')));
     } finally {
       setOrganizationsLoading(false);
     }
@@ -235,24 +249,27 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
 
   const onLoadMoreMembers = async () => {
     if (!selectedEntity || membersLoading || !membersHasMore) return;
+    const requestEntityKey = getEntityKey(selectedEntity);
     setMembersLoading(true);
     setError(null);
     try {
       const page = await fetchMembersPage(selectedEntity, PAGE_SIZE, membersNextCursor);
       setConnections((prev) => {
-        if (!prev) return prev;
+        if (!prev || getEntityKey({ id: prev.entity_id, type: prev.entity_type }) !== requestEntityKey) {
+          return prev;
+        }
         const { merged, addedCount } = mergeUniqueById(
           prev.members,
           page.members,
           (m) => m.author_id,
         );
-        const shouldContinue = addedCount > 0 && page.cursor != null;
-        setMembersHasMore(shouldContinue);
+        setMembersHasMore(page.cursor != null);
         setMembersNextCursor(page.cursor);
+        if (addedCount === 0) return prev;
         return { ...prev, members: merged };
       });
-    } catch (err: any) {
-      setError(err?.message ?? t('rightPanel.loadFailedFallback'));
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, t('rightPanel.loadFailedFallback')));
     } finally {
       setMembersLoading(false);
     }

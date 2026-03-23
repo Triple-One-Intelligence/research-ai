@@ -63,9 +63,12 @@ def get_autocomplete_suggestions(user_query: str, limit: int = 10) -> Suggestion
     except ServiceUnavailable:
         # Propagate Neo4j service availability issues so the API layer can return 503.
         raise
+    except AutocompleteError:
+        # Preserve explicit domain errors raised while parsing result rows.
+        raise
     except RuntimeError:
         # Propagate driver-not-initialized errors so the API layer can return 503.
-        raise
+        raise    
     except Exception as exception:
         log.error("Autocomplete query failed for query=%r", query)
         raise AutocompleteError("Autocomplete query failed") from exception
