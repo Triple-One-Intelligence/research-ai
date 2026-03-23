@@ -169,7 +169,8 @@ jobs:
             --pod "$POD" \
             --name "${POD}-frontend" \
             -e VITE_API_URL="/preview/${PR_NUMBER}/api" \
-            -e VITE_ALLOW_ALL_HOSTS=true \
+            -e VITE_PREVIEW_PR="${PR_NUMBER}" \
+            -e VITE_BASE_PATH="/preview/${PR_NUMBER}/" \
             -v "${{ github.workspace }}/frontend:/work" \
             -w /work \
             docker.io/library/node:20-alpine \
@@ -193,7 +194,7 @@ jobs:
           echo "handle_path /preview/${PR_NUMBER}/api/* {
             reverse_proxy 10.89.0.1:${API_PORT}
           }
-          handle_path /preview/${PR_NUMBER}/* {
+          handle /preview/${PR_NUMBER}/* {
             reverse_proxy 10.89.0.1:${UI_PORT}
           }" | sudo tee /etc/research-ai/caddy-previews/pr-${PR_NUMBER}.caddyfile > /dev/null
           sudo podman exec research-ai-frontend caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile || true
