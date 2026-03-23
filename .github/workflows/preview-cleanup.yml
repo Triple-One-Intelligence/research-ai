@@ -14,6 +14,13 @@ jobs:
         run: |
           POD_NAME="preview-pr-${PR_NUMBER}"
 
+          # Stop and disable systemd service
+          systemctl --user disable --now "pod-${POD_NAME}.service" 2>/dev/null || true
+          rm -f ~/.config/systemd/user/pod-${POD_NAME}.service
+          rm -f ~/.config/systemd/user/container-${POD_NAME}-*.service
+          systemctl --user daemon-reload 2>/dev/null || true
+
+          # Remove pod and containers
           if podman pod exists "${POD_NAME}" 2>/dev/null; then
             podman pod rm -f "${POD_NAME}"
             echo "Destroyed preview pod: ${POD_NAME}"
