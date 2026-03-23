@@ -2,30 +2,36 @@
 
 ## Repo Admin (GitHub Settings)
 
-Doe dit als eerste — heeft geen impact op de servers.
+### Al gedaan (via `gh` CLI)
 
-- [ ] **Branch protection op master** — Settings → Branches → Add rule voor `master`
-  - [x] Require a pull request before merging (1 approval)
-  - [x] Require status checks to pass (selecteer: `test-api`, `build-frontend`, `branch-name`)
-  - [x] Dismiss stale pull request approvals when new commits are pushed
-  - [x] Require branches to be up to date before merging
-  - [x] Do not allow bypassing the above settings
-  - [ ] Require CODEOWNERS review
-- [ ] **Squash merge afdwingen** — Settings → General → Pull Requests
-  - Allow squash merging: aan
-  - Allow merge commits: uit
-  - Allow rebase merging: uit
-  - Default: squash merge
-- [ ] **Auto-delete head branches** — Settings → General → Automatically delete head branches (aan)
-- [ ] **Production environment** — Settings → Environments → New environment
-  - Naam: `production`
-  - Required reviewers: @Lukasvd123 en/of @jandre-d
-  - Deployment branches: alleen `master`
+- [x] **Branch protection op master** — require PR (1 approval), dismiss stale reviews, CODEOWNERS review required
+- [x] **Required status checks**: `test-api`, `build-frontend`, `branch-name`
+- [x] **Admin bypass**: aan (tijdelijk, voor eerste merge van CI branch)
+- [x] **Squash merge only** — merge commits en rebase uit
+- [x] **Auto-delete head branches** na merge
+- [x] **Production environment** — reviewers: @Lukasvd123 + @jandre-d, alleen master
+- [x] **`CLAUDE_CODE_OAUTH_TOKEN`** secret aanwezig
+- [x] Neo4j credentials via server-local env file (niet in GitHub secrets)
+
+### Nog te doen
+
+- [ ] **Na merge van CI branch: admin bypass uitzetten**
+  ```bash
+  gh api repos/Triple-One-Intelligence/research-ai/branches/master/protection/enforce_admins \
+    -X POST
+  ```
+- [ ] **Na merge: require up-to-date branches aanzetten**
+  ```bash
+  gh api repos/Triple-One-Intelligence/research-ai/branches/master/protection/required_status_checks \
+    -X PATCH --input - <<< '{"strict": true, "contexts": ["test-api", "build-frontend", "branch-name"]}'
+  ```
 - [ ] **CodeQL aanzetten** — Settings → Code security → Enable CodeQL
-- [ ] **Secrets toevoegen** — Settings → Secrets → Actions
-  - [ ] `CLAUDE_CODE_OAUTH_TOKEN` — voor Claude Code Review workflow
-  - [ ] `DEV_NEO4J_USER` — gebruikersnaam voor dev Neo4j instantie
-  - [ ] `DEV_NEO4J_PASS` — wachtwoord voor dev Neo4j instantie
+- [ ] **Ontbrekende org leden uitnodigen** (eerdere contributors):
+  - [ ] ThijmenLigter (115 Python commits — meest actieve backend dev)
+  - [ ] Anou212 (frontend)
+  - [ ] Strike6782 (frontend)
+  - [ ] 0989711 / Onno Meppelink (frontend)
+  - [ ] sybren / zop12345 (46 API commits — GitHub username bevestigen)
 
 ---
 
@@ -49,7 +55,7 @@ ingesteld, doe het volgende op Server A:
   # Settings → Actions → Runners → New self-hosted runner → Linux x64
   curl -o actions-runner-linux-x64-2.XXX.X.tar.gz -L <URL>
   tar xzf ./actions-runner-linux-x64-2.XXX.X.tar.gz
-  ./config.sh --url https://github.com/UU-IRAS/research-ai \
+  ./config.sh --url https://github.com/Triple-One-Intelligence/research-ai \
               --token <TOKEN> \
               --labels linux,production \
               --name research-ai-runner \
@@ -63,6 +69,16 @@ ingesteld, doe het volgende op Server A:
   sudo ./svc.sh start
   ```
 - [ ] Verifiëren dat runner groen is in GitHub Settings → Actions → Runners
+- [ ] Dev Neo4j env file aanmaken (CI leest credentials hier, niet van GitHub secrets):
+  ```bash
+  cat > /home/github-runner/.env.dev-neo4j << 'ENVEOF'
+  REMOTE_NEO4J_URL=bolt://localhost:7688
+  REMOTE_NEO4J_USER=neo4j
+  REMOTE_NEO4J_PASS=<DEV_NEO4J_WACHTWOORD>
+  ENVEOF
+  chmod 600 /home/github-runner/.env.dev-neo4j
+  chown github-runner:github-runner /home/github-runner/.env.dev-neo4j
+  ```
 
 ### Dev Neo4j instantie (naast productie)
 

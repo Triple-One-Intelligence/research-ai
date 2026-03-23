@@ -152,12 +152,11 @@ jobs:
 
       - name: Start API
         run: |
+          # Credentials loaded from server-local env file (not GitHub secrets)
           podman run -d \
             --pod "${{ steps.port.outputs.pod }}" \
             --name "${{ steps.port.outputs.pod }}-api" \
-            -e REMOTE_NEO4J_URL=bolt://localhost:7688 \
-            -e REMOTE_NEO4J_USER="${{ secrets.DEV_NEO4J_USER }}" \
-            -e REMOTE_NEO4J_PASS="${{ secrets.DEV_NEO4J_PASS }}" \
+            --env-file /home/github-runner/.env.dev-neo4j \
             -e AI_SERVICE_URL=http://host.containers.internal:11434 \
             -e CORS_ORIGINS="https://localhost:${{ steps.port.outputs.port }}" \
             -v "${{ github.workspace }}/api:/work:ro" \
