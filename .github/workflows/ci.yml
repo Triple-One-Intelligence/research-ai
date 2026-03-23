@@ -184,6 +184,20 @@ jobs:
           systemctl --user daemon-reload
           systemctl --user enable --now "pod-${POD}.service"
 
+      - name: Register preview route in production Caddy
+        run: |
+          PORT="${{ steps.port.outputs.port }}"
+          # Drop a Caddy snippet so prod Caddy proxies /preview/PR_NUMBER to the pod
+          echo "handle_path /preview/${PR_NUMBER}/* {
+            reverse_proxy localhost:${PORT} {
+              transport http {
+                tls_insecure_skip_verify
+              }
+            }
+          }" | sudo tee /etc/research-ai/caddy-previews/pr-${PR_NUMBER}.caddyfile > /dev/null
+          # Reload Caddy to pick up the new route
+          sudo podman exec research-ai-frontend caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile || true
+
       - name: Wait for preview to be ready
         run: |
           echo "Waiting for preview on port ${{ steps.port.outputs.port }}..."
@@ -231,7 +245,7 @@ jobs:
 
           | | |
           |---|---|
-          | **URL** | [https://${HOSTNAME}:${PORT}](https://${HOSTNAME}:${PORT}) |
+          | **URL** | [https://${HOSTNAME}/preview/${PR_NUMBER}/](https://${HOSTNAME}/preview/${PR_NUMBER}/) |
           | **Branch** | \`${{ github.head_ref }}\` |
           | **Commit** | \`${GITHUB_SHA::7}\` |
           | **Updated** | $(date -u '+%Y-%m-%d %H:%M UTC') |
