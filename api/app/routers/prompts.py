@@ -31,7 +31,11 @@ log = logging.getLogger(__name__)
 @router.post("/prompt_top5publications")
 def _stream_prompt1_response(selected_entity: EntityRef, language: str = "English") -> StreamingResponse:
 
-    USER_PROMPT = "Generate a short summary regarding the selected documents if availible and list them off."
+    USER_PROMPT = """Generate a short summary regarding the selected documents if availible and list them off. 
+    Start of by cyting the name of the entity and give a small list of all the given documents.
+    Make an effort to include all provided documents. If a document contains to little information, note this.
+    Try ending the response with a short compliment regarding the entity, based on the prevously mentioned documents.
+    Styling: For each document make the title bold and italic. Start the Response with 'The five most recent publications for' and the entity name in H1."""
     
     # Retrieve the publications from Neo4j 
     if selected_entity.type == "person":
