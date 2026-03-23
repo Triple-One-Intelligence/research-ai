@@ -62,7 +62,7 @@
 /* Main content - 3 column layout */
 .app-main {
   display: grid;
-  grid-template-columns: 320px 1fr 300px;
+  grid-template-columns: 320px 1fr 360px;
   flex: 1;
   overflow: hidden;
 }
@@ -102,7 +102,7 @@
 /* Responsive adjustments */
 @media (max-width: 1024px) {
   .app-main {
-    grid-template-columns: 280px 1fr 250px;
+    grid-template-columns: 280px 1fr 300px;
   }
 }
 

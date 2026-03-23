@@ -105,6 +105,19 @@
   border-top: 1px solid #f3f4f6;
 }
 
+.connection-item.clickable {
+  cursor: pointer;
+}
+
+.connection-item.clickable:hover {
+  background: #f3f4f6;
+}
+
+.connection-item.clickable:focus {
+  outline: 2px solid rgba(74, 144, 217, 0.6);
+  outline-offset: -1px;
+}
+
 /* Ensure inline names and single-line labels truncate with ellipsis
    when available space is limited. The `min-width: 0` allows flexible
    items inside a flex container to shrink properly. */
