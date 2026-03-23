@@ -11,11 +11,12 @@ Run with: make test-dev
 Requires: make dev to be running (pod + SSH tunnel)
 """
 
+import os
 import socket
 import pytest
 import httpx
 
-DEV_BASE = "https://localhost:3000"
+DEV_BASE = os.environ.get("DEV_BASE", "https://localhost:3000")
 TIMEOUT = 5.0
 _client = httpx.Client(verify=False, timeout=TIMEOUT, follow_redirects=True)
 
