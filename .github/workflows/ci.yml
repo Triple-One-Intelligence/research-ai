@@ -131,31 +131,37 @@ jobs:
           echo "host_ip=${HOST_IP}" >> "$GITHUB_OUTPUT"
           echo "Preview: frontend=:${UI_PORT}, api=:${API_PORT}"
 
-      - name: Tear down existing preview pod
+      - name: Check if preview pod already exists
+        id: existing
         run: |
-          systemctl --user disable --now "pod-preview-pr-${PR_NUMBER}.service" 2>/dev/null || true
-          podman pod rm -f "preview-pr-${PR_NUMBER}" 2>/dev/null || true
+          if podman pod exists "preview-pr-${PR_NUMBER}" 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Preview pod already running — will hot-reload"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No existing pod — will create from scratch"
+          fi
 
-      - name: Build images
-        run: |
-          podman build -t "research-ai-api:pr-${PR_NUMBER}" -f ./api/Containerfile . -q
-          podman build -t "research-ai-test:pr-${PR_NUMBER}" -f ./api/Containerfile.test . -q
+      - name: Build API image
+        if: steps.existing.outputs.exists == 'false'
+        run: podman build -t "research-ai-api:pr-${PR_NUMBER}" -f ./api/Containerfile . -q
 
-      - name: Create and start preview pod
+      - name: Create preview pod (first run only)
+        if: steps.existing.outputs.exists == 'false'
         run: |
           POD="${{ steps.port.outputs.pod }}"
           UI_PORT="${{ steps.port.outputs.ui_port }}"
           API_PORT="${{ steps.port.outputs.api_port }}"
-          HOST_IP="${{ steps.port.outputs.host_ip }}"
 
-          # No per-pod Caddy — prod Caddy handles TLS and proxies to these HTTP ports
+          # allow_host_loopback lets containers reach Neo4j/Ollama on localhost
+          # without exposing them on the network
           podman pod create \
             --name "$POD" \
+            --network slirp4netns:allow_host_loopback=true \
             -p "${UI_PORT}:5173" \
-            -p "${API_PORT}:8000" \
-            --add-host=host.containers.internal:${HOST_IP}
+            -p "${API_PORT}:8000"
 
-          # API container (read access to Neo4j/Ollama via host network)
+          # API container
           podman run -d \
             --pod "$POD" \
             --name "${POD}-api" \
@@ -164,7 +170,7 @@ jobs:
             -v "${{ github.workspace }}/api:/work:ro" \
             "research-ai-api:pr-${PR_NUMBER}"
 
-          # Frontend dev server (plain HTTP on port 5173)
+          # Frontend dev server — Vite watches the mounted volume and hot-reloads
           podman run -d \
             --pod "$POD" \
             --name "${POD}-frontend" \
@@ -176,7 +182,25 @@ jobs:
             docker.io/library/node:20-alpine \
             sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
 
+      - name: Hot-reload existing pod (subsequent pushes)
+        if: steps.existing.outputs.exists == 'true'
+        run: |
+          POD="${{ steps.port.outputs.pod }}"
+          # Frontend: Vite auto-detects file changes via polling — nothing to do
+          # API: restart to pick up code changes (mounted read-only)
+          podman build -t "research-ai-api:pr-${PR_NUMBER}" -f ./api/Containerfile . -q
+          podman rm -f "${POD}-api" 2>/dev/null || true
+          podman run -d \
+            --pod "$POD" \
+            --name "${POD}-api" \
+            --env-file /home/github-runner/.env.ci \
+            -e CORS_ORIGINS="https://researchaicloud.researchai.src.surf-hosted.nl" \
+            -v "${{ github.workspace }}/api:/work:ro" \
+            "research-ai-api:pr-${PR_NUMBER}"
+          echo "Hot-reloaded — frontend via Vite, API via container restart"
+
       - name: Keep pod alive via systemd
+        if: steps.existing.outputs.exists == 'false'
         run: |
           POD="${{ steps.port.outputs.pod }}"
           mkdir -p ~/.config/systemd/user
@@ -187,10 +211,10 @@ jobs:
           systemctl --user enable --now "pod-${POD}.service"
 
       - name: Register preview route in production Caddy
+        if: steps.existing.outputs.exists == 'false'
         run: |
           UI_PORT="${{ steps.port.outputs.ui_port }}"
           API_PORT="${{ steps.port.outputs.api_port }}"
-          # Prod Caddy proxies /preview/N/ to the preview pod's HTTP ports via the container gateway
           echo "handle_path /preview/${PR_NUMBER}/api/* {
             reverse_proxy 10.89.0.1:${API_PORT}
           }
