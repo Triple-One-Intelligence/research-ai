@@ -87,22 +87,15 @@ const RightPanel = ({ selectedEntity, onEntitySelect }: RightPanelProps) => {
 
   useEffect(() => {
     if (!selectedEntity) {
-      // Avoid synchronous state updates inside effects (lint rule). This branch runs
-      // when switching away from an entity; a microtask keeps the update responsive.
-      Promise.resolve().then(() => {
-        setConnections(null);
-        setError(null);
-      });
+      setConnections(null);
+      setError(null);
+      setLoading(false);
       return;
     }
 
     let cancelled = false;
-    Promise.resolve().then(() => {
-      if (!cancelled) {
-        setLoading(true);
-        setError(null);
-      }
-    });
+    setLoading(true);
+    setError(null);
 
     fetchConnections(selectedEntity)
       .then((data) => {
@@ -116,7 +109,7 @@ const RightPanel = ({ selectedEntity, onEntitySelect }: RightPanelProps) => {
       });
 
     return () => { cancelled = true; };
-  }, [selectedEntity, t]);
+  }, [selectedEntity]);
 
   if (!selectedEntity) {
     return (
