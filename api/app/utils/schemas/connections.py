@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from .organization import Organization
@@ -13,7 +15,7 @@ class Member(BaseModel):
 
 class Connections(BaseModel):
     entity_id: str
-    entity_type: str
+    entity_type: Literal["person", "organization"]
     collaborators: list[Person]
     publications: list[Publication]
     organizations: list[Organization]
@@ -26,27 +28,27 @@ class Connections(BaseModel):
 
 class CollaboratorsResponse(BaseModel):
     entity_id: str
-    entity_type: str
+    entity_type: Literal["person", "organization"]
     collaborators: list[Person]
     cursor: str | None = None
 
 
 class PublicationsResponse(BaseModel):
     entity_id: str
-    entity_type: str
+    entity_type: Literal["person", "organization"]
     publications: list[Publication]
     cursor: str | None = None
 
 
 class OrganizationsResponse(BaseModel):
     entity_id: str
-    entity_type: str
+    entity_type: Literal["person", "organization"]
     organizations: list[Organization]
     cursor: str | None = None
 
 
 class MembersResponse(BaseModel):
     entity_id: str
-    entity_type: str
+    entity_type: Literal["person", "organization"]
     members: list[Member]
     cursor: str | None = None

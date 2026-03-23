@@ -70,7 +70,11 @@ Returns connections for an entity.
   "collaborators": [{"author_id": "string", "name": "string"}],
   "publications": [{"doi": "string", "title": "string", "year": 2024, "category": "string", "versions": []}],
   "organizations": [{"organization_id": "string", "name": "string"}],
-  "members": [{"author_id": "string", "name": "string"}]
+  "members": [{"author_id": "string", "name": "string"}],
+  "collaborators_cursor": "string | null",
+  "publications_cursor": "string | null",
+  "organizations_cursor": "string | null",
+  "members_cursor": "string | null"
 }
 ```
 
@@ -94,7 +98,7 @@ Returns collaborator connections for an entity.
 | `entity_id` | str | yes | — | Entity identifier |
 | `entity_type` | str | yes | — | `"person"` or `"organization"` |
 | `limit` | int | no | 50 | Max collaborators returned (range 1-200) |
-| `cursor` | str | no | — | Pagination cursor (ignored for now) |
+| `cursor` | str | no | — | Pagination cursor from previous response |
 
 **Response:**
 
@@ -126,7 +130,7 @@ Returns publication connections for an entity.
 | `entity_id` | str | yes | — | Entity identifier |
 | `entity_type` | str | yes | — | `"person"` or `"organization"` |
 | `limit` | int | no | 50 | Max publications returned (range 1-200) |
-| `cursor` | str | no | — | Pagination cursor (ignored for now) |
+| `cursor` | str | no | — | Pagination cursor from previous response |
 
 **Response:**
 
@@ -158,7 +162,7 @@ Returns organization connections for an entity.
 | `entity_id` | str | yes | — | Entity identifier |
 | `entity_type` | str | yes | — | `"person"` or `"organization"` |
 | `limit` | int | no | 50 | Max organizations returned (range 1-200) |
-| `cursor` | str | no | — | Pagination cursor (ignored for now) |
+| `cursor` | str | no | — | Pagination cursor from previous response |
 
 **Response:**
 
@@ -190,7 +194,7 @@ Returns member connections for an entity.
 | `entity_id` | str | yes | — | Entity identifier |
 | `entity_type` | str | yes | — | `"person"` or `"organization"` |
 | `limit` | int | no | 50 | Max members returned (range 1-200) |
-| `cursor` | str | no | — | Pagination cursor (ignored for now) |
+| `cursor` | str | no | — | Pagination cursor from previous response |
 
 **Response:**
 

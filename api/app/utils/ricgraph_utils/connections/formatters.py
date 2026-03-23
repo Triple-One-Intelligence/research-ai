@@ -61,15 +61,20 @@ def normalize_versions(raw_versions: Any) -> list[dict[str, Any]] | None:
     if not isinstance(raw_versions, list):
         return None
 
-    versions = [
-        {
-            "doi": version.get("doi"),
-            "year": parse_year(version.get("year")),
-            "category": version.get("category"),
-        }
-        for version in raw_versions
-        if isinstance(version, dict)
-    ]
+    versions: list[dict[str, Any]] = []
+    for version in raw_versions:
+        if not isinstance(version, dict):
+            continue
+        doi = version.get("doi")
+        if not isinstance(doi, str) or not doi.strip():
+            continue
+        versions.append(
+            {
+                "doi": doi.strip(),
+                "year": parse_year(version.get("year")),
+                "category": version.get("category"),
+            }
+        )
     return versions or None
 
 def format_publications(rows: list[dict[str, Any]]) -> list[Publication]:

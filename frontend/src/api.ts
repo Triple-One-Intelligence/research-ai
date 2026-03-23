@@ -84,13 +84,12 @@ export const fetchCollaboratorsPage = async (
   limit: number,
   cursor?: string | null,
 ): Promise<CollaboratorsPageResponse> => {
-  const params = new URLSearchParams();
-  params.append('entity_id', entity.id);
-  params.append('entity_type', entity.type);
-  params.append('limit', limit.toString());
-  if (cursor != null) params.append('cursor', cursor);
-
-  const response = await api.get<CollaboratorsPageResponse>(`/connections/collaborators?${params.toString()}`);
+  const response = await fetchConnectionsPage<CollaboratorsPageResponse>(
+    '/connections/collaborators',
+    entity,
+    limit,
+    cursor
+  );
   return response.data;
 };
 
@@ -99,13 +98,12 @@ export const fetchPublicationsPage = async (
   limit: number,
   cursor?: string | null,
 ): Promise<PublicationsPageResponse> => {
-  const params = new URLSearchParams();
-  params.append('entity_id', entity.id);
-  params.append('entity_type', entity.type);
-  params.append('limit', limit.toString());
-  if (cursor != null) params.append('cursor', cursor);
-
-  const response = await api.get<PublicationsPageResponse>(`/connections/publications?${params.toString()}`);
+  const response = await fetchConnectionsPage<PublicationsPageResponse>(
+    '/connections/publications',
+    entity,
+    limit,
+    cursor
+  );
   return response.data;
 };
 
@@ -114,13 +112,12 @@ export const fetchOrganizationsPage = async (
   limit: number,
   cursor?: string | null,
 ): Promise<OrganizationsPageResponse> => {
-  const params = new URLSearchParams();
-  params.append('entity_id', entity.id);
-  params.append('entity_type', entity.type);
-  params.append('limit', limit.toString());
-  if (cursor != null) params.append('cursor', cursor);
-
-  const response = await api.get<OrganizationsPageResponse>(`/connections/organizations?${params.toString()}`);
+  const response = await fetchConnectionsPage<OrganizationsPageResponse>(
+    '/connections/organizations',
+    entity,
+    limit,
+    cursor
+  );
   return response.data;
 };
 
@@ -129,14 +126,27 @@ export const fetchMembersPage = async (
   limit: number,
   cursor?: string | null,
 ): Promise<MembersPageResponse> => {
+  const response = await fetchConnectionsPage<MembersPageResponse>(
+    '/connections/members',
+    entity,
+    limit,
+    cursor
+  );
+  return response.data;
+};
+
+const fetchConnectionsPage = <T>(
+  endpoint: string,
+  entity: EntityRef,
+  limit: number,
+  cursor?: string | null,
+) => {
   const params = new URLSearchParams();
   params.append('entity_id', entity.id);
   params.append('entity_type', entity.type);
   params.append('limit', limit.toString());
   if (cursor != null) params.append('cursor', cursor);
-
-  const response = await api.get<MembersPageResponse>(`/connections/members?${params.toString()}`);
-  return response.data;
+  return api.get<T>(`${endpoint}?${params.toString()}`);
 };
 
 export default api;

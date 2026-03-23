@@ -22,6 +22,9 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
   return fallback;
 };
 
+type CursorSetter = (cursor: string | null) => void;
+type BoolSetter = (value: boolean) => void;
+
 /* ── Inline sub-component for a single publication ────────────── */
 
 function PublicationItem({ pub }: { pub: ConnectionsResponse['publications'][number] }) {
@@ -153,96 +156,89 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
     return () => { cancelled = true; };
   }, [selectedEntity]);
 
-  const onLoadMoreCollaborators = async () => {
-    if (!selectedEntity || collaboratorsLoading || !collaboratorsHasMore) return;
+  const loadMoreConnections = async <
+    TPage extends { cursor: string | null },
+  >(args: {
+    hasMore: boolean;
+    loading: boolean;
+    cursor: string | null;
+    setLoading: BoolSetter;
+    setHasMore: BoolSetter;
+    setCursor: CursorSetter;
+    fetchPage: (entity: EntitySuggestion, cursor: string | null) => Promise<TPage>;
+    merge: (prev: ConnectionsResponse, page: TPage) => ConnectionsResponse;
+  }) => {
+    if (!selectedEntity || args.loading || !args.hasMore) return;
     const requestEntityKey = getEntityKey(selectedEntity);
-    setCollaboratorsLoading(true);
+    args.setLoading(true);
     setError(null);
     try {
-      const page = await fetchCollaboratorsPage(selectedEntity, PAGE_SIZE, collaboratorsNextCursor);
+      const page = await args.fetchPage(selectedEntity, args.cursor);
       setConnections((prev) => {
         if (!prev || getEntityKey({ id: prev.entity_id, type: prev.entity_type }) !== requestEntityKey) {
           return prev;
         }
-        const merged = [...prev.collaborators, ...page.collaborators];
-        setCollaboratorsHasMore(page.cursor != null);
-        setCollaboratorsNextCursor(page.cursor);
-        return { ...prev, collaborators: merged };
+        args.setHasMore(page.cursor != null);
+        args.setCursor(page.cursor);
+        return args.merge(prev, page);
       });
     } catch (err: unknown) {
       setError(getErrorMessage(err, t('rightPanel.loadFailedFallback')));
     } finally {
-      setCollaboratorsLoading(false);
+      args.setLoading(false);
     }
+  };
+
+  const onLoadMoreCollaborators = async () => {
+    await loadMoreConnections({
+      hasMore: collaboratorsHasMore,
+      loading: collaboratorsLoading,
+      cursor: collaboratorsNextCursor,
+      setLoading: setCollaboratorsLoading,
+      setHasMore: setCollaboratorsHasMore,
+      setCursor: setCollaboratorsNextCursor,
+      fetchPage: (entity, cursor) => fetchCollaboratorsPage(entity, PAGE_SIZE, cursor),
+      merge: (prev, page) => ({ ...prev, collaborators: [...prev.collaborators, ...page.collaborators] }),
+    });
   };
 
   const onLoadMorePublications = async () => {
-    if (!selectedEntity || publicationsLoading || !publicationsHasMore) return;
-    const requestEntityKey = getEntityKey(selectedEntity);
-    setPublicationsLoading(true);
-    setError(null);
-    try {
-      const page = await fetchPublicationsPage(selectedEntity, PAGE_SIZE, publicationsNextCursor);
-      setConnections((prev) => {
-        if (!prev || getEntityKey({ id: prev.entity_id, type: prev.entity_type }) !== requestEntityKey) {
-          return prev;
-        }
-        const merged = [...prev.publications, ...page.publications];
-        setPublicationsHasMore(page.cursor != null);
-        setPublicationsNextCursor(page.cursor);
-        return { ...prev, publications: merged };
-      });
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, t('rightPanel.loadFailedFallback')));
-    } finally {
-      setPublicationsLoading(false);
-    }
+    await loadMoreConnections({
+      hasMore: publicationsHasMore,
+      loading: publicationsLoading,
+      cursor: publicationsNextCursor,
+      setLoading: setPublicationsLoading,
+      setHasMore: setPublicationsHasMore,
+      setCursor: setPublicationsNextCursor,
+      fetchPage: (entity, cursor) => fetchPublicationsPage(entity, PAGE_SIZE, cursor),
+      merge: (prev, page) => ({ ...prev, publications: [...prev.publications, ...page.publications] }),
+    });
   };
 
   const onLoadMoreOrganizations = async () => {
-    if (!selectedEntity || organizationsLoading || !organizationsHasMore) return;
-    const requestEntityKey = getEntityKey(selectedEntity);
-    setOrganizationsLoading(true);
-    setError(null);
-    try {
-      const page = await fetchOrganizationsPage(selectedEntity, PAGE_SIZE, organizationsNextCursor);
-      setConnections((prev) => {
-        if (!prev || getEntityKey({ id: prev.entity_id, type: prev.entity_type }) !== requestEntityKey) {
-          return prev;
-        }
-        const merged = [...prev.organizations, ...page.organizations];
-        setOrganizationsHasMore(page.cursor != null);
-        setOrganizationsNextCursor(page.cursor);
-        return { ...prev, organizations: merged };
-      });
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, t('rightPanel.loadFailedFallback')));
-    } finally {
-      setOrganizationsLoading(false);
-    }
+    await loadMoreConnections({
+      hasMore: organizationsHasMore,
+      loading: organizationsLoading,
+      cursor: organizationsNextCursor,
+      setLoading: setOrganizationsLoading,
+      setHasMore: setOrganizationsHasMore,
+      setCursor: setOrganizationsNextCursor,
+      fetchPage: (entity, cursor) => fetchOrganizationsPage(entity, PAGE_SIZE, cursor),
+      merge: (prev, page) => ({ ...prev, organizations: [...prev.organizations, ...page.organizations] }),
+    });
   };
 
   const onLoadMoreMembers = async () => {
-    if (!selectedEntity || membersLoading || !membersHasMore) return;
-    const requestEntityKey = getEntityKey(selectedEntity);
-    setMembersLoading(true);
-    setError(null);
-    try {
-      const page = await fetchMembersPage(selectedEntity, PAGE_SIZE, membersNextCursor);
-      setConnections((prev) => {
-        if (!prev || getEntityKey({ id: prev.entity_id, type: prev.entity_type }) !== requestEntityKey) {
-          return prev;
-        }
-        const merged = [...prev.members, ...page.members];
-        setMembersHasMore(page.cursor != null);
-        setMembersNextCursor(page.cursor);
-        return { ...prev, members: merged };
-      });
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, t('rightPanel.loadFailedFallback')));
-    } finally {
-      setMembersLoading(false);
-    }
+    await loadMoreConnections({
+      hasMore: membersHasMore,
+      loading: membersLoading,
+      cursor: membersNextCursor,
+      setLoading: setMembersLoading,
+      setHasMore: setMembersHasMore,
+      setCursor: setMembersNextCursor,
+      fetchPage: (entity, cursor) => fetchMembersPage(entity, PAGE_SIZE, cursor),
+      merge: (prev, page) => ({ ...prev, members: [...prev.members, ...page.members] }),
+    });
   };
 
   if (!selectedEntity) {

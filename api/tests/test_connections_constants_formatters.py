@@ -60,6 +60,8 @@ def test_normalize_versions_filters_and_parses_entries():
         [
             {"doi": "10.1/a", "year": "2024", "category": "article"},
             {"doi": "10.1/b", "year": "unknown", "category": "preprint"},
+            {"doi": "   ", "year": "2020", "category": "article"},
+            {"year": "2021", "category": "missing-doi"},
             "skip-me",
         ]
     )
