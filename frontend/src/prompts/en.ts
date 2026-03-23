@@ -4,7 +4,7 @@
  * These prompts contain only task-specific instructions and structure.
  */
 
-export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'topCollaborators' | 'recentPublications';
+export type PromptType = 'executiveSummary' | 'topOrganizations' | 'topCollaborators' | 'recentPublications';
 
 export const getPrompt = (type: PromptType, entityName: string): string => {
   const prompts: Record<PromptType, (name: string) => string> = {
@@ -30,30 +30,6 @@ In 2 to 4 sentences, describe the scientific, societal, or practical relevance o
 
 CONTENT RULES
 - Avoid overlap between sections.
-`,
-
-  strengthsGaps: (name) => `Analyze the strengths and gaps of ${name} based on the provided context.
-
-STRUCTURE:
-
-**Strengths**
-- <strength>
-- <strength>
-- <strength>
-
-**Gaps**
-- <gap>
-- <gap>
-- <gap>
-
-**Recommendations**
-- <action>
-- <action>
-- <action>
-
-CONTENT RULES:
-- Support each point with concrete signals from the context.
-- Be specific and avoid vague wording.
 `,
 
     topOrganizations: (name) => `Find the top 5 organizations that ${name} collaborates with. For each collaboration, provide:

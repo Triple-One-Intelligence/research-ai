@@ -4,7 +4,7 @@ Generieke regels (rol, brongebruik, citaties, stijl, format) staan in de system 
 Deze prompts bevatten alleen taakspecifieke instructies en structuur.
  */
 
-export type PromptType = 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'topCollaborators' | 'recentPublications';
+export type PromptType = 'executiveSummary' | 'topOrganizations' | 'topCollaborators' | 'recentPublications';
 
 export const getPrompt = (type: PromptType, entityName: string): string => {
   const prompts: Record<PromptType, (name: string) => string> = {
@@ -30,30 +30,6 @@ Beschrijf in 2 tot 4 zinnen de wetenschappelijke, maatschappelijke of praktische
 
 INHOUDSREGELS
 - Vermijd overlap tussen secties.
-`,
-
-  strengthsGaps: (name) => `Analyseer de sterke en zwakke punten van ${name} op basis van de aangeleverde context.
-
-STRUCTUUR:
-
-**Sterke punten**
-- <sterk punt>
-- <sterk punt>
-- <sterk punt>
-
-**Zwakke punten**
-- <zwak punt>
-- <zwak punt>
-- <zwak punt>
-
-**Aanbevelingen**
-- <actie>
-- <actie>
-- <actie>
-
-INHOUDSREGELS:
-- Onderbouw elk punt met concrete signalen uit de context.
-- Wees specifiek, vermijd algemene termen.
 `,
 
     topOrganizations: (name) => `Vind de top 5 organisaties waarmee ${name} samenwerkt. Voor elke samenwerking:

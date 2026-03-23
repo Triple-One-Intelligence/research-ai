@@ -18,7 +18,7 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
   const { t, i18n } = useTranslation();
   const [customPrompt, setCustomPrompt] = useState('');
 
-  const getLocalizedPrompt = (type: 'executiveSummary' | 'strengthsGaps' | 'topOrganizations' | 'topCollaborators' | 'recentPublications') => {
+  const getLocalizedPrompt = (type: 'executiveSummary' | 'topOrganizations' | 'topCollaborators' | 'recentPublications') => {
     const promptModule = i18n.language === 'nl' ? nlPrompts : enPrompts;
     return promptModule.getPrompt(type, selectedEntity?.label || '');
   };
@@ -40,14 +40,6 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
           >
             <span className="prompt-icon">📄</span>
             {t('leftPanel.executiveSummary')}
-          </button>
-          <button
-            className="prompt-btn"
-            onClick={() => onAsk(getLocalizedPrompt('strengthsGaps'))}
-            disabled={isGenerating}
-          >
-            <span className="prompt-icon">⚖️</span>
-            {t('leftPanel.strengthsGaps')}
           </button>
           <button
             className="prompt-btn"
