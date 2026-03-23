@@ -5,16 +5,13 @@ parts of the database.
 """
 
 import logging
-import os
 import re
 import time
 from neo4j import Driver, GraphDatabase
 
-log = logging.getLogger(__name__)
+from app.config import REMOTE_NEO4J_URL, REMOTE_NEO4J_USER, REMOTE_NEO4J_PASS
 
-REMOTE_NEO4J_URL  = os.environ["REMOTE_NEO4J_URL"]
-REMOTE_NEO4J_USER = os.environ["REMOTE_NEO4J_USER"]
-REMOTE_NEO4J_PASS = os.environ["REMOTE_NEO4J_PASS"]
+log = logging.getLogger(__name__)
 
 FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
 VECTOR_INDEX_NAME = "publicationEmbeddingIndex"

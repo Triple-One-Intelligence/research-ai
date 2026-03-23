@@ -121,6 +121,35 @@ const App = () => {
     window.addEventListener('mouseup', onMouseUp);
   }, [leftWidth, rightWidth, onMouseMove, onMouseUp]);
 
+  const handlePipeline = (promptType: string, prompt: string) => {
+    if (isGenerating || !selectedEntity) return;
+
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setResponseText('');
+    setDebugInfo(null);
+    setIsGenerating(true);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    streamSSE(
+      `${API_BASE}/pipeline/${promptType}`,
+      {
+        prompt,
+        entity: {
+          id: selectedEntity.id,
+          type: selectedEntity.type,
+          label: selectedEntity.label,
+        },
+      },
+      (chunk) => setResponseText((prev) => prev + chunk),
+      () => setIsGenerating(false),
+      undefined,
+      controller.signal,
+    );
+  };
+
   const handleGenerate = (prompt: string) => {
     if (isGenerating) return;
 
@@ -210,6 +239,7 @@ const App = () => {
         <LeftPanel
           selectedEntity={selectedEntity}
           onAsk={handleGenerate}
+          onAskPipeline={handlePipeline}
           isGenerating={isGenerating}
           onEntitySelect={setSelectedEntity}
           onEntityClear={() => setSelectedEntity(null)}
