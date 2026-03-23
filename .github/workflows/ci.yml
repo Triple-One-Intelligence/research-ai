@@ -106,7 +106,7 @@ jobs:
   # Creates an isolated pod per PR. Preview stays running until PR closes.
   # Multiple PRs can run simultaneously — each gets its own port.
   preview-and-test:
-    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && (github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER')
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     needs: [test-api, build-frontend, changes]
     runs-on: [self-hosted, linux, production]
     env:
