@@ -130,8 +130,8 @@ dev: down
 	@nc -z localhost 5173 2>/dev/null \
 		&& printf "$(_G)[dev]$(_0) Frontend ready\n" \
 		|| printf "$(_Y)[dev]$(_0) Frontend not ready yet (tests may fail)\n"
-	@printf "\n$(_G)$(_B)  Dev running!$(_0)  https://localhost:3000\n\n"
-	@$(MAKE) -s test || printf "\n$(_Y)[dev]$(_0) Some tests failed (see above)\n\n"
+	@printf "\n$(_G)$(_B)  Dev running!$(_0)  https://localhost:3000\n"
+	@printf "  Run $(_C)make test-dev$(_0) to run smoke + integration tests.\n\n"
 
 up:
 	$(_ensure_deps)

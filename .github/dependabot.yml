@@ -1,19 +1,20 @@
 version: 2
 updates:
-  # Python dependencies
+  # Python dependencies — reviewed by backend leads
   - package-ecosystem: pip
     directory: /api
     schedule:
       interval: weekly
       day: monday
     reviewers:
+      - ThijmenLigter
       - Lukasvd123
     labels:
       - dependencies
       - python
     open-pull-requests-limit: 5
 
-  # npm dependencies
+  # npm dependencies — reviewed by frontend contributors
   - package-ecosystem: npm
     directory: /frontend
     schedule:
@@ -21,12 +22,13 @@ updates:
       day: monday
     reviewers:
       - Lukasvd123
+      - Strike6782
     labels:
       - dependencies
       - javascript
     open-pull-requests-limit: 5
 
-  # GitHub Actions versions
+  # GitHub Actions versions — reviewed by CI/CD owners
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -34,6 +36,7 @@ updates:
       day: monday
     reviewers:
       - Lukasvd123
+      - jandre-d
     labels:
       - dependencies
       - ci

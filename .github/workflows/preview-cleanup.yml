@@ -1,0 +1,26 @@
+name: Preview Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  cleanup:
+    runs-on: [self-hosted, linux, production]
+    steps:
+      - name: Destroy preview pod
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          POD_NAME="preview-pr-${PR_NUMBER}"
+
+          if podman pod exists "${POD_NAME}" 2>/dev/null; then
+            podman pod rm -f "${POD_NAME}"
+            echo "Destroyed preview pod: ${POD_NAME}"
+          else
+            echo "No preview pod found for PR #${PR_NUMBER}"
+          fi
+
+          # Clean up PR-tagged images
+          podman rmi "research-ai-api:pr-${PR_NUMBER}" 2>/dev/null || true
+          podman image prune -f 2>/dev/null || true
