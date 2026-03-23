@@ -53,9 +53,10 @@ ORDER BY score DESC
 LIMIT $limit
 """
 
+#Takes (rootValue: str, limit: int)
 get_PERSON_PUBLICATIONS = """/*cypher*/
 // All publications linked from a person-root, excluding certain categories
-MATCH (root:RicgraphNode {value: $rootValue})-[:LINKS_TO]-(pub:RicgraphNode {name: 'DOI'})
+MATCH (root:RicgraphNode {value: $entityId})-[:LINKS_TO]-(pub:RicgraphNode {name: 'DOI'})
 WITH DISTINCT pub
 ORDER BY pub.year DESC
 RETURN pub.value   AS doi,

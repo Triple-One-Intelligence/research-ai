@@ -28,9 +28,11 @@ router = APIRouter()
 log = logging.getLogger(__name__)
 
 
-@router.get("/prompt_top5publications")
+@router.post("/prompt_top5publications")
 def _stream_prompt1_response(selected_entity: EntityRef, language: str = "English") -> StreamingResponse:
 
+    USER_PROMPT = "Generate a short summary regarding the selected documents if availible and list them off."
+    
     # Retrieve the publications from Neo4j 
     if selected_entity.type == "person":
         query = rag_queries.get_PERSON_PUBLICATIONS
@@ -38,11 +40,12 @@ def _stream_prompt1_response(selected_entity: EntityRef, language: str = "Englis
         query = rag_queries.get_ORG_PUBLICATIONS
     
     params = {
-        "rootValue": selected_entity.id,
+        "entityId": selected_entity.id,
         "limit": 5
     }
 
     documentList: list[SimilarPublication]= []
+    
     with get_graph().session() as session:
         results = session.run(query, **params)
         documentList = [
@@ -62,7 +65,8 @@ def _stream_prompt1_response(selected_entity: EntityRef, language: str = "Englis
 
     messages: list[Message] = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": "Generate a short joke"}, #TODO: add a new prompt or combine it with the system prompt
+            {"role": "system", "content": "Respond in: " + language},
+            {"role": "user", "content": USER_PROMPT}, #TODO: add a new prompt or combine it with the system prompt
         ]
     
     # Send it all to the AI
@@ -102,6 +106,7 @@ def _build_rag_system_prompt(entity: EntityRef | None, publications_context: str
 
     Pattern: Builder — constructs the prompt step-by-step from parts.
     Instructs the model to cite sources using document numbers [1], [2], etc."""
+    
     parts = [
         "Use ONLY the given context documents as evidence. "
         "Cite your sources inline using document numbers, e.g. [1], [2]. "

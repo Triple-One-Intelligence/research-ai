@@ -171,6 +171,30 @@ const App = () => {
     setDebugInfo(null);
     setIsGenerating(false);
   }, [selectedEntity?.id, selectedEntity?.type]);
+  const handleTop5Pubs = () => {
+    if (isGenerating || !selectedEntity) return;
+  
+    setResponseText('');
+    setDebugInfo(null);
+    setIsGenerating(true);
+  
+    const langStr = language === 'nl' ? 'Dutch' : 'English';
+  
+    // send language as query param, body only contains selected_entity
+    const url = `${API_BASE}/prompt_top5publications?language=${encodeURIComponent(langStr)}`;
+  
+    streamSSE(
+      url,
+      {
+        id: String(selectedEntity.id),
+        type: selectedEntity.type,
+        label: selectedEntity.label,
+      },
+      (chunk) => setResponseText((prev) => prev + chunk),
+      () => setIsGenerating(false),
+      (info) => setDebugInfo(info),
+    );
+  };
 
   const { t, i18n } = useTranslation();
   const language = i18n.language as 'en' | 'nl';
@@ -210,6 +234,7 @@ const App = () => {
         <LeftPanel
           selectedEntity={selectedEntity}
           onAsk={handleGenerate}
+          onTop5Pubs={handleTop5Pubs}
           isGenerating={isGenerating}
           onEntitySelect={setSelectedEntity}
           onEntityClear={() => setSelectedEntity(null)}

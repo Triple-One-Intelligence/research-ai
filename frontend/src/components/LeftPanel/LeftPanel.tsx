@@ -8,15 +8,14 @@ import './LeftPanel.css';
 
 interface LeftPanelProps {
   onAsk: (prompt: string) => void;
+  onTop5Pubs: () => void;
   isGenerating: boolean;
   selectedEntity: EntitySuggestion | null;
   onEntitySelect: (entity: EntitySuggestion) => void;
   onEntityClear: () => void;
 }
 
-// Left column: lets the user pick an entity and compose a custom prompt.
-// It also provides one-click prompt templates based on the selected entity.
-const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEntityClear }: LeftPanelProps) => {
+const LeftPanel = ({ onAsk, onTop5Pubs, isGenerating, selectedEntity, onEntitySelect, onEntityClear }: LeftPanelProps) => {
   const { t, i18n } = useTranslation();
   const [customPrompt, setCustomPrompt] = useState('');
 
@@ -70,6 +69,16 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
           >
             <span className="prompt-icon">📚</span>
             {t('leftPanel.recentPublications')}
+          </button>
+
+          <button
+            className="prompt-btn"
+            onClick={onTop5Pubs}
+            disabled={isGenerating}
+            title={t('leftPanel.top5PubsTitle') ?? 'Stream top 5 publications'}
+          >
+            <span className="prompt-icon">5️⃣</span>
+            {t('Top 5 publications')}
           </button>
         </div>
       )}
