@@ -144,14 +144,14 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
         setMembersNextCursor(data.members_cursor);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message ?? t('rightPanel.loadFailedFallback'));
+        if (!cancelled) setError(getErrorMessage(err, 'Failed to load connections'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
 
     return () => { cancelled = true; };
-  }, [selectedEntity, t]);
+  }, [selectedEntity]);
 
   const mergeUniqueById = <T,>(
     existing: T[],
