@@ -25,7 +25,7 @@ _0 := \033[0m
 UNIT_TESTS := tests/test_query_utils.py tests/test_database_utils.py \
               tests/test_autocomplete_utils.py tests/test_enrich.py \
               tests/test_schemas.py tests/test_api_endpoints.py \
-              tests/test_connections_endpoint.py
+              tests/test_connections_endpoint.py tests/test_pipelines.py
 
 DEV_TESTS  := tests/test_smoke_dev.py tests/test_integration_api.py
 

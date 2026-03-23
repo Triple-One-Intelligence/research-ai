@@ -8,6 +8,7 @@ import './LeftPanel.css';
 
 interface LeftPanelProps {
   onAsk: (prompt: string) => void;
+  onAskPipeline: (promptType: string, prompt: string) => void;
   isGenerating: boolean;
   selectedEntity: EntitySuggestion | null;
   onEntitySelect: (entity: EntitySuggestion) => void;
@@ -16,7 +17,7 @@ interface LeftPanelProps {
 
 // Left column: lets the user pick an entity and compose a custom prompt.
 // It also provides one-click prompt templates based on the selected entity.
-const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEntityClear }: LeftPanelProps) => {
+const LeftPanel = ({ onAsk, onAskPipeline, isGenerating, selectedEntity, onEntitySelect, onEntityClear }: LeftPanelProps) => {
   const { t, i18n } = useTranslation();
   const [customPrompt, setCustomPrompt] = useState('');
 
@@ -41,7 +42,7 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
         <div className="prompt-buttons">
           <button
             className="prompt-btn"
-            onClick={() => onAsk(getLocalizedPrompt('executiveSummary'))}
+            onClick={() => onAskPipeline('executiveSummary', getLocalizedPrompt('executiveSummary'))}
             disabled={isGenerating}
           >
             <span className="prompt-icon">📄</span>
@@ -49,7 +50,7 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
           </button>
           <button
             className="prompt-btn"
-            onClick={() => onAsk(getLocalizedPrompt('topOrganizations'))}
+            onClick={() => onAskPipeline('topOrganizations', getLocalizedPrompt('topOrganizations'))}
             disabled={isGenerating}
           >
             <span className="prompt-icon">🏢</span>
@@ -57,7 +58,7 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
           </button>
           <button
             className="prompt-btn"
-            onClick={() => onAsk(getLocalizedPrompt('topCollaborators'))}
+            onClick={() => onAskPipeline('topCollaborators', getLocalizedPrompt('topCollaborators'))}
             disabled={isGenerating}
           >
             <span className="prompt-icon">🤝</span>
@@ -65,7 +66,7 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
           </button>
           <button
             className="prompt-btn"
-            onClick={() => onAsk(getLocalizedPrompt('recentPublications'))}
+            onClick={() => onAskPipeline('recentPublications', getLocalizedPrompt('recentPublications'))}
             disabled={isGenerating}
           >
             <span className="prompt-icon">📚</span>
