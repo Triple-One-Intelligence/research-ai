@@ -56,3 +56,4 @@ async def async_embed(input: str) -> list[float]:
     if not embeddings or not embeddings[0]:
         raise HTTPException(status_code=502, detail="AI service returned empty embeddings.")
     return embeddings[0]
+
