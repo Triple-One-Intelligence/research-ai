@@ -1,0 +1,40 @@
+# ── CODEOWNERS ─────────────────────────────────────────────────
+# Automatically assigns reviewers based on who works on what.
+# Based on git commit history analysis (March 2025).
+#
+# GitHub usernames mapped from git log:
+#   ThijmenLigter  — API/backend lead (115 Python commits)
+#   Lukasvd123     — CI/CD, infra, full-stack (110 total commits)
+#   jandre-d       — Infrastructure, CI/CD, repo admin
+#   Anou212        — Frontend (10 commits)
+#   Strike6782     — Frontend (12 commits)
+#   TimonZ4        — Frontend + some backend
+#
+# NOTE: sybren (s.c.m.vandermeijden, 46 API commits) has no known
+# GitHub username yet — add them here once confirmed.
+# ───────────────────────────────────────────────────────────────
+
+# Default: all PRs need at least one of these two
+*                       @Lukasvd123 @jandre-d
+
+# Backend API and data pipeline — Thijmen dominates (99 commits)
+/api/                   @ThijmenLigter @Lukasvd123
+/api/tests/             @ThijmenLigter @Lukasvd123
+
+# Frontend — spread across multiple contributors
+/frontend/              @Lukasvd123 @Strike6782 @Anou212 @TimonZ4
+
+# Infrastructure and deployment
+/kube/                  @Lukasvd123 @jandre-d
+/caddy/                 @Lukasvd123 @jandre-d
+/.caddy/                @Lukasvd123 @jandre-d
+Makefile                @Lukasvd123 @jandre-d
+
+# CI/CD and repo config
+/.github/               @Lukasvd123 @jandre-d
+
+# Documentation
+/docs/                  @Lukasvd123
+
+# Scripts
+/scripts/               @Lukasvd123

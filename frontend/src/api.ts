@@ -1,9 +1,12 @@
 import axios from 'axios';
 import type { EntitySuggestion, EntityRef, ConnectionsResponse, PersonRef, OrganizationRef } from './types';
 
+// Single source of truth for the API base URL
+export const API_BASE = import.meta.env.VITE_API_URL || "/api";
+
 // Pattern: Singleton — single shared axios instance for all API calls
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "/api"
+  baseURL: API_BASE,
 });
 
 // Refactoring: Duplicate Code fix — PersonRef and OrganizationRef imported from types.ts

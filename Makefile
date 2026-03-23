@@ -130,8 +130,8 @@ dev: down
 	@nc -z localhost 5173 2>/dev/null \
 		&& printf "$(_G)[dev]$(_0) Frontend ready\n" \
 		|| printf "$(_Y)[dev]$(_0) Frontend not ready yet (tests may fail)\n"
-	@printf "\n$(_G)$(_B)  Dev running!$(_0)  https://localhost:3000\n\n"
-	@$(MAKE) -s test || printf "\n$(_Y)[dev]$(_0) Some tests failed (see above)\n\n"
+	@printf "\n$(_G)$(_B)  Dev running!$(_0)  https://localhost:3000\n"
+	@printf "  Run $(_C)make test-dev$(_0) to run smoke + integration tests.\n\n"
 
 up:
 	$(_ensure_deps)
@@ -259,7 +259,23 @@ logs-ui:
 logs-ric:
 	journalctl -u research-ai-ricgraph -f
 
-# ── Production ───────────────────────────────────────────────────────────────
+# ── CI (runner-safe: only touches API + frontend + Caddy) ────────────────────
+
+ci-deploy:
+	@printf "$(_B)[ci-deploy]$(_0) Rebuilding API + frontend...\n"
+	podman build -t research-ai-api:prod -f ./api/Containerfile .
+	$(call _load_env,./kube/research-ai-prod.env); \
+		podman build -t research-ai-frontend:prod -f ./frontend/Containerfile . \
+		--build-arg VITE_API_URL=$$VITE_API_URL
+	sudo install -m 0644 kube/research-ai-frontend.container /etc/containers/systemd/
+	sudo install -m 0644 kube/research-ai-api.container     /etc/containers/systemd/
+	sudo install -m 0644 caddy/Caddyfile.prod /etc/research-ai/Caddyfile.prod
+	sudo systemctl daemon-reload
+	sudo systemctl restart research-ai-api.service
+	sudo systemctl restart research-ai-frontend.service
+	@printf "$(_G)[ci-deploy]$(_0) API + frontend restarted.\n"
+
+# ── Production (full deploy, includes Neo4j/Ollama/Ricgraph) ─────────────────
 
 deploy:
 	@printf "$(_B)Deploying...$(_0)\n"
