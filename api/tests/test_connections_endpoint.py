@@ -1,10 +1,10 @@
-"""Tests for the connections router and connections_utils."""
+"""Tests for the connections router and connections package."""
 
 from unittest.mock import patch, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from app.utils.ricgraph_utils.connections_utils import (
+from app.utils.ricgraph_utils.connections import (
     clean_name, clean_title, parse_year,
     format_people, format_organizations, format_publications,
     get_connections, InvalidEntityTypeError, ConnectionsError,
@@ -142,7 +142,7 @@ class TestGetConnections:
         with pytest.raises(InvalidEntityTypeError):
             get_connections("id", "invalid_type")
 
-    @patch("app.utils.ricgraph_utils.connections_utils.database_utils")
+    @patch("app.utils.ricgraph_utils.connections.utils.database_utils")
     def test_person_returns_structure(self, mock_db):
         mock_session = MagicMock()
         mock_session.run.return_value.single.return_value = MagicMock(
@@ -159,7 +159,7 @@ class TestGetConnections:
         assert "organizations" in result
         assert "members" in result
 
-    @patch("app.utils.ricgraph_utils.connections_utils.database_utils")
+    @patch("app.utils.ricgraph_utils.connections.utils.database_utils")
     def test_organization_returns_structure(self, mock_db):
         mock_session = MagicMock()
         mock_session.run.return_value.data.return_value = []

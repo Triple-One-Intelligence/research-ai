@@ -12,7 +12,7 @@ from app.utils.schemas import (
     OrganizationsResponse,
     MembersResponse,
 )
-from app.utils.ricgraph_utils.connections_utils import (
+from app.utils.ricgraph_utils.connections import (
     get_connections,
     get_collaborators as get_collaborators_list,
     get_publications as get_publications_list,
@@ -43,10 +43,10 @@ def run_connections_action(entity_id: str, action: Callable[[], T]) -> T:
     except HTTPException:
         raise
     except ConnectionsError:
-        log.error("Connections service error for entity_id=%r", entity_id)
+        log.exception("Connections service error for entity_id=%r", entity_id)
         raise HTTPException(status_code=500, detail="Connections query failed.")
     except Exception:
-        log.error("Unexpected error while handling connections for entity_id=%r", entity_id)
+        log.exception("Unexpected error while handling connections for entity_id=%r", entity_id)
         raise HTTPException(status_code=500, detail="Connections query failed.")
 
 @router.get("/entity", response_model=Connections)
@@ -61,7 +61,7 @@ def get_entity_connections(
     """Return connections for a given entity using the Ricgraph database.
 
     Query parameters are converted and passed to the ricgraph service
-    implementation in `app.utils.ricgraph_utils.connections_utils`.
+    implementation in `app.utils.ricgraph_utils.connections`.
     """
     result = run_connections_action(
         entity_id,
@@ -94,7 +94,6 @@ def get_entity_connections(
         }
     )
 
-
 @router.get("/collaborators", response_model=CollaboratorsResponse)
 def get_collaborators(
     entity_id: str = Query(..., description="ID of the entity"),
@@ -118,7 +117,6 @@ def get_collaborators(
         collaborators=trim_page(collaborators, limit),
         cursor=extract_people_next_cursor(collaborators, limit),
     )
-
 
 @router.get("/publications", response_model=PublicationsResponse)
 def get_publications(
@@ -144,7 +142,6 @@ def get_publications(
         cursor=extract_publication_next_cursor(publications, limit),
     )
 
-
 @router.get("/organizations", response_model=OrganizationsResponse)
 def get_organizations(
     entity_id: str = Query(..., description="ID of the entity"),
@@ -168,7 +165,6 @@ def get_organizations(
         organizations=trim_page(organizations, limit),
         cursor=extract_organization_next_cursor(organizations, limit),
     )
-
 
 @router.get("/members", response_model=MembersResponse)
 def get_members(

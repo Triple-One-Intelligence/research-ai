@@ -16,7 +16,7 @@ import logging
 from fastapi import APIRouter, Query, HTTPException
 from neo4j.exceptions import ServiceUnavailable
 
-from app.utils.ricgraph_utils.autocomplete_utils import (
+from app.utils.ricgraph_utils.autocomplete import (
     get_autocomplete_suggestions,
     AutocompleteError,
     InvalidQueryError,

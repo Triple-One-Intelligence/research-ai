@@ -242,7 +242,7 @@ GET /api/connections/members
 ## Notes for backend implementer
 
 - `doi` is the only required field on publications; `title`, `year`, `category`, and `versions` may be null or omitted.
-- Publications with the same normalized title are deduplicated; when multiple versions exist, the first is kept and the rest are listed in `versions` (each with `doi`, `year`, `category`). See `format_publications` in `api/app/utils/ricgraph_utils/connections_utils.py`.
+- Publications with the same normalized title are deduplicated; when multiple versions exist, the first is kept and the rest are listed in `versions` (each with `doi`, `year`, `category`). See `format_publications` in `api/app/utils/ricgraph_utils/connections/formatters.py`.
 - `members` is always `[]` when `entity_type` is `"person"`.
 - `collaborators` is always `[]` when `entity_type` is `"organization"` (use `members` for organization personnel).
 - The frontend renders each section as a collapsible card. Sections with 0 items are hidden automatically.

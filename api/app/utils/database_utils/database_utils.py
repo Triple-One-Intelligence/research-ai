@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import time
+from typing import Any
 from neo4j import Driver, GraphDatabase
 
 log = logging.getLogger(__name__)
@@ -69,6 +70,12 @@ def get_graph() -> Driver:
     if graph is None:
         raise RuntimeError("Neo4j driver not initialized — was connect_to_database() called?")
     return graph
+
+
+def execute_cypher(query: str, **params: Any) -> list[dict[str, Any]]:
+    """Execute a Cypher query and return rows as dictionaries."""
+    with get_graph().session() as session:
+        return session.run(query, **params).data()
 
 def shutdown() -> None:
     """Close the Ricgraph Neo4j database connection."""

@@ -7,9 +7,9 @@ from app.utils.schemas import Suggestions, Person, Organization
 
 
 class TestGetAutocompleteSuggestions:
-    @patch("app.utils.ricgraph_utils.autocomplete_utils.database_utils")
+    @patch("app.utils.ricgraph_utils.autocomplete.utils.database_utils")
     def test_short_query_raises_invalid_query_error(self, mock_db):
-        from app.utils.ricgraph_utils.autocomplete_utils import (
+        from app.utils.ricgraph_utils.autocomplete import (
             get_autocomplete_suggestions,
             InvalidQueryError,
         )
@@ -18,9 +18,9 @@ class TestGetAutocompleteSuggestions:
             get_autocomplete_suggestions("a")
         mock_db.get_graph.assert_not_called()
 
-    @patch("app.utils.ricgraph_utils.autocomplete_utils.database_utils")
+    @patch("app.utils.ricgraph_utils.autocomplete.utils.database_utils")
     def test_empty_query_raises_invalid_query_error(self, mock_db):
-        from app.utils.ricgraph_utils.autocomplete_utils import (
+        from app.utils.ricgraph_utils.autocomplete import (
             get_autocomplete_suggestions,
             InvalidQueryError,
         )
@@ -28,9 +28,9 @@ class TestGetAutocompleteSuggestions:
         with pytest.raises(InvalidQueryError, match="at least 2 characters"):
             get_autocomplete_suggestions("")
 
-    @patch("app.utils.ricgraph_utils.autocomplete_utils.database_utils")
+    @patch("app.utils.ricgraph_utils.autocomplete.utils.database_utils")
     def test_whitespace_only_raises_invalid_query_error(self, mock_db):
-        from app.utils.ricgraph_utils.autocomplete_utils import (
+        from app.utils.ricgraph_utils.autocomplete import (
             get_autocomplete_suggestions,
             InvalidQueryError,
         )
@@ -38,9 +38,9 @@ class TestGetAutocompleteSuggestions:
         with pytest.raises(InvalidQueryError, match="at least 2 characters"):
             get_autocomplete_suggestions("   ")
 
-    @patch("app.utils.ricgraph_utils.autocomplete_utils.database_utils")
+    @patch("app.utils.ricgraph_utils.autocomplete.utils.database_utils")
     def test_returns_persons(self, mock_db):
-        from app.utils.ricgraph_utils.autocomplete_utils import get_autocomplete_suggestions
+        from app.utils.ricgraph_utils.autocomplete import get_autocomplete_suggestions
 
         mock_db.get_graph.return_value.execute_query.return_value = [
             {"id": "key1", "displayName": "Henk Boer", "type": "person", "bestScore": 100},
@@ -52,9 +52,9 @@ class TestGetAutocompleteSuggestions:
         assert result.persons[0].name == "Henk Boer"
         assert result.persons[0].author_id == "key1"
 
-    @patch("app.utils.ricgraph_utils.autocomplete_utils.database_utils")
+    @patch("app.utils.ricgraph_utils.autocomplete.utils.database_utils")
     def test_returns_organizations(self, mock_db):
-        from app.utils.ricgraph_utils.autocomplete_utils import get_autocomplete_suggestions
+        from app.utils.ricgraph_utils.autocomplete import get_autocomplete_suggestions
 
         mock_db.get_graph.return_value.execute_query.return_value = [
             {"id": "org1", "displayName": "Utrecht University", "type": "organization", "bestScore": 50},
@@ -66,9 +66,9 @@ class TestGetAutocompleteSuggestions:
         assert result.organizations[0].name == "Utrecht University"
         assert result.organizations[0].organization_id == "org1"
 
-    @patch("app.utils.ricgraph_utils.autocomplete_utils.database_utils")
+    @patch("app.utils.ricgraph_utils.autocomplete.utils.database_utils")
     def test_returns_mixed_results(self, mock_db):
-        from app.utils.ricgraph_utils.autocomplete_utils import get_autocomplete_suggestions
+        from app.utils.ricgraph_utils.autocomplete import get_autocomplete_suggestions
 
         mock_db.get_graph.return_value.execute_query.return_value = [
             {"id": "p1", "displayName": "John Smith", "type": "person", "bestScore": 100},
@@ -80,9 +80,9 @@ class TestGetAutocompleteSuggestions:
         assert len(result.persons) == 1
         assert len(result.organizations) == 1
 
-    @patch("app.utils.ricgraph_utils.autocomplete_utils.database_utils")
+    @patch("app.utils.ricgraph_utils.autocomplete.utils.database_utils")
     def test_passes_correct_parameters(self, mock_db):
-        from app.utils.ricgraph_utils.autocomplete_utils import get_autocomplete_suggestions
+        from app.utils.ricgraph_utils.autocomplete import get_autocomplete_suggestions
 
         mock_db.get_graph.return_value.execute_query.return_value = []
         mock_db.FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
@@ -97,9 +97,9 @@ class TestGetAutocompleteSuggestions:
         assert "henk*" in call_kwargs.kwargs["luceneQuery"]
         assert "boer*" in call_kwargs.kwargs["luceneQuery"]
 
-    @patch("app.utils.ricgraph_utils.autocomplete_utils.database_utils")
+    @patch("app.utils.ricgraph_utils.autocomplete.utils.database_utils")
     def test_unknown_type_raises_autocomplete_error(self, mock_db):
-        from app.utils.ricgraph_utils.autocomplete_utils import (
+        from app.utils.ricgraph_utils.autocomplete import (
             get_autocomplete_suggestions,
             AutocompleteError,
         )
