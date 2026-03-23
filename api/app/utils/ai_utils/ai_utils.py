@@ -1,4 +1,5 @@
 """Shared AI service helpers for embedding and LLM requests."""
+# TEST: this comment triggers the manual-test-warning in CI
 
 import logging
 import os
