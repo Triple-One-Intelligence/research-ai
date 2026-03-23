@@ -17,6 +17,7 @@ from app.utils.ricgraph_utils.queries import rag_queries
 from app.utils.schemas.ai import (
     ChatRequest, EmbedRequest, EntityRef, RagGenerateRequest,
 )
+from app.prompts.system_prompt import SYSTEM_PROMPT
 
 
 # Refactoring: Replace Data Value with Object (Primitive Obsession fix)
@@ -111,14 +112,8 @@ def _build_rag_system_prompt(entity: EntityRef | None, publications_context: str
     """Build the system prompt incorporating RAG context.
 
     Pattern: Builder — constructs the prompt step-by-step from parts.
-    Instructs the model to cite sources using document numbers [1], [2], etc."""
-    parts = [
-        "Use ONLY the given context documents as evidence. "
-        "Cite your sources inline using document numbers, e.g. [1], [2]. "
-        "Always include the DOI when referencing a specific publication. "
-        "Do not invent information that is not present in the documents. "
-        "If evidence is insufficient, say so. Respond in the language of the user query."
-    ]
+    Prepends the global SYSTEM_PROMPT, then appends entity and document context."""
+    parts = [SYSTEM_PROMPT]
     if entity:
         parts.append(f"\n{format_entity_context(entity)}")
     if publications_context:
