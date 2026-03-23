@@ -329,7 +329,7 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
               onClick={onLoadMoreCollaborators}
               disabled={collaboratorsLoading}
             >
-              {collaboratorsLoading ? 'Loading...' : 'Load more'}
+              {collaboratorsLoading ? t('rightPanel.loadingMore') : t('rightPanel.loadMore')}
             </button>
           </div>
         )}
@@ -348,7 +348,7 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
               onClick={onLoadMorePublications}
               disabled={publicationsLoading}
             >
-              {publicationsLoading ? 'Loading...' : 'Load more'}
+              {publicationsLoading ? t('rightPanel.loadingMore') : t('rightPanel.loadMore')}
             </button>
           </div>
         )}
@@ -370,7 +370,7 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
               onClick={onLoadMoreOrganizations}
               disabled={organizationsLoading}
             >
-              {organizationsLoading ? 'Loading...' : 'Load more'}
+              {organizationsLoading ? t('rightPanel.loadingMore') : t('rightPanel.loadMore')}
             </button>
           </div>
         )}
@@ -394,7 +394,7 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
               onClick={onLoadMoreMembers}
               disabled={membersLoading}
             >
-              {membersLoading ? 'Loading...' : 'Load more'}
+              {membersLoading ? t('rightPanel.loadingMore') : t('rightPanel.loadMore')}
             </button>
           </div>
         )}

@@ -17,13 +17,20 @@ def clean_title(raw: Any) -> str | None:
     if raw is None:
         return None
     if isinstance(raw, list):
-        return raw[0] if raw else None
+        if not raw:
+            return None
+        first = raw[0]
+        if isinstance(first, str):
+            return first.strip() or None
+        return None
     if isinstance(raw, str):
         return raw.strip() or None
     return None
 
 def parse_year(raw: Any) -> int | None:
     """Parse a year value into an integer when possible."""
+    if isinstance(raw, bool):
+        return None
     if isinstance(raw, int):
         return raw
     if isinstance(raw, str) and raw.strip():

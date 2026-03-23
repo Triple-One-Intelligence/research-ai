@@ -103,7 +103,7 @@ Returns collaborator connections for an entity.
   "entity_id": "string",
   "entity_type": "person",
   "collaborators": [{"author_id": "string", "name": "string"}],
-  "next_cursor": "string | null"
+  "cursor": "string | null"
 }
 ```
 
@@ -135,7 +135,7 @@ Returns publication connections for an entity.
   "entity_id": "string",
   "entity_type": "organization",
   "publications": [{"doi": "string", "title": "string", "year": 2024, "category": "string", "versions": []}],
-  "next_cursor": "string | null"
+  "cursor": "string | null"
 }
 ```
 
@@ -167,7 +167,7 @@ Returns organization connections for an entity.
   "entity_id": "string",
   "entity_type": "person",
   "organizations": [{"organization_id": "string", "name": "string"}],
-  "next_cursor": "string | null"
+  "cursor": "string | null"
 }
 ```
 
@@ -199,7 +199,7 @@ Returns member connections for an entity.
   "entity_id": "string",
   "entity_type": "organization",
   "members": [{"author_id": "string", "name": "string"}],
-  "next_cursor": "string | null"
+  "cursor": "string | null"
 }
 ```
 

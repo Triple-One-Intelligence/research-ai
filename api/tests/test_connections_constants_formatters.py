@@ -37,14 +37,16 @@ def test_clean_title_edge_cases():
     assert clean_title([]) is None
     assert clean_title("   ") is None
     assert clean_title(123) is None
-    assert clean_title([123, "ignored"]) == 123
+    assert clean_title(["  A title  "]) == "A title"
+    assert clean_title([123, "ignored"]) is None
 
 
 def test_parse_year_branches():
     assert parse_year(2024) == 2024
     assert parse_year(" 2023 ") == 2023
     assert parse_year("invalid") is None
-    assert parse_year(True) is True
+    assert parse_year(True) is None
+    assert parse_year(False) is None
     assert parse_year(None) is None
 
 

@@ -140,7 +140,7 @@ GET /api/connections/collaborators
 | `entity_id`         | string | yes      | —       | —            | ID of the entity (Ricgraph person or organization key). |
 | `entity_type`       | string | yes      | —       | `person` or `organization` | Type of the entity. |
 | `limit`             | int    | no       | 50      | 1–200        | Maximum number of collaborators to return. |
-| `cursor`            | string | no       | —       | —            | Pagination cursor (ignored for now). |
+| `cursor`            | string | no       | —       | —            | Pagination cursor. |
 
 ## Response schema
 
@@ -151,7 +151,7 @@ GET /api/connections/collaborators
   "collaborators": [
     { "author_id": "string", "name": "string" }
   ],
-  "next_cursor": "string | null"
+  "cursor": "string | null"
 }
 ```
 
@@ -168,7 +168,7 @@ GET /api/connections/publications
 | `entity_id`         | string | yes      | —       | —            | ID of the entity (Ricgraph person or organization key). |
 | `entity_type`       | string | yes      | —       | `person` or `organization` | Type of the entity. |
 | `limit`             | int    | no       | 50      | 1–200        | Maximum number of publications to return. |
-| `cursor`            | string | no       | —       | —            | Pagination cursor (ignored for now). |
+| `cursor`            | string | no       | —       | —            | Pagination cursor. |
 
 ## Response schema
 
@@ -179,7 +179,7 @@ GET /api/connections/publications
   "publications": [
     { "doi": "string", "title": "string | null", "year": "number | null", "category": "string | null", "versions": [] }
   ],
-  "next_cursor": "string | null"
+  "cursor": "string | null"
 }
 ```
 
@@ -196,7 +196,7 @@ GET /api/connections/organizations
 | `entity_id`          | string | yes      | —       | —            | ID of the entity (Ricgraph person or organization key). |
 | `entity_type`        | string | yes      | —       | `person` or `organization` | Type of the entity. |
 | `limit`              | int    | no       | 50      | 1–200        | Maximum number of organizations to return. |
-| `cursor`             | string | no       | —       | —            | Pagination cursor (ignored for now). |
+| `cursor`             | string | no       | —       | —            | Pagination cursor. |
 
 ## Response schema
 
@@ -207,7 +207,7 @@ GET /api/connections/organizations
   "organizations": [
     { "organization_id": "string", "name": "string" }
   ],
-  "next_cursor": "string | null"
+  "cursor": "string | null"
 }
 ```
 
@@ -224,7 +224,7 @@ GET /api/connections/members
 | `entity_id`       | string | yes      | —       | —            | ID of the entity (Ricgraph person or organization key). |
 | `entity_type`     | string | yes      | —       | `person` or `organization` | Type of the entity. |
 | `limit`            | int    | no       | 50      | 1–200        | Maximum number of members to return. |
-| `cursor`           | string | no       | —       | —            | Pagination cursor (ignored for now). |
+| `cursor`           | string | no       | —       | —            | Pagination cursor. |
 
 ## Response schema
 
@@ -235,7 +235,7 @@ GET /api/connections/members
   "members": [
     { "author_id": "string", "name": "string" }
   ],
-  "next_cursor": "string | null"
+  "cursor": "string | null"
 }
 ```
 

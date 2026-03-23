@@ -18,9 +18,9 @@ from app.utils.ricgraph_utils.connections import (
     get_publications as get_publications_list,
     get_organizations as get_organizations_list,
     get_members as get_members_list,
-    extract_people_next_cursor,
-    extract_organization_next_cursor,
-    extract_publication_next_cursor,
+    extract_people_cursor,
+    extract_organization_cursor,
+    extract_publication_cursor,
     trim_page,
     InvalidEntityTypeError,
     InvalidCursorError,
@@ -87,10 +87,10 @@ def get_entity_connections(
             "publications": publications,
             "organizations": organizations,
             "members": members,
-            "collaborators_cursor": extract_people_next_cursor(result["collaborators"], max_collaborators),
-            "publications_cursor": extract_publication_next_cursor(result["publications"], max_publications),
-            "organizations_cursor": extract_organization_next_cursor(result["organizations"], max_organizations),
-            "members_cursor": extract_people_next_cursor(result["members"], max_members),
+            "collaborators_cursor": extract_people_cursor(result["collaborators"], max_collaborators),
+            "publications_cursor": extract_publication_cursor(result["publications"], max_publications),
+            "organizations_cursor": extract_organization_cursor(result["organizations"], max_organizations),
+            "members_cursor": extract_people_cursor(result["members"], max_members),
         }
     )
 
@@ -115,7 +115,7 @@ def get_collaborators(
         entity_id=entity_id,
         entity_type=entity_type,
         collaborators=trim_page(collaborators, limit),
-        cursor=extract_people_next_cursor(collaborators, limit),
+        cursor=extract_people_cursor(collaborators, limit),
     )
 
 @router.get("/publications", response_model=PublicationsResponse)
@@ -139,7 +139,7 @@ def get_publications(
         entity_id=entity_id,
         entity_type=entity_type,
         publications=trim_page(publications, limit),
-        cursor=extract_publication_next_cursor(publications, limit),
+        cursor=extract_publication_cursor(publications, limit),
     )
 
 @router.get("/organizations", response_model=OrganizationsResponse)
@@ -163,7 +163,7 @@ def get_organizations(
         entity_id=entity_id,
         entity_type=entity_type,
         organizations=trim_page(organizations, limit),
-        cursor=extract_organization_next_cursor(organizations, limit),
+        cursor=extract_organization_cursor(organizations, limit),
     )
 
 @router.get("/members", response_model=MembersResponse)
@@ -187,5 +187,5 @@ def get_members(
         entity_id=entity_id,
         entity_type=entity_type,
         members=trim_page(members, limit),
-        cursor=extract_people_next_cursor(members, limit),
+        cursor=extract_people_cursor(members, limit),
     )

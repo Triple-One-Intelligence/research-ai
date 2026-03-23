@@ -47,7 +47,7 @@ def decode_cursor_pair(
     payload = decode_cursor(cursor, (first_key, second_key))
     return payload.get(first_key), payload.get(second_key)
 
-def extract_next_cursor(
+def extract_cursor(
     items: list[Any],
     limit: int,
     *,
@@ -78,9 +78,9 @@ def extract_next_cursor(
 
     return encode(name, item_id)
 
-def extract_people_next_cursor(people: list[Any], limit: int) -> str | None:
+def extract_people_cursor(people: list[Any], limit: int) -> str | None:
     """Build next-page cursor for people/member lists."""
-    return extract_next_cursor(
+    return extract_cursor(
         people,
         limit,
         id_attr="author_id",
@@ -89,9 +89,9 @@ def extract_people_next_cursor(people: list[Any], limit: int) -> str | None:
         encode=lambda name, author_id: encode_cursor({"name": name, "author_id": author_id}),
     )
 
-def extract_organization_next_cursor(organizations: list[Organization], limit: int) -> str | None:
+def extract_organization_cursor(organizations: list[Organization], limit: int) -> str | None:
     """Build next-page cursor for organization lists."""
-    return extract_next_cursor(
+    return extract_cursor(
         organizations,
         limit,
         id_attr="organization_id",
@@ -101,9 +101,9 @@ def extract_organization_next_cursor(organizations: list[Organization], limit: i
         ),
     )
 
-def extract_publication_next_cursor(publications: list[Publication], limit: int) -> str | None:
+def extract_publication_cursor(publications: list[Publication], limit: int) -> str | None:
     """Build next-page cursor for publication lists."""
-    return extract_next_cursor(
+    return extract_cursor(
         publications,
         limit,
         id_attr="doi",

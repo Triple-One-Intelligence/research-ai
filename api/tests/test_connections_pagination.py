@@ -6,10 +6,10 @@ from app.utils.ricgraph_utils.connections import (
     decode_cursor,
     decode_cursor_pair,
     encode_cursor,
-    extract_next_cursor,
-    extract_organization_next_cursor,
-    extract_people_next_cursor,
-    extract_publication_next_cursor,
+    extract_cursor,
+    extract_organization_cursor,
+    extract_people_cursor,
+    extract_publication_cursor,
     publication_sort_key,
     trim_page,
 )
@@ -67,9 +67,9 @@ def test_publication_sort_key_falls_back_to_doi():
     assert publication_sort_key("   ", "10.1/a") == "doi:10.1/a"
 
 
-def test_extract_next_cursor_returns_none_when_no_extra_item():
+def test_extract_cursor_returns_none_when_no_extra_item():
     items = [Person(author_id="a1", name="One", sort_name="one")]
-    cursor = extract_next_cursor(
+    cursor = extract_cursor(
         items,
         1,
         id_attr="author_id",
@@ -79,10 +79,10 @@ def test_extract_next_cursor_returns_none_when_no_extra_item():
     assert cursor is None
 
 
-def test_extract_next_cursor_returns_none_when_limit_invalid():
+def test_extract_cursor_returns_none_when_limit_invalid():
     items = [Person(author_id="a1", name="One", sort_name="one")]
     assert (
-        extract_next_cursor(
+        extract_cursor(
             items,
             0,
             id_attr="author_id",
@@ -93,14 +93,14 @@ def test_extract_next_cursor_returns_none_when_limit_invalid():
     )
 
 
-def test_extract_next_cursor_returns_none_when_id_missing():
+def test_extract_cursor_returns_none_when_id_missing():
     class Row:
         def __init__(self, sort_name):
             self.sort_name = sort_name
 
     items = [Row("first"), Row("second")]
     assert (
-        extract_next_cursor(
+        extract_cursor(
             items,
             1,
             id_attr="author_id",
@@ -111,12 +111,12 @@ def test_extract_next_cursor_returns_none_when_id_missing():
     )
 
 
-def test_extract_next_cursor_id_only_mode():
+def test_extract_cursor_id_only_mode():
     items = [
         Publication(doi="10.1/a", title="A"),
         Publication(doi="10.1/b", title="B"),
     ]
-    cursor = extract_next_cursor(
+    cursor = extract_cursor(
         items,
         1,
         id_attr="doi",
@@ -125,12 +125,12 @@ def test_extract_next_cursor_id_only_mode():
     assert cursor == "id:10.1/a"
 
 
-def test_extract_next_cursor_uses_fallback_name_attr():
+def test_extract_cursor_uses_fallback_name_attr():
     items = [
         Person(author_id="a1", name="Name One"),
         Person(author_id="a2", name="Name Two"),
     ]
-    cursor = extract_next_cursor(
+    cursor = extract_cursor(
         items,
         1,
         id_attr="author_id",
@@ -141,65 +141,65 @@ def test_extract_next_cursor_uses_fallback_name_attr():
     assert cursor == "Name One:a1"
 
 
-def test_extract_people_next_cursor():
+def test_extract_people_cursor():
     people = [
         Person(author_id="a1", name="A One", sort_name="one,a"),
         Person(author_id="a2", name="A Two", sort_name="two,a"),
     ]
-    cursor = extract_people_next_cursor(people, 1)
+    cursor = extract_people_cursor(people, 1)
     assert decode_cursor(cursor, ("name", "author_id")) == {"name": "one,a", "author_id": "a1"}
 
 
-def test_extract_organization_next_cursor():
+def test_extract_organization_cursor():
     organizations = [
         Organization(organization_id="o1", name="Org One"),
         Organization(organization_id="o2", name="Org Two"),
     ]
-    cursor = extract_organization_next_cursor(organizations, 1)
+    cursor = extract_organization_cursor(organizations, 1)
     assert decode_cursor(cursor, ("name", "organization_id")) == {
         "name": "org one",
         "organization_id": "o1",
     }
 
 
-def test_extract_publication_next_cursor():
+def test_extract_publication_cursor():
     publications = [
         Publication(doi="10.1/a", title="Alpha Title"),
         Publication(doi="10.1/b", title="Beta Title"),
     ]
-    cursor = extract_publication_next_cursor(publications, 1)
+    cursor = extract_publication_cursor(publications, 1)
     assert decode_cursor(cursor, ("sort_key", "doi")) == {
         "sort_key": "title:alpha title",
         "doi": "10.1/a",
     }
 
 
-def test_extract_publication_next_cursor_uses_doi_sort_key_for_empty_title():
+def test_extract_publication_cursor_uses_doi_sort_key_for_empty_title():
     publications = [
         Publication(doi="10.1/a", title=None),
         Publication(doi="10.1/b", title="Has Title"),
     ]
-    cursor = extract_publication_next_cursor(publications, 1)
+    cursor = extract_publication_cursor(publications, 1)
     assert decode_cursor(cursor, ("sort_key", "doi")) == {
         "sort_key": "doi:10.1/a",
         "doi": "10.1/a",
     }
 
 
-def test_extract_organization_next_cursor_blank_name_returns_none():
+def test_extract_organization_cursor_blank_name_returns_none():
     organizations = [
         Organization(organization_id="o1", name=""),
         Organization(organization_id="o2", name="Org Two"),
     ]
-    assert extract_organization_next_cursor(organizations, 1) is None
+    assert extract_organization_cursor(organizations, 1) is None
 
 
-def test_extract_next_cursor_blank_name_and_fallback_returns_none():
+def test_extract_cursor_blank_name_and_fallback_returns_none():
     items = [
         Person(author_id="a1", name="   ", sort_name=""),
         Person(author_id="a2", name="Two", sort_name="two"),
     ]
-    cursor = extract_next_cursor(
+    cursor = extract_cursor(
         items,
         1,
         id_attr="author_id",

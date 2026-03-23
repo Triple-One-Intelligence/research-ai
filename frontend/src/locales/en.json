@@ -28,6 +28,8 @@
   "rightPanel": {
     "selectEntity": "Select a person or organization in the left column to see connections",
     "loadingConnections": "Loading connections...",
+    "loadMore": "Load more",
+    "loadingMore": "Loading...",
     "loadFailed": "Failed to load connections.",
     "loadFailedFallback": "Failed to load connections",
     "title": "Connections",
