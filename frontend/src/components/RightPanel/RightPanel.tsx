@@ -126,29 +126,17 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
         if (!cancelled) setConnections(data);
         if (cancelled) return;
 
-        const nextCollab = data.collaborators.length === PAGE_SIZE
-          ? data.collaborators[data.collaborators.length - 1].author_id
-          : null;
-        setCollaboratorsHasMore(data.collaborators.length === PAGE_SIZE);
-        setCollaboratorsNextCursor(nextCollab);
+        setCollaboratorsHasMore(data.collaborators_cursor != null);
+        setCollaboratorsNextCursor(data.collaborators_cursor);
 
-        const nextPubs = data.publications.length === PAGE_SIZE
-          ? data.publications[data.publications.length - 1].doi
-          : null;
-        setPublicationsHasMore(data.publications.length === PAGE_SIZE);
-        setPublicationsNextCursor(nextPubs);
+        setPublicationsHasMore(data.publications_cursor != null);
+        setPublicationsNextCursor(data.publications_cursor);
 
-        const nextOrgs = data.organizations.length === PAGE_SIZE
-          ? data.organizations[data.organizations.length - 1].organization_id
-          : null;
-        setOrganizationsHasMore(data.organizations.length === PAGE_SIZE);
-        setOrganizationsNextCursor(nextOrgs);
+        setOrganizationsHasMore(data.organizations_cursor != null);
+        setOrganizationsNextCursor(data.organizations_cursor);
 
-        const nextMembers = data.members.length === PAGE_SIZE
-          ? data.members[data.members.length - 1].author_id
-          : null;
-        setMembersHasMore(data.members.length === PAGE_SIZE);
-        setMembersNextCursor(nextMembers);
+        setMembersHasMore(data.members_cursor != null);
+        setMembersNextCursor(data.members_cursor);
       })
       .catch((err) => {
         if (!cancelled) setError(err.message ?? t('rightPanel.loadFailedFallback'));
@@ -183,9 +171,9 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
           page.collaborators,
           (p) => p.author_id,
         );
-        const shouldContinue = addedCount > 0 && page.next_cursor != null;
+        const shouldContinue = addedCount > 0 && page.cursor != null;
         setCollaboratorsHasMore(shouldContinue);
-        setCollaboratorsNextCursor(page.next_cursor);
+        setCollaboratorsNextCursor(page.cursor);
         return { ...prev, collaborators: merged };
       });
     } catch (err: any) {
@@ -208,9 +196,9 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
           page.publications,
           (p) => p.doi,
         );
-        const shouldContinue = addedCount > 0 && page.next_cursor != null;
+        const shouldContinue = addedCount > 0 && page.cursor != null;
         setPublicationsHasMore(shouldContinue);
-        setPublicationsNextCursor(page.next_cursor);
+        setPublicationsNextCursor(page.cursor);
         return { ...prev, publications: merged };
       });
     } catch (err: any) {
@@ -233,9 +221,9 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
           page.organizations,
           (o) => o.organization_id,
         );
-        const shouldContinue = addedCount > 0 && page.next_cursor != null;
+        const shouldContinue = addedCount > 0 && page.cursor != null;
         setOrganizationsHasMore(shouldContinue);
-        setOrganizationsNextCursor(page.next_cursor);
+        setOrganizationsNextCursor(page.cursor);
         return { ...prev, organizations: merged };
       });
     } catch (err: any) {
@@ -258,9 +246,9 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
           page.members,
           (m) => m.author_id,
         );
-        const shouldContinue = addedCount > 0 && page.next_cursor != null;
+        const shouldContinue = addedCount > 0 && page.cursor != null;
         setMembersHasMore(shouldContinue);
-        setMembersNextCursor(page.next_cursor);
+        setMembersNextCursor(page.cursor);
         return { ...prev, members: merged };
       });
     } catch (err: any) {

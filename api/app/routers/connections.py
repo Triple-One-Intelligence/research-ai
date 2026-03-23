@@ -18,7 +18,12 @@ from app.utils.ricgraph_utils.connections_utils import (
     get_publications as get_publications_list,
     get_organizations as get_organizations_list,
     get_members as get_members_list,
+    extract_people_next_cursor,
+    extract_organization_next_cursor,
+    extract_publication_next_cursor,
+    trim_page,
     InvalidEntityTypeError,
+    InvalidCursorError,
     ConnectionsError,
 )
 
@@ -33,18 +38,16 @@ def run_connections_action(entity_id: str, action: Callable[[], T]) -> T:
         return action()
     except InvalidEntityTypeError as exception:
         raise HTTPException(status_code=400, detail=str(exception))
+    except InvalidCursorError as exception:
+        raise HTTPException(status_code=400, detail=str(exception))
+    except HTTPException:
+        raise
     except ConnectionsError:
         log.error("Connections service error for entity_id=%r", entity_id)
         raise HTTPException(status_code=500, detail="Connections query failed.")
     except Exception:
         log.error("Unexpected error while handling connections for entity_id=%r", entity_id)
         raise HTTPException(status_code=500, detail="Connections query failed.")
-
-def extract_next_cursor(items: list[object], limit: int, field_name: str) -> str | None:
-    """Return the next cursor field when current page is full."""
-    if not items or len(items) != limit:
-        return None
-    return getattr(items[-1], field_name, None)
 
 @router.get("/entity", response_model=Connections)
 def get_entity_connections(
@@ -65,13 +68,31 @@ def get_entity_connections(
         lambda: get_connections(
             entity_id=entity_id,
             entity_type=entity_type,
-            max_publications=max_publications,
-            max_collaborators=max_collaborators,
-            max_organizations=max_organizations,
-            max_members=max_members,
+            max_publications=max_publications + 1,
+            max_collaborators=max_collaborators + 1,
+            max_organizations=max_organizations + 1,
+            max_members=max_members + 1,
         ),
     )
-    return Connections(**{**result, "entity_id": entity_id, "entity_type": entity_type})
+    collaborators = trim_page(result["collaborators"], max_collaborators)
+    publications = trim_page(result["publications"], max_publications)
+    organizations = trim_page(result["organizations"], max_organizations)
+    members = trim_page(result["members"], max_members)
+    return Connections(
+        **{
+            **result,
+            "entity_id": entity_id,
+            "entity_type": entity_type,
+            "collaborators": collaborators,
+            "publications": publications,
+            "organizations": organizations,
+            "members": members,
+            "collaborators_cursor": extract_people_next_cursor(result["collaborators"], max_collaborators),
+            "publications_cursor": extract_publication_next_cursor(result["publications"], max_publications),
+            "organizations_cursor": extract_organization_next_cursor(result["organizations"], max_organizations),
+            "members_cursor": extract_people_next_cursor(result["members"], max_members),
+        }
+    )
 
 
 @router.get("/collaborators", response_model=CollaboratorsResponse)
@@ -87,15 +108,15 @@ def get_collaborators(
         lambda: get_collaborators_list(
             entity_id=entity_id,
             entity_type=entity_type,
-            max_collaborators=limit,
+            max_collaborators=limit + 1,
             cursor=cursor,
         ),
     )
     return CollaboratorsResponse(
         entity_id=entity_id,
         entity_type=entity_type,
-        collaborators=collaborators,
-        next_cursor=extract_next_cursor(collaborators, limit, "author_id"),
+        collaborators=trim_page(collaborators, limit),
+        cursor=extract_people_next_cursor(collaborators, limit),
     )
 
 
@@ -112,15 +133,15 @@ def get_publications(
         lambda: get_publications_list(
             entity_id=entity_id,
             entity_type=entity_type,
-            max_publications=limit,
+            max_publications=limit + 1,
             cursor=cursor,
         ),
     )
     return PublicationsResponse(
         entity_id=entity_id,
         entity_type=entity_type,
-        publications=publications,
-        next_cursor=extract_next_cursor(publications, limit, "doi"),
+        publications=trim_page(publications, limit),
+        cursor=extract_publication_next_cursor(publications, limit),
     )
 
 
@@ -137,15 +158,15 @@ def get_organizations(
         lambda: get_organizations_list(
             entity_id=entity_id,
             entity_type=entity_type,
-            max_organizations=limit,
+            max_organizations=limit + 1,
             cursor=cursor,
         ),
     )
     return OrganizationsResponse(
         entity_id=entity_id,
         entity_type=entity_type,
-        organizations=organizations,
-        next_cursor=extract_next_cursor(organizations, limit, "organization_id"),
+        organizations=trim_page(organizations, limit),
+        cursor=extract_organization_next_cursor(organizations, limit),
     )
 
 
@@ -162,13 +183,13 @@ def get_members(
         lambda: get_members_list(
             entity_id=entity_id,
             entity_type=entity_type,
-            max_members=limit,
+            max_members=limit + 1,
             cursor=cursor,
         ),
     )
     return MembersResponse(
         entity_id=entity_id,
         entity_type=entity_type,
-        members=members,
-        next_cursor=extract_next_cursor(members, limit, "author_id"),
+        members=trim_page(members, limit),
+        cursor=extract_people_next_cursor(members, limit),
     )

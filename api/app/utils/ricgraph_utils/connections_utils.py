@@ -1,7 +1,10 @@
 """Utilities for retrieving and formatting entity connections from the Ricgraph database."""
 
+import base64
+import json
 import logging
-from typing import Any, TypedDict
+from collections.abc import Callable
+from typing import Any, Literal, TypeVar, TypedDict
 
 from app.utils.database_utils import database_utils
 from app.utils.schemas import Person, Publication, Organization
@@ -26,7 +29,11 @@ class ConnectionsError(RuntimeError):
 class InvalidEntityTypeError(ValueError):
     pass
 
-VALID_ENTITY_TYPES = {"person", "organization"}
+class InvalidCursorError(ValueError):
+    pass
+
+EntityType = Literal["person", "organization"]
+VALID_ENTITY_TYPES: set[EntityType] = {"person", "organization"}
 def validate_entity_type(entity_type: str) -> None:
     if entity_type not in VALID_ENTITY_TYPES:
         raise InvalidEntityTypeError("entity_type must be 'person' or 'organization'")
@@ -38,7 +45,7 @@ def run_query(entity_id: str, query: str, **params: Any) -> list[dict[str, Any]]
         with driver.session() as session:
             return session.run(query, **params).data()
     except Exception as exception:
-        log.error("Connections query failed for entity_id=%r", entity_id)
+        log.exception("Connections query failed for entity_id=%r", entity_id)
         raise ConnectionsError("Connections query failed") from exception
 
 def run_type_query(
@@ -84,6 +91,135 @@ def parse_year(raw: Any) -> int | None:
             return None
     return None
 
+def publication_sort_key(title: str | None, doi: str) -> str:
+    """Build the same sort key used by publication Cypher queries."""
+    normalized_title = (title or "").strip()
+    return f"title:{normalized_title.lower()}" if normalized_title else f"doi:{doi}"
+
+def encode_cursor(payload: dict[str, Any]) -> str:
+    """Encode cursor payload as URL-safe base64 JSON."""
+    encoded = base64.urlsafe_b64encode(json.dumps(payload).encode("utf-8")).decode("utf-8")
+    return encoded.rstrip("=")
+
+
+def decode_cursor(cursor: str | None, required_keys: tuple[str, ...]) -> dict[str, str]:
+    """Decode cursor payload and return validated string keys only."""
+    if not cursor:
+        return {}
+    try:
+        padding = "=" * (-len(cursor) % 4)
+        decoded = base64.urlsafe_b64decode((cursor + padding).encode("utf-8")).decode("utf-8")
+        payload = json.loads(decoded)
+    except Exception as exception:
+        raise InvalidCursorError("Invalid pagination cursor") from exception
+    if not isinstance(payload, dict):
+        raise InvalidCursorError("Invalid pagination cursor")
+    values: dict[str, str] = {}
+    for key in required_keys:
+        value = payload.get(key)
+        if not isinstance(value, str) or not value:
+            raise InvalidCursorError("Invalid pagination cursor")
+        values[key] = value
+    return values
+
+def encode_publication_cursor(title: str | None, doi: str) -> str:
+    """Encode publication cursor payload."""
+    payload = {"sort_key": publication_sort_key(title, doi), "doi": doi}
+    return encode_cursor(payload)
+
+def decode_publication_cursor(cursor: str | None) -> tuple[str | None, str | None]:
+    """Decode publication cursor payload; return empty tuple values on invalid input."""
+    payload = decode_cursor(cursor, ("sort_key", "doi"))
+    return payload.get("sort_key"), payload.get("doi")
+
+def encode_people_cursor(name: str, author_id: str) -> str:
+    """Encode people cursor payload for alphabetical pagination."""
+    payload = {"name": name, "author_id": author_id}
+    return encode_cursor(payload)
+
+def decode_people_cursor(cursor: str | None) -> tuple[str | None, str | None]:
+    """Decode people cursor payload; return empty tuple values on invalid input."""
+    payload = decode_cursor(cursor, ("name", "author_id"))
+    return payload.get("name"), payload.get("author_id")
+
+def encode_organization_cursor(name: str, organization_id: str) -> str:
+    """Encode organization cursor payload for alphabetical pagination."""
+    payload = {"name": name.lower(), "organization_id": organization_id}
+    return encode_cursor(payload)
+
+def decode_organization_cursor(cursor: str | None) -> tuple[str | None, str | None]:
+    """Decode organization cursor payload; return empty tuple values on invalid input."""
+    payload = decode_cursor(cursor, ("name", "organization_id"))
+    return payload.get("name"), payload.get("organization_id")
+
+def extract_next_cursor(
+    items: list[Any],
+    limit: int,
+    *,
+    id_attr: str,
+    encode: Callable[..., str],
+    name_attr: str | None = None,
+    fallback_name_attr: str | None = None,
+) -> str | None:
+    """Build next-page cursor when we have an extra row (limit+1 strategy)."""
+    if not items or len(items) <= limit or limit < 1:
+        return None
+
+    last_item = items[limit - 1]
+    item_id = getattr(last_item, id_attr, None)
+    if not isinstance(item_id, str) or not item_id:
+        return None
+
+    if name_attr is None:
+        return encode(item_id)
+
+    name = getattr(last_item, name_attr, None)
+    if (not isinstance(name, str) or not name) and fallback_name_attr:
+        fallback_name = getattr(last_item, fallback_name_attr, None)
+        name = fallback_name if isinstance(fallback_name, str) else None
+    if not isinstance(name, str):
+        return None
+
+    return encode(name, item_id)
+
+def extract_people_next_cursor(people: list[Any], limit: int) -> str | None:
+    """Build next-page cursor for people/member lists."""
+    return extract_next_cursor(
+        people,
+        limit,
+        id_attr="author_id",
+        name_attr="sort_name",
+        fallback_name_attr="name",
+        encode=encode_people_cursor,
+    )
+
+def extract_organization_next_cursor(organizations: list[Organization], limit: int) -> str | None:
+    """Build next-page cursor for organization lists."""
+    return extract_next_cursor(
+        organizations,
+        limit,
+        id_attr="organization_id",
+        name_attr="name",
+        encode=encode_organization_cursor,
+    )
+
+def extract_publication_next_cursor(publications: list[Publication], limit: int) -> str | None:
+    """Build next-page cursor for publication lists."""
+    return extract_next_cursor(
+        publications,
+        limit,
+        id_attr="doi",
+        name_attr="title",
+        encode=encode_publication_cursor,
+    )
+
+T = TypeVar("T")
+def trim_page(items: list[T], limit: int) -> list[T]:
+    """Trim a limit+1 page back to limit items for response payloads."""
+    if limit < 1:
+        return []
+    return items[:limit]
+
 PeopleOrMembers = Person | Member
 
 class ConnectionsPayload(TypedDict):
@@ -99,10 +235,11 @@ def format_people(rows: list[dict[str, Any]], *, as_members: bool = False) -> li
     out: list[PeopleOrMembers] = []
     for row in rows:
         name = clean_name(row.get("rawName"))
+        sort_name = row.get("sort_name") if isinstance(row.get("sort_name"), str) else None
         if as_members:
-            out.append(Member(author_id=row["author_id"], name=name))
+            out.append(Member(author_id=row["author_id"], name=name, sort_name=sort_name))
         else:
-            out.append(Person(author_id=row["author_id"], name=name))
+            out.append(Person(author_id=row["author_id"], name=name, sort_name=sort_name))
     return out
 
 def format_organizations(rows: list[dict[str, Any]]) -> list[Organization]:
@@ -128,7 +265,7 @@ def normalize_versions(raw_versions: Any) -> list[dict[str, Any]] | None:
 
 
 def format_publications(rows: list[dict[str, Any]]) -> list[Publication]:
-    """Convert publication rows into Publication models sorted by year."""
+    """Convert publication rows into Publication models preserving query order."""
     publications: list[Publication] = []
     for row in rows:
         publications.append(Publication(
@@ -138,8 +275,6 @@ def format_publications(rows: list[dict[str, Any]]) -> list[Publication]:
             category=row.get("category"),
             versions=normalize_versions(row.get("versions")),
         ))
-
-    publications.sort(key=lambda publication: (publication.year is not None, publication.year or 0), reverse=True)
     return publications
 
 def person_connections(
@@ -184,12 +319,15 @@ def get_collaborators(
     if entity_type == "organization":
         return []
 
+    cursor_name, cursor_author_id = decode_people_cursor(cursor)
     collaborators = run_query(
         entity_id,
         PERSON_COLLABORATORS,
         rootValue=entity_id,
         excludeCategories=EXCLUDE_CATEGORIES,
         limit=max_collaborators,
+        cursorName=cursor_name,
+        cursorAuthorId=cursor_author_id,
     )
     return format_people(collaborators)
 
@@ -200,6 +338,7 @@ def get_publications(
     cursor: str | None = None,
 ) -> list[Publication]:
     """Return publications linked to either a person or organization entity."""
+    cursor_key, cursor_doi = decode_publication_cursor(cursor)
     publications = run_type_query(
         entity_id,
         entity_type,
@@ -208,12 +347,16 @@ def get_publications(
             "rootValue": entity_id,
             "excludeCategories": EXCLUDE_CATEGORIES,
             "limit": max_publications,
+            "cursorKey": cursor_key,
+            "cursorDoi": cursor_doi,
         },
         organization_query=ORG_PUBLICATIONS,
         organization_params={
             "entityId": entity_id,
             "excludeCategories": EXCLUDE_CATEGORIES,
             "limit": max_publications,
+            "cursorKey": cursor_key,
+            "cursorDoi": cursor_doi,
         },
     )
     return format_publications(publications)
@@ -225,6 +368,7 @@ def get_organizations(
     cursor: str | None = None,
 ) -> list[Organization]:
     """Return organizations linked to the entity using type-specific queries."""
+    cursor_name, cursor_organization_id = decode_organization_cursor(cursor)
     organizations = run_type_query(
         entity_id,
         entity_type,
@@ -232,11 +376,15 @@ def get_organizations(
         person_params={
             "rootValue": entity_id,
             "limit": max_organizations,
+            "cursorName": cursor_name,
+            "cursorOrganizationId": cursor_organization_id,
         },
         organization_query=ORG_RELATED_ORGS,
         organization_params={
             "entityId": entity_id,
             "limit": max_organizations,
+            "cursorName": cursor_name,
+            "cursorOrganizationId": cursor_organization_id,
         },
     )
     return format_organizations(organizations)
@@ -253,11 +401,14 @@ def get_members(
     if entity_type == "person":
         return []
 
+    cursor_name, cursor_author_id = decode_people_cursor(cursor)
     members = run_query(
         entity_id,
         ORG_MEMBERS,
         entityId=entity_id,
         limit=max_members,
+        cursorName=cursor_name,
+        cursorAuthorId=cursor_author_id,
     )
     return format_people(members, as_members=True)
 
@@ -269,17 +420,8 @@ def get_connections(
     max_organizations: int = 50,
     max_members: int = 50,
 ) -> ConnectionsPayload:
-    """Route to the correct connection fetcher based on entity type.
-
-    Pattern: Facade — callers don't need to know about person vs organization retrieval."""
+    """Route to the correct connection fetcher based on entity type."""
     validate_entity_type(entity_type)
-
-    try:
-        if entity_type == "person":
-            return person_connections(entity_id, max_publications, max_collaborators, max_organizations)
-        return organization_connections(entity_id, max_publications, max_organizations, max_members)
-    except ConnectionsError:
-        raise
-    except Exception as exception:
-        log.error("Connections query failed for entity_id=%r", entity_id)
-        raise ConnectionsError("Connections query failed") from exception
+    if entity_type == "person":
+        return person_connections(entity_id, max_publications, max_collaborators, max_organizations)
+    return organization_connections(entity_id, max_publications, max_organizations, max_members)

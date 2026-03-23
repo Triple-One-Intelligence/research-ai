@@ -282,7 +282,7 @@ class TestConnectionsEndpoint:
         assert data["entity_id"] == "person-1"
         assert data["entity_type"] == "person"
         assert data["collaborators"] == [{"author_id": "p2", "name": "Example Coauthor"}]
-        assert data["next_cursor"] == "p2"
+        assert data["cursor"] is not None
 
         call_kwargs = mock_gc.call_args.kwargs
         assert call_kwargs["max_collaborators"] == 1
@@ -302,7 +302,7 @@ class TestConnectionsEndpoint:
         assert data["entity_id"] == "org-1"
         assert data["entity_type"] == "organization"
         assert data["members"] == [{"author_id": "p1", "name": "Member Example"}]
-        assert data["next_cursor"] == "p1"
+        assert data["cursor"] is not None
 
         call_kwargs = mock_gc.call_args.kwargs
         assert call_kwargs["max_members"] == 1
@@ -322,7 +322,7 @@ class TestConnectionsEndpoint:
         assert data["entity_id"] == "person-1"
         assert data["entity_type"] == "person"
         assert data["publications"][0]["doi"] == "10.1/a"
-        assert data["next_cursor"] == "10.1/a"
+        assert data["cursor"] is not None
 
         call_kwargs = mock_gc.call_args.kwargs
         assert call_kwargs["max_publications"] == 1
@@ -342,7 +342,7 @@ class TestConnectionsEndpoint:
         assert data["entity_id"] == "person-1"
         assert data["entity_type"] == "person"
         assert data["organizations"] == [{"organization_id": "org-2", "name": "Example Org"}]
-        assert data["next_cursor"] == "org-2"
+        assert data["cursor"] is not None
 
         call_kwargs = mock_gc.call_args.kwargs
         assert call_kwargs["max_organizations"] == 1

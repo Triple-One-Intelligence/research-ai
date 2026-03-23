@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .organization import Organization
 from .person import Person
@@ -9,6 +9,7 @@ class Member(BaseModel):
     """A person who is a member of an organization."""
     author_id: str
     name: str
+    sort_name: str | None = Field(default=None, exclude=True)
 
 class Connections(BaseModel):
     entity_id: str
@@ -17,31 +18,35 @@ class Connections(BaseModel):
     publications: list[Publication]
     organizations: list[Organization]
     members: list[Member]
+    collaborators_cursor: str | None = None
+    publications_cursor: str | None = None
+    organizations_cursor: str | None = None
+    members_cursor: str | None = None
 
 
 class CollaboratorsResponse(BaseModel):
     entity_id: str
     entity_type: str
     collaborators: list[Person]
-    next_cursor: str | None = None
+    cursor: str | None = None
 
 
 class PublicationsResponse(BaseModel):
     entity_id: str
     entity_type: str
     publications: list[Publication]
-    next_cursor: str | None = None
+    cursor: str | None = None
 
 
 class OrganizationsResponse(BaseModel):
     entity_id: str
     entity_type: str
     organizations: list[Organization]
-    next_cursor: str | None = None
+    cursor: str | None = None
 
 
 class MembersResponse(BaseModel):
     entity_id: str
     entity_type: str
     members: list[Member]
-    next_cursor: str | None = None
+    cursor: str | None = None
