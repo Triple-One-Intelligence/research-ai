@@ -4,12 +4,35 @@ PERSON_PUBLICATIONS = """/*cypher*/
 // All publications linked from a person-root, excluding certain categories
 MATCH (root:RicgraphNode {value: $rootValue})-[:LINKS_TO]-(pub:RicgraphNode {name: 'DOI'})
 WHERE NOT coalesce(pub.category, '') IN $excludeCategories
-WITH DISTINCT pub
-ORDER BY pub.year DESC
-RETURN pub.value   AS doi,
-       pub.comment AS title,
-       pub.year    AS year,
-       pub.category AS category
+WITH DISTINCT pub,
+     trim(coalesce(pub.comment, '')) AS normalizedTitle,
+     coalesce(toInteger(pub.year), -1) AS sortYear
+WITH pub,
+     sortYear,
+     CASE
+       WHEN normalizedTitle = '' THEN 'doi:' + pub.value
+       ELSE 'title:' + toLower(normalizedTitle)
+     END AS publicationKey
+ORDER BY publicationKey, sortYear DESC, pub.value ASC
+WITH publicationKey, collect({
+       doi: pub.value,
+       title: pub.comment,
+       year: pub.year,
+       category: pub.category,
+       sortYear: sortYear
+     }) AS entries
+WITH entries, head(entries) AS representative
+WITH representative, entries,
+     CASE WHEN size(entries) > 1
+          THEN [entry IN entries | {doi: entry.doi, year: entry.year, category: entry.category}]
+          ELSE null
+     END AS versions
+ORDER BY representative.sortYear DESC, representative.doi ASC
+RETURN representative.doi AS doi,
+       representative.title AS title,
+       representative.year AS year,
+       representative.category AS category,
+       versions AS versions
 LIMIT $limit
 """
 
@@ -71,12 +94,35 @@ ORG_PUBLICATIONS = """/*cypher*/
 MATCH (org:RicgraphNode {value: $entityId})-[:LINKS_TO]-(:RicgraphNode {name: 'person-root'})
       -[:LINKS_TO]-(pub:RicgraphNode {name: 'DOI'})
 WHERE NOT coalesce(pub.category, '') IN $excludeCategories
-WITH DISTINCT pub
-ORDER BY pub.year DESC
-RETURN pub.value   AS doi,
-       pub.comment AS title,
-       pub.year    AS year,
-       pub.category AS category
+WITH DISTINCT pub,
+     trim(coalesce(pub.comment, '')) AS normalizedTitle,
+     coalesce(toInteger(pub.year), -1) AS sortYear
+WITH pub,
+     sortYear,
+     CASE
+       WHEN normalizedTitle = '' THEN 'doi:' + pub.value
+       ELSE 'title:' + toLower(normalizedTitle)
+     END AS publicationKey
+ORDER BY publicationKey, sortYear DESC, pub.value ASC
+WITH publicationKey, collect({
+       doi: pub.value,
+       title: pub.comment,
+       year: pub.year,
+       category: pub.category,
+       sortYear: sortYear
+     }) AS entries
+WITH entries, head(entries) AS representative
+WITH representative, entries,
+     CASE WHEN size(entries) > 1
+          THEN [entry IN entries | {doi: entry.doi, year: entry.year, category: entry.category}]
+          ELSE null
+     END AS versions
+ORDER BY representative.sortYear DESC, representative.doi ASC
+RETURN representative.doi AS doi,
+       representative.title AS title,
+       representative.year AS year,
+       representative.category AS category,
+       versions AS versions
 LIMIT $limit
 """
 

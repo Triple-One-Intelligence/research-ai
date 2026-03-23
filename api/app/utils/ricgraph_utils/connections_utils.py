@@ -77,32 +77,31 @@ def format_organizations(rows: list[dict[str, Any]]) -> list[Organization]:
     return [Organization(organization_id=row["organization_id"], name=row["name"]) for row in rows]
 
 def format_publications(rows: list[dict[str, Any]]) -> list[Publication]:
-    grouped: dict[str, list[Publication]] = {}
-    no_title: list[Publication] = []
-
+    publications: list[Publication] = []
     for row in rows:
-        title = clean_title(row.get("title"))
-        entry = Publication(
-            doi=row["doi"], title=title,
-            year=parse_year(row.get("year")), category=row.get("category")
-        )
-        if title is not None:
-            grouped.setdefault(title.lower(), []).append(entry)
-        else:
-            no_title.append(entry)
+        raw_versions = row.get("versions")
+        versions: list[dict[str, Any]] | None = None
+        if isinstance(raw_versions, list):
+            parsed_versions: list[dict[str, Any]] = []
+            for version in raw_versions:
+                if isinstance(version, dict):
+                    parsed_versions.append({
+                        "doi": version.get("doi"),
+                        "year": parse_year(version.get("year")),
+                        "category": version.get("category"),
+                    })
+            versions = parsed_versions or None
 
-    out: list[Publication] = []
-    for entries in grouped.values():
-        rep = entries[0].model_copy()
-        if len(entries) > 1:
-            versions = [{"doi": entry.doi, "year": entry.year, "category": entry.category}
-                        for entry in entries]
-            rep.versions = versions if versions else None
-        out.append(rep)
+        publications.append(Publication(
+            doi=row["doi"],
+            title=clean_title(row.get("title")),
+            year=parse_year(row.get("year")),
+            category=row.get("category"),
+            versions=versions,
+        ))
 
-    out.extend(no_title)
-    out.sort(key=lambda publication: (publication.year is not None, publication.year or 0), reverse=True)
-    return out
+    publications.sort(key=lambda publication: (publication.year is not None, publication.year or 0), reverse=True)
+    return publications
 
 def person_connections(
     entity_id: str,
