@@ -261,7 +261,7 @@ const App = () => {
           <MiddlePanel text={responseText} isGenerating={isGenerating} />
         </div>
         <div className="resize-handle" onMouseDown={(e) => startDrag('right', e)} />
-        <RightPanel selectedEntity={selectedEntity} />
+        <RightPanel selectedEntity={selectedEntity} onEntitySelect={setSelectedEntity} />
       </main>
     </div>
   );
