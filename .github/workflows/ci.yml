@@ -106,7 +106,8 @@ jobs:
   # Rebuilt on every push to the PR. Stays alive until PR closes.
   # Has read access to Neo4j/Ollama but runner cannot modify those services.
   preview-and-test:
-    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+    # Always run even if tests/build fail — preview + status comment are always useful
+    if: always() && github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     needs: [test-api, build-frontend, changes]
     runs-on: [self-hosted, linux, production]
     env:
@@ -226,10 +227,15 @@ jobs:
           EXISTING_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
             --jq ".[] | select(.body | contains(\"${MARKER}\")) | .id" 2>/dev/null | head -1)
 
-          if [ "${{ job.status }}" = "success" ]; then
+          LOGS="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          UNIT="${{ needs.test-api.result == 'success' && '✅ passed' || '❌ failed' }}"
+          BUILD="${{ needs.build-frontend.result == 'success' && '✅ passed' || '❌ failed' }}"
+          POD="${{ job.status == 'success' && '✅ running' || '⚠️ see logs' }}"
+
+          if [ "${{ needs.test-api.result }}" = "success" ] && [ "${{ needs.build-frontend.result }}" = "success" ] && [ "${{ job.status }}" = "success" ]; then
             STATUS="✅ All checks passed"
           else
-            STATUS="❌ Some checks failed — see [CI logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            STATUS="❌ Some checks failed — see [CI logs](${LOGS})"
           fi
 
           BODY="${MARKER}
@@ -246,9 +252,9 @@ jobs:
 
           | Check | Status |
           |-------|--------|
-          | Build images | ${{ steps.port.outcome != 'failure' && '✅ passed' || '❌ failed' }} |
-          | Preview pod | ${{ steps.tests.outcome != 'skipped' && '✅ running' || '❌ failed to start' }} |
-          | Smoke tests | ${{ steps.tests.outcome == 'success' && '✅ passed' || '⚠️ see logs' }} |
+          | Unit tests | ${UNIT} |
+          | Frontend build | ${BUILD} |
+          | Preview pod | ${POD} |
 
           > Preview is rebuilt on every push. Stays live until PR is closed or merged."
 
@@ -285,12 +291,11 @@ jobs:
             gh pr comment "${{ github.event.pull_request.number }}" \
               --repo "${{ github.repository }}" \
               --body "${MARKER}
-          ⚠️ **Manual testing recommended**
+          ⚠️ **Let op: AI/database code gewijzigd**
 
-          This PR changes files that affect Neo4j, Ollama/AI, or infrastructure.
-          Please test manually on the production environment before merging.
+          Deze PR raakt bestanden die de AI of database logica beïnvloeden. De preview pod (\`/preview/${{ github.event.pull_request.number }}/\`) heeft een live verbinding met Neo4j en Ollama — test daar of alles nog correct werkt.
 
-          Changed paths detected in: \`api/app/utils/ai_utils/\`, \`api/app/utils/database_utils/\`, \`api/app/scripts/enrich.py\`, \`kube/\`, or \`Makefile\`"
+          Gewijzigde paden: \`ai_utils/\`, \`database_utils/\`, \`enrich.py\`, \`kube/\`, of \`Makefile\`"
           fi
 
   # ── Deploy to production (self-hosted, auto after merge) ────────
