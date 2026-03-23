@@ -50,6 +50,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          base_branch: master
           classify_inline_comments: "false"
           claude_args: >-
             --model claude-opus-4-6
@@ -212,6 +213,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          base_branch: master
           classify_inline_comments: "false"
           claude_args: >-
             --model claude-opus-4-6
