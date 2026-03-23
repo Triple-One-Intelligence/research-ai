@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import './App.css';
 import { LeftPanel } from './components/LeftPanel';
@@ -7,19 +7,25 @@ import { RightPanel } from './components/RightPanel';
 import type { EntitySuggestion } from './types';
 import { API_BASE } from './api';
 
-// Shared SSE stream reader — works for both /chat and /generate
+// Shared SSE stream reader — works for both `/chat` and `/generate`.
+//
+// Assumptions:
+// - The backend streams "SSE-like" lines in the form `data: <json>` (and `data: [DONE]` at the end).
+// - Each parsed payload may contain either `token`, `debug`, or `error`.
 const streamSSE = async (
   url: string,
   body: Record<string, unknown>,
   onChunk: (chunk: string) => void,
   onComplete: () => void,
   onDebug?: (info: Record<string, unknown>) => void,
+  abortSignal?: AbortSignal,
 ) => {
   try {
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: abortSignal,
     });
 
     if (!resp.ok || !resp.body) {
@@ -35,6 +41,8 @@ const streamSSE = async (
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+
+      // SSE framing is line-based; we buffer partial lines across reads.
       buf += decoder.decode(value, { stream: true });
       const lines = buf.split('\n');
       buf = lines.pop() ?? '';
@@ -44,6 +52,8 @@ const streamSSE = async (
         if (payload === '[DONE]') break;
         try {
           const data = JSON.parse(payload);
+
+          // `debug` is optional metadata; `error` stops the stream; `token` is appended to the UI.
           if (data.debug && onDebug) { onDebug(data.debug); continue; }
           if (data.error) { onChunk(`Error: ${data.error}`); break; }
           if (data.token) onChunk(data.token);
@@ -52,6 +62,11 @@ const streamSSE = async (
     }
     onComplete();
   } catch (error) {
+    // If we cancelled the request, let the UI settle without showing a noisy error.
+    if (abortSignal?.aborted) {
+      onComplete();
+      return;
+    }
     onChunk('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
     onComplete();
   }
@@ -64,13 +79,21 @@ const App = () => {
   const [responseText, setResponseText] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [debugInfo, setDebugInfo] = useState<Record<string, unknown> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleGenerate = (prompt: string) => {
     if (isGenerating) return;
 
+    // Cancel any previous in-flight request.
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+
     setResponseText('');
     setDebugInfo(null);
     setIsGenerating(true);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     if (selectedEntity) {
       streamSSE(
@@ -86,6 +109,7 @@ const App = () => {
         (chunk) => setResponseText((prev) => prev + chunk),
         () => setIsGenerating(false),
         (info) => setDebugInfo(info),
+        controller.signal,
       );
     } else {
       streamSSE(
@@ -93,9 +117,20 @@ const App = () => {
         { messages: [{ role: 'user', content: prompt }] },
         (chunk) => setResponseText((prev) => prev + chunk),
         () => setIsGenerating(false),
+        undefined,
+        controller.signal,
       );
     }
   };
+
+  // When switching persons/entities, clear the AI output because it is tied to the previous entity.
+  useEffect(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setResponseText('');
+    setDebugInfo(null);
+    setIsGenerating(false);
+  }, [selectedEntity?.id, selectedEntity?.type]);
 
   const { t, i18n } = useTranslation();
   const language = i18n.language as 'en' | 'nl';
@@ -184,7 +219,7 @@ const App = () => {
           )}
           <MiddlePanel text={responseText} isGenerating={isGenerating} />
         </div>
-        <RightPanel selectedEntity={selectedEntity} />
+        <RightPanel selectedEntity={selectedEntity} onEntitySelect={setSelectedEntity} />
       </main>
     </div>
   );

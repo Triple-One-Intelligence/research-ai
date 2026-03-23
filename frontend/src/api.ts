@@ -9,8 +9,9 @@ const api = axios.create({
   baseURL: API_BASE,
 });
 
-// Refactoring: Duplicate Code fix — PersonRef and OrganizationRef imported from types.ts
-// Pattern: Adapter — transforms backend schema (author_id/organization_id) to frontend EntitySuggestion (id)
+// Adapter for backend schemas:
+// The backend returns `author_id` / `organization_id`, which we normalize into our frontend `EntitySuggestion`:
+// `{ id, type, label }`.
 interface SuggestionsResponse {
   persons: PersonRef[];
   organizations: OrganizationRef[];
@@ -22,12 +23,14 @@ export const searchEntities = async (
 ): Promise<EntitySuggestion[]> => {
   const params = new URLSearchParams();
   params.append('query', query);
+  // Backend expects `limit` as a query string.
   params.append('limit', limit.toString());
 
   const response = await api.get<SuggestionsResponse>(`/autocomplete?${params.toString()}`);
 
   const suggestions: EntitySuggestion[] = [];
 
+  // Map person results.
   response.data.persons?.forEach((p) => {
     suggestions.push({
       id: p.author_id,
@@ -36,6 +39,7 @@ export const searchEntities = async (
     });
   });
 
+  // Map organization results.
   response.data.organizations?.forEach((o) => {
     suggestions.push({
       id: o.organization_id,

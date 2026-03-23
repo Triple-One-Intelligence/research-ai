@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import type { EntitySuggestion, ConnectionsResponse, PublicationVersion } from '../../types';
 import { fetchConnections } from '../../api';
 import CollapsibleCard from './CollapsibleCard';
 import './RightPanel.css';
 import { useTranslation } from 'react-i18next';
 
+// Right column: fetches and displays "connections" for the currently selected entity.
+// Results are grouped into collapsible sections (collaborators, publications, organizations, members).
 /* ── Inline sub-component for a single publication ────────────── */
 
 function PublicationItem({ pub }: { pub: ConnectionsResponse['publications'][number] }) {
@@ -62,18 +65,31 @@ function PublicationItem({ pub }: { pub: ConnectionsResponse['publications'][num
 
 interface RightPanelProps {
   selectedEntity: EntitySuggestion | null;
+  onEntitySelect: (entity: EntitySuggestion) => void;
 }
 
-const RightPanel = ({ selectedEntity }: RightPanelProps) => {
+const RightPanel = ({ selectedEntity, onEntitySelect }: RightPanelProps) => {
   const [connections, setConnections] = useState<ConnectionsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { t } = useTranslation();
 
+  const selectEntity = (entity: EntitySuggestion) => {
+    onEntitySelect(entity);
+  };
+
+  const handleEntityKeyDown = (e: KeyboardEvent<HTMLLIElement>, entity: EntitySuggestion) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      selectEntity(entity);
+    }
+  };
+
   useEffect(() => {
     if (!selectedEntity) {
       setConnections(null);
       setError(null);
+      setLoading(false);
       return;
     }
 
@@ -136,7 +152,14 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
       <CollapsibleCard title={t('rightPanel.collaborators')} count={connections.collaborators.length} defaultOpen>
         <ul className="connection-list">
           {connections.collaborators.map((p) => (
-            <li key={p.author_id} className="connection-item person">
+            <li
+              key={p.author_id}
+              className="connection-item person clickable"
+              role="button"
+              tabIndex={0}
+              onClick={() => selectEntity({ id: p.author_id, type: 'person', label: p.name })}
+              onKeyDown={(e) => handleEntityKeyDown(e, { id: p.author_id, type: 'person', label: p.name })}
+            >
               <span className="entity-type-badge person">👤</span>
               <span title={p.name}>{p.name}</span>
             </li>
@@ -155,7 +178,16 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
       <CollapsibleCard title={t('rightPanel.organizations')} count={connections.organizations.length}>
         <ul className="connection-list">
           {connections.organizations.map((org) => (
-            <li key={org.organization_id} className="connection-item organization">
+            <li
+              key={org.organization_id}
+              className="connection-item organization clickable"
+              role="button"
+              tabIndex={0}
+              onClick={() => selectEntity({ id: org.organization_id, type: 'organization', label: org.name })}
+              onKeyDown={(e) =>
+                handleEntityKeyDown(e, { id: org.organization_id, type: 'organization', label: org.name })
+              }
+            >
               <span className="entity-type-badge organization">🏛️</span>
               <span title={org.name}>{org.name}</span>
             </li>
@@ -166,7 +198,14 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
       <CollapsibleCard title={t('rightPanel.members')} count={connections.members.length}>
         <ul className="connection-list">
           {connections.members.map((m) => (
-            <li key={m.author_id} className="connection-item person">
+            <li
+              key={m.author_id}
+              className="connection-item person clickable"
+              role="button"
+              tabIndex={0}
+              onClick={() => selectEntity({ id: m.author_id, type: 'person', label: m.name })}
+              onKeyDown={(e) => handleEntityKeyDown(e, { id: m.author_id, type: 'person', label: m.name })}
+            >
               <span className="entity-type-badge person">👤</span>
               <div className="member-info">
                 <span title={m.name}>{m.name}</span>

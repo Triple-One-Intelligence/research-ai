@@ -34,13 +34,18 @@
   box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
 }
 
+.search-input.has-selection {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
 .search-input::placeholder {
   color: #9ca3af;
 }
 
 .search-spinner {
-  position: absolute;
-  right: 0.75rem;
+  position: relative;
+  display: inline-flex;
   width: 18px;
   height: 18px;
   border: 2px solid #e5e7eb;
@@ -184,6 +189,45 @@
 }
 
 .clear-entity-btn:hover {
+  background: #e0f2fe;
+  color: #0c4a6e;
+}
+
+/* Inline selected controls inside the same input field */
+.search-input-actions {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: none; /* buttons override */
+}
+
+.selected-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  pointer-events: auto;
+}
+
+.entity-type-badge.inline {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  font-size: 0.95rem;
+}
+
+.clear-entity-btn.inline {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid #bae6fd;
+}
+
+.clear-entity-btn.inline:hover {
   background: #e0f2fe;
   color: #0c4a6e;
 }
