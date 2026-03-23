@@ -191,6 +191,163 @@ class TestPubBlocks:
 
 
 # ---------------------------------------------------------------------------
+# graph.py — Neo4j queries
+# ---------------------------------------------------------------------------
+
+def _mock_neo4j(mock_get_graph, rows):
+    """Wire a mock Neo4j session that returns rows from .data()."""
+    session = MagicMock()
+    mock_get_graph.return_value.session.return_value.__enter__ = MagicMock(return_value=session)
+    mock_get_graph.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
+    session.run.return_value.data.return_value = rows
+    return session
+
+
+class TestGraphQueries:
+    @patch("app.pipelines.graph.get_graph")
+    def test_person_collaborators_ranked_returns_results(self, mock_get_graph):
+        rows = [
+            {"author_id": "a1", "rawName": "Doe, Jane", "sharedPubs": 5},
+            {"author_id": "a2", "rawName": "Smith, John", "sharedPubs": 3},
+        ]
+        _mock_neo4j(mock_get_graph, rows)
+        from app.pipelines.graph import person_collaborators_ranked
+        result = person_collaborators_ranked("root-id", limit=10)
+        assert result == rows
+
+    @patch("app.pipelines.graph.get_graph")
+    def test_person_collaborators_ranked_empty(self, mock_get_graph):
+        _mock_neo4j(mock_get_graph, [])
+        from app.pipelines.graph import person_collaborators_ranked
+        assert person_collaborators_ranked("nobody", limit=10) == []
+
+    @patch("app.pipelines.graph.get_graph")
+    def test_person_collab_organizations_returns_results(self, mock_get_graph):
+        rows = [{"name": "MIT", "sharedPubs": 8}, {"name": "Stanford", "sharedPubs": 4}]
+        _mock_neo4j(mock_get_graph, rows)
+        from app.pipelines.graph import person_collab_organizations
+        result = person_collab_organizations("root-id", limit=10)
+        assert result == rows
+
+    @patch("app.pipelines.graph.get_graph")
+    def test_org_related_orgs_ranked_returns_results(self, mock_get_graph):
+        rows = [{"name": "Partner Org", "sharedMembers": 12}]
+        _mock_neo4j(mock_get_graph, rows)
+        from app.pipelines.graph import org_related_orgs_ranked
+        result = org_related_orgs_ranked("org-id", limit=10)
+        assert result == rows
+
+    @patch("app.pipelines.graph.get_graph")
+    def test_fetch_abstracts_returns_dict(self, mock_get_graph):
+        session = MagicMock()
+        mock_get_graph.return_value.session.return_value.__enter__ = MagicMock(return_value=session)
+        mock_get_graph.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
+        session.run.return_value = [{"doi": "10.1/a", "abstract": "Some abstract text."}]
+        from app.pipelines.graph import fetch_abstracts
+        result = fetch_abstracts(["10.1/a"])
+        assert result == {"10.1/a": "Some abstract text."}
+
+    @patch("app.pipelines.graph.get_graph")
+    def test_fetch_abstracts_empty_dois(self, mock_get_graph):
+        from app.pipelines.graph import fetch_abstracts
+        result = fetch_abstracts([])
+        mock_get_graph.assert_not_called()
+        assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# Context builders
+# ---------------------------------------------------------------------------
+
+class TestTopOrganizationsContext:
+    @patch("app.pipelines.contexts.person_collab_organizations")
+    def test_person_entity(self, mock_orgs):
+        mock_orgs.return_value = [
+            {"name": "MIT", "sharedPubs": 10},
+            {"name": "Stanford", "sharedPubs": 5},
+        ]
+        from app.pipelines.contexts import top_organizations_context
+        result = top_organizations_context(entity("person"), "What organizations?")
+        assert "MIT" in result
+        assert "Stanford" in result
+        assert "10" in result  # shared pub count
+
+    @patch("app.pipelines.contexts.person_collab_organizations")
+    def test_person_entity_no_orgs(self, mock_orgs):
+        mock_orgs.return_value = []
+        from app.pipelines.contexts import top_organizations_context
+        result = top_organizations_context(entity("person"), "What organizations?")
+        assert "No collaborating organizations found." in result
+
+    @patch("app.pipelines.contexts.org_related_orgs_ranked")
+    def test_org_entity(self, mock_orgs):
+        mock_orgs.return_value = [{"name": "Partner Org", "sharedMembers": 3}]
+        from app.pipelines.contexts import top_organizations_context
+        result = top_organizations_context(entity("organization"), "Related orgs?")
+        assert "Partner Org" in result
+        assert "3" in result
+
+
+class TestTopCollaboratorsContext:
+    @patch("app.pipelines.contexts.person_collaborators_ranked")
+    def test_person_entity(self, mock_collabs):
+        mock_collabs.return_value = [
+            {"rawName": "Doe, Jane", "sharedPubs": 7},
+            {"rawName": "Smith, John", "sharedPubs": 3},
+        ]
+        from app.pipelines.contexts import top_collaborators_context
+        result = top_collaborators_context(entity("person"), "Who are the collaborators?")
+        assert "Doe, Jane" in result
+        assert "Smith, John" in result
+
+    @patch("app.pipelines.contexts.person_collaborators_ranked")
+    def test_person_entity_no_collabs(self, mock_collabs):
+        mock_collabs.return_value = []
+        from app.pipelines.contexts import top_collaborators_context
+        result = top_collaborators_context(entity("person"), "Who?")
+        assert "No collaborators found." in result
+
+    @patch("app.pipelines.contexts.get_connections")
+    def test_org_entity(self, mock_connections):
+        from app.utils.schemas.connections import Member
+        mock_connections.return_value = {
+            "members": [Member(author_id="p1", name="Alice"), Member(author_id="p2", name="Bob")],
+            "publications": [], "collaborators": [], "organizations": [],
+        }
+        from app.pipelines.contexts import top_collaborators_context
+        result = top_collaborators_context(entity("organization"), "Who are the members?")
+        assert "Alice" in result
+        assert "Bob" in result
+
+
+class TestRecentPublicationsContext:
+    @patch("app.pipelines.contexts.fetch_abstracts")
+    @patch("app.pipelines.contexts.get_connections")
+    def test_returns_publications_with_abstracts(self, mock_connections, mock_abstracts):
+        from app.utils.schemas import Publication
+        mock_connections.return_value = {
+            "publications": [Publication(doi="10.1/a", title="Test Paper", year=2024, category="article")],
+            "members": [], "collaborators": [], "organizations": [],
+        }
+        mock_abstracts.return_value = {"10.1/a": "This paper is about something interesting."}
+        from app.pipelines.contexts import recent_publications_context
+        result = recent_publications_context(entity("person"), "Recent work?")
+        assert "Test Paper" in result
+        assert "This paper is about something interesting." in result
+
+    @patch("app.pipelines.contexts.fetch_abstracts")
+    @patch("app.pipelines.contexts.get_connections")
+    def test_no_publications(self, mock_connections, mock_abstracts):
+        mock_connections.return_value = {
+            "publications": [], "members": [], "collaborators": [], "organizations": [],
+        }
+        mock_abstracts.return_value = {}
+        from app.pipelines.contexts import recent_publications_context
+        result = recent_publications_context(entity("person"), "Recent work?")
+        assert "No publications found." in result
+
+
+# ---------------------------------------------------------------------------
 # _llm_payload()
 # ---------------------------------------------------------------------------
 
