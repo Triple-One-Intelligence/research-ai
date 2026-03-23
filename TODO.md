@@ -37,101 +37,25 @@
 
 ## Server A — `researchaicloud` (productie + CI)
 
-Server A draait productie EN CI preview pods. Nadat de repo admin alles heeft
-ingesteld, doe het volgende op Server A:
+Volledige instructies: **`docs/server-a-setup.md`**
 
-### Self-hosted runner installeren
+Preview pods gebruiken de bestaande Neo4j en Ollama op de server.
+Geen aparte instanties nodig. Credentials blijven lokaal op de server.
 
-- [ ] Runner user aanmaken:
-  ```bash
-  sudo useradd -m -s /bin/bash github-runner
-  sudo loginctl enable-linger github-runner
-  ```
-- [ ] GitHub Actions runner installeren:
-  ```bash
-  sudo su - github-runner
-  mkdir actions-runner && cd actions-runner
-  # Download URL en token komen van GitHub UI:
-  # Settings → Actions → Runners → New self-hosted runner → Linux x64
-  curl -o actions-runner-linux-x64-2.XXX.X.tar.gz -L <URL>
-  tar xzf ./actions-runner-linux-x64-2.XXX.X.tar.gz
-  ./config.sh --url https://github.com/Triple-One-Intelligence/research-ai \
-              --token <TOKEN> \
-              --labels linux,production \
-              --name research-ai-runner \
-              --unattended
-  ```
-- [ ] Runner als systemd service:
-  ```bash
-  exit  # terug naar sudo user
-  cd /home/github-runner/actions-runner
-  sudo ./svc.sh install github-runner
-  sudo ./svc.sh start
-  ```
-- [ ] Verifiëren dat runner groen is in GitHub Settings → Actions → Runners
-- [ ] Dev Neo4j env file aanmaken (CI leest credentials hier, niet van GitHub secrets):
-  ```bash
-  cat > /home/github-runner/.env.dev-neo4j << 'ENVEOF'
-  REMOTE_NEO4J_URL=bolt://localhost:7688
-  REMOTE_NEO4J_USER=neo4j
-  REMOTE_NEO4J_PASS=<DEV_NEO4J_WACHTWOORD>
-  ENVEOF
-  chmod 600 /home/github-runner/.env.dev-neo4j
-  chown github-runner:github-runner /home/github-runner/.env.dev-neo4j
-  ```
-
-### Dev Neo4j instantie (naast productie)
-
-Preview pods gebruiken een aparte Neo4j zodat productiedata niet geraakt wordt.
-
-- [ ] Dev Neo4j container starten op port 7688:
-  ```bash
-  podman run -d --name neo4j-dev \
-    -p 7688:7687 -p 7475:7474 \
-    -e NEO4J_AUTH=neo4j/<DEV_WACHTWOORD> \
-    -v neo4j-dev-data:/data \
-    docker.io/library/neo4j:5
-  ```
-- [ ] Dev data laden vanuit backup:
-  ```bash
-  # Eerst backup maken van productie (als dat nog niet is gedaan):
-  make neo4j-backup
-  # Dan restoren naar dev instantie — zie Makefile voor het juiste commando
-  ```
-- [ ] Verifiëren: `nc -z localhost 7688` moet slagen
-- [ ] Dev Neo4j credentials toevoegen als GitHub secrets (zie Repo Admin sectie)
-
-### SSH toegang beperken (afspraak)
-
-- [ ] Afspreken met team: **niet meer SSH'en naar Server A om te ontwikkelen**
-  - Gebruik de preview link in de PR om je branch te bekijken
-  - Server B (kosher) is beschikbaar als sandbox
-  - Alleen Lukas en Jelmer houden SSH toegang voor noodgevallen
-
-### Firewall: preview poorten openen
-
-- [ ] Poortrange 4000-4100 openen voor inkomend verkeer (preview pods)
-  ```bash
-  sudo firewall-cmd --permanent --add-port=4000-4100/tcp
-  sudo firewall-cmd --reload
-  ```
+- [ ] Runner user aanmaken + runner installeren (zie `docs/server-a-setup.md`)
+- [ ] CI env file aanmaken: `/home/github-runner/.env.ci` (zie setup doc)
+- [ ] Firewall: poorten 4000-4100 openen voor preview pods
+- [ ] Verifiëren: runner groen in GitHub, `nc -z localhost 7687` OK
+- [ ] Afspreken met team: niet meer SSH'en naar Server A om te ontwikkelen
 
 ---
 
 ## Server B — `kosher` (sandbox)
 
-Server B is een vrije speeltuin voor ontwikkelaars. Geen CI, geen structuur.
+Volledige instructies: **`docs/server-b-setup.md`**
 
 - [ ] Documenteren richting team dat Server B de sandbox is
-- [ ] Optioneel: eigen Neo4j installeren voor offline ontwikkeling
-  ```bash
-  podman run -d --name neo4j-sandbox \
-    -p 7687:7687 -p 7474:7474 \
-    -e NEO4J_AUTH=neo4j/sandbox \
-    -v neo4j-sandbox-data:/data \
-    docker.io/library/neo4j:5
-  ```
-- [ ] Optioneel: data laden vanuit Server A backup
+- [ ] Optioneel: eigen Neo4j voor offline werk (zie setup doc)
 
 ---
 

@@ -117,11 +117,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check dev services
+      - name: Check services and env file
         run: |
-          nc -z localhost 7688 2>/dev/null \
-            && echo "Dev Neo4j: up" \
-            || { echo "::error::Dev Neo4j not running on port 7688"; exit 1; }
+          test -f /home/github-runner/.env.ci \
+            && echo "CI env file: found" \
+            || { echo "::error::Missing /home/github-runner/.env.ci — see TODO.md for setup"; exit 1; }
+          nc -z localhost 7687 2>/dev/null \
+            && echo "Neo4j: up" \
+            || { echo "::error::Neo4j not reachable on port 7687"; exit 1; }
           nc -z localhost 11434 2>/dev/null \
             && echo "Ollama: up" \
             || echo "::warning::Ollama not reachable on port 11434 — AI tests will skip"
@@ -152,12 +155,11 @@ jobs:
 
       - name: Start API
         run: |
-          # Credentials loaded from server-local env file (not GitHub secrets)
+          # All credentials loaded from server-local env file — nothing in GitHub
           podman run -d \
             --pod "${{ steps.port.outputs.pod }}" \
             --name "${{ steps.port.outputs.pod }}-api" \
-            --env-file /home/github-runner/.env.dev-neo4j \
-            -e AI_SERVICE_URL=http://host.containers.internal:11434 \
+            --env-file /home/github-runner/.env.ci \
             -e CORS_ORIGINS="https://localhost:${{ steps.port.outputs.port }}" \
             -v "${{ github.workspace }}/api:/work:ro" \
             "research-ai-api:pr-${PR_NUMBER}"
