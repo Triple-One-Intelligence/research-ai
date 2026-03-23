@@ -153,16 +153,6 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
     return () => { cancelled = true; };
   }, [selectedEntity]);
 
-  const mergeUniqueById = <T,>(
-    existing: T[],
-    incoming: T[],
-    getId: (item: T) => string,
-  ): { merged: T[]; addedCount: number } => {
-    const existingIds = new Set(existing.map(getId));
-    const uniqueNew = incoming.filter((i) => !existingIds.has(getId(i)));
-    return { merged: [...existing, ...uniqueNew], addedCount: uniqueNew.length };
-  };
-
   const onLoadMoreCollaborators = async () => {
     if (!selectedEntity || collaboratorsLoading || !collaboratorsHasMore) return;
     const requestEntityKey = getEntityKey(selectedEntity);
@@ -174,14 +164,9 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
         if (!prev || getEntityKey({ id: prev.entity_id, type: prev.entity_type }) !== requestEntityKey) {
           return prev;
         }
-        const { merged, addedCount } = mergeUniqueById(
-          prev.collaborators,
-          page.collaborators,
-          (p) => p.author_id,
-        );
+        const merged = [...prev.collaborators, ...page.collaborators];
         setCollaboratorsHasMore(page.cursor != null);
         setCollaboratorsNextCursor(page.cursor);
-        if (addedCount === 0) return prev;
         return { ...prev, collaborators: merged };
       });
     } catch (err: unknown) {
@@ -202,14 +187,9 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
         if (!prev || getEntityKey({ id: prev.entity_id, type: prev.entity_type }) !== requestEntityKey) {
           return prev;
         }
-        const { merged, addedCount } = mergeUniqueById(
-          prev.publications,
-          page.publications,
-          (p) => p.doi,
-        );
+        const merged = [...prev.publications, ...page.publications];
         setPublicationsHasMore(page.cursor != null);
         setPublicationsNextCursor(page.cursor);
-        if (addedCount === 0) return prev;
         return { ...prev, publications: merged };
       });
     } catch (err: unknown) {
@@ -230,14 +210,9 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
         if (!prev || getEntityKey({ id: prev.entity_id, type: prev.entity_type }) !== requestEntityKey) {
           return prev;
         }
-        const { merged, addedCount } = mergeUniqueById(
-          prev.organizations,
-          page.organizations,
-          (o) => o.organization_id,
-        );
+        const merged = [...prev.organizations, ...page.organizations];
         setOrganizationsHasMore(page.cursor != null);
         setOrganizationsNextCursor(page.cursor);
-        if (addedCount === 0) return prev;
         return { ...prev, organizations: merged };
       });
     } catch (err: unknown) {
@@ -258,14 +233,9 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
         if (!prev || getEntityKey({ id: prev.entity_id, type: prev.entity_type }) !== requestEntityKey) {
           return prev;
         }
-        const { merged, addedCount } = mergeUniqueById(
-          prev.members,
-          page.members,
-          (m) => m.author_id,
-        );
+        const merged = [...prev.members, ...page.members];
         setMembersHasMore(page.cursor != null);
         setMembersNextCursor(page.cursor);
-        if (addedCount === 0) return prev;
         return { ...prev, members: merged };
       });
     } catch (err: unknown) {
