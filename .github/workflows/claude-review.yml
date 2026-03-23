@@ -33,11 +33,7 @@ jobs:
   # Full code review on PR open / reopen
   # ──────────────────────────────────────────────
   pr-review:
-    if: >
-      github.event_name == 'pull_request' &&
-      contains(fromJSON('["OWNER","MEMBER"]'),
-        github.event.pull_request.author_association) &&
-      github.actor != 'dependabot[bot]'
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && (github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -195,14 +191,11 @@ jobs:
   # @claude mention — smart assistant
   # ──────────────────────────────────────────────
   claude-mention:
-    if: >
-      ((github.event_name == 'issue_comment' &&
-        github.event.issue.pull_request &&
-        contains(github.event.comment.body, '@claude')) ||
-       (github.event_name == 'pull_request_review_comment' &&
-        contains(github.event.comment.body, '@claude'))) &&
-      contains(fromJSON('["OWNER","MEMBER"]'),
-        github.event.comment.author_association)
+    if: |
+      (
+        (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+      ) && (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER')
     runs-on: ubuntu-latest
     permissions:
       contents: read
