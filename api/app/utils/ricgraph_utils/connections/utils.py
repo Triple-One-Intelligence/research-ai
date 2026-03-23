@@ -12,10 +12,9 @@ from app.utils.ricgraph_utils.queries.connections_queries import (
     ORG_RELATED_ORGS,
 )
 
-from .constants import EXCLUDE_CATEGORIES, validate_entity_type
+from .constants import EXCLUDE_CATEGORIES, validate_entity_type, ConnectionsError
 from .formatters import format_people, format_publications, format_organizations
 from .pagination import decode_cursor_pair
-from .constants import ConnectionsError
 
 class ConnectionsPayload(TypedDict):
     collaborators: list[Person]

@@ -131,8 +131,8 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
 
     fetchConnections(selectedEntity, PAGE_SIZE)
       .then((data) => {
-        if (!cancelled) setConnections(data);
         if (cancelled) return;
+        setConnections(data);
 
         setCollaboratorsHasMore(data.collaborators_cursor != null);
         setCollaboratorsNextCursor(data.collaborators_cursor);
@@ -178,10 +178,10 @@ const RightPanel = ({ selectedEntity }: RightPanelProps) => {
         if (!prev || getEntityKey({ id: prev.entity_id, type: prev.entity_type }) !== requestEntityKey) {
           return prev;
         }
-        args.setHasMore(page.cursor != null);
-        args.setCursor(page.cursor);
         return args.merge(prev, page);
       });
+      args.setHasMore(page.cursor != null);
+      args.setCursor(page.cursor);
     } catch (err: unknown) {
       setError(getErrorMessage(err, t('rightPanel.loadFailedFallback')));
     } finally {
