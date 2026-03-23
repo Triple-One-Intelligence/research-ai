@@ -109,7 +109,8 @@ jobs:
     if: >
       github.event_name == 'pull_request' &&
       contains(fromJSON('["OWNER","MEMBER"]'),
-        github.event.pull_request.author_association)
+        github.event.pull_request.author_association) &&
+      github.actor != 'dependabot[bot]'
     needs: [test-api, build-frontend, changes]
     runs-on: [self-hosted, linux, production]
     env:
