@@ -5,21 +5,18 @@
   "leftPanel": {
     "searchLabel": "Search organisation or person",
     "searchPlaceholder": "Type a name or organisation…",
+    "executiveSummary": "Executive Summary",
+
     "topOrganizations": "Top 5 Collaborating Organizations",
-    "relevantPublications": "Relevant Publications by Abstract",
-    "uvProfileCV": "Create UU Profile CV",
+    "topCollaborators": "Top Collaboration Partners",
+    "recentPublications": "Recent Publications",
     "promptPlaceholder": "Write your question or instruction for the LLM…",
-    "askButton": "Ask",
+    "askButton": "Ask the LLM",
     "askButtonGenerating": "Generating...",
     "noResults": "No results found",
     "clearSelection": "Clear selection",
     "searchSuggestions": "Search suggestions",
-    "loading": "Loading",
-    "executiveSummaryPrompt": "Generate an executive summary for this entity.",
-    "strengthsGapsPrompt": "Analyse the strengths and gaps for this entity.",
-    "topOrganizationsPrompt": "Find the top 5 organizations that {{entity}} collaborates with. Provide relevant details about each collaboration.",
-    "publicationsPrompt": "Identify publications relevant to {{entity}}'s research focus. Search by analyzing abstracts that align with their professional interests and expertise.",
-    "uvCVPrompt": "Create a comprehensive CV for the Utrecht University (UU) profile of {{entity}} based on their research, publications, and collaborations. Format it for professional use."
+    "loading": "Loading"
   },
   "middlePanel": {
     "header": "AI Output",

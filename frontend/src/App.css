@@ -62,9 +62,23 @@
 /* Main content - 3 column layout */
 .app-main {
   display: grid;
-  grid-template-columns: 320px 1fr 360px;
+  grid-template-columns: 380px 8px 1fr 8px 360px;
   flex: 1;
   overflow: hidden;
+}
+
+.resize-handle {
+  width: 8px;
+  cursor: col-resize;
+  background: #e5e7eb;
+  transition: background 0.15s;
+  position: relative;
+  z-index: 10;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  background: #9ca3af;
 }
 
 /* Left panel - search and prompts */
@@ -102,7 +116,7 @@
 /* Responsive adjustments */
 @media (max-width: 1024px) {
   .app-main {
-    grid-template-columns: 280px 1fr 300px;
+    grid-template-columns: 320px 8px 1fr 8px 300px;
   }
 }
 

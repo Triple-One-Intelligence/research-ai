@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import * as enPrompts from '../../prompts/en';
+import * as nlPrompts from '../../prompts/nl';
 import EntitySearchBar from './EntitySearchBar';
 import type { EntitySuggestion } from '../../types';
 import './LeftPanel.css';
@@ -15,9 +17,13 @@ interface LeftPanelProps {
 // Left column: lets the user pick an entity and compose a custom prompt.
 // It also provides one-click prompt templates based on the selected entity.
 const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEntityClear }: LeftPanelProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [customPrompt, setCustomPrompt] = useState('');
 
+  const getLocalizedPrompt = (type: 'executiveSummary' | 'topOrganizations' | 'topCollaborators' | 'recentPublications') => {
+    const promptModule = i18n.language === 'nl' ? nlPrompts : enPrompts;
+    return promptModule.getPrompt(type, selectedEntity?.label || '');
+  };
   // The prompt text is entity-specific; when switching persons/entities it must be reset.
   useEffect(() => {
     setCustomPrompt('');
@@ -35,24 +41,35 @@ const LeftPanel = ({ onAsk, isGenerating, selectedEntity, onEntitySelect, onEnti
         <div className="prompt-buttons">
           <button
             className="prompt-btn"
-            onClick={() => setCustomPrompt(t('leftPanel.topOrganizationsPrompt', { entity: selectedEntity.label }))}
+            onClick={() => onAsk(getLocalizedPrompt('executiveSummary'))}
+            disabled={isGenerating}
+          >
+            <span className="prompt-icon">📄</span>
+            {t('leftPanel.executiveSummary')}
+          </button>
+          <button
+            className="prompt-btn"
+            onClick={() => onAsk(getLocalizedPrompt('topOrganizations'))}
+            disabled={isGenerating}
           >
             <span className="prompt-icon">🏢</span>
             {t('leftPanel.topOrganizations')}
           </button>
           <button
             className="prompt-btn"
-            onClick={() => setCustomPrompt(t('leftPanel.publicationsPrompt', { entity: selectedEntity.label }))}
+            onClick={() => onAsk(getLocalizedPrompt('topCollaborators'))}
+            disabled={isGenerating}
           >
-            <span className="prompt-icon">📚</span>
-            {t('leftPanel.relevantPublications')}
+            <span className="prompt-icon">🤝</span>
+            {t('leftPanel.topCollaborators')}
           </button>
           <button
             className="prompt-btn"
-            onClick={() => setCustomPrompt(t('leftPanel.uvCVPrompt', { entity: selectedEntity.label }))}
+            onClick={() => onAsk(getLocalizedPrompt('recentPublications'))}
+            disabled={isGenerating}
           >
-            <span className="prompt-icon">🎓</span>
-            {t('leftPanel.uvProfileCV')}
+            <span className="prompt-icon">📚</span>
+            {t('leftPanel.recentPublications')}
           </button>
         </div>
       )}
