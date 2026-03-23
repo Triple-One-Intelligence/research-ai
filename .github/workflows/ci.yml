@@ -131,7 +131,7 @@ jobs:
         run: |
           PORT=$(( 4000 + PR_NUMBER ))
           POD_NAME="preview-pr-${PR_NUMBER}"
-          HOST_IP=$(ip -4 route show default | awk '{print $7}' | head -1)
+          HOST_IP=$(ip -4 route show default | grep -oP 'src \K[\d.]+' | head -1)
           echo "port=${PORT}" >> "$GITHUB_OUTPUT"
           echo "pod=${POD_NAME}" >> "$GITHUB_OUTPUT"
           echo "host_ip=${HOST_IP}" >> "$GITHUB_OUTPUT"
