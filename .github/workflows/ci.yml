@@ -187,9 +187,9 @@ jobs:
       - name: Register preview route in production Caddy
         run: |
           PORT="${{ steps.port.outputs.port }}"
-          # Drop a Caddy snippet so prod Caddy proxies /preview/PR_NUMBER to the pod
+          # 10.89.0.1 = gateway of research-ai-net, routes to host where preview pods listen
           echo "handle_path /preview/${PR_NUMBER}/* {
-            reverse_proxy localhost:${PORT} {
+            reverse_proxy 10.89.0.1:${PORT} {
               transport http {
                 tls_insecure_skip_verify
               }
