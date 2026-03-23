@@ -107,7 +107,7 @@ const App = () => {
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>{t('header.title')}</h1>
+        <h1>{t('header.title')} — [feat/V26J-TEST-frontend-only]</h1>
         <div className="language-buttons">
           <button
             className={`lang-btn ${language === 'nl' ? 'active' : ''}`}
