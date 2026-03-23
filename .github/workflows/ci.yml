@@ -285,12 +285,11 @@ jobs:
             gh pr comment "${{ github.event.pull_request.number }}" \
               --repo "${{ github.repository }}" \
               --body "${MARKER}
-          ⚠️ **Manual testing recommended**
+          ⚠️ **Let op: AI/database code gewijzigd**
 
-          This PR changes files that affect Neo4j, Ollama/AI, or infrastructure.
-          Please test manually on the production environment before merging.
+          Deze PR raakt bestanden die de AI of database logica beïnvloeden. De preview pod (\`/preview/${{ github.event.pull_request.number }}/\`) heeft een live verbinding met Neo4j en Ollama — test daar of alles nog correct werkt.
 
-          Changed paths detected in: \`api/app/utils/ai_utils/\`, \`api/app/utils/database_utils/\`, \`api/app/scripts/enrich.py\`, \`kube/\`, or \`Makefile\`"
+          Gewijzigde paden: \`ai_utils/\`, \`database_utils/\`, \`enrich.py\`, \`kube/\`, of \`Makefile\`"
           fi
 
   # ── Deploy to production (self-hosted, auto after merge) ────────
