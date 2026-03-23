@@ -170,7 +170,8 @@ jobs:
             -v "${{ github.workspace }}/api:/work:ro" \
             "research-ai-api:pr-${PR_NUMBER}"
 
-          # Frontend dev server — Vite watches the mounted volume and hot-reloads
+          # Frontend dev server — source mounted for hot-reload, node_modules in separate volume
+          podman volume create "${POD}-node-modules" 2>/dev/null || true
           podman run -d \
             --pod "$POD" \
             --name "${POD}-frontend" \
@@ -178,6 +179,7 @@ jobs:
             -e VITE_PREVIEW_PR="${PR_NUMBER}" \
             -e VITE_BASE_PATH="/preview/${PR_NUMBER}/" \
             -v "${{ github.workspace }}/frontend:/work" \
+            -v "${POD}-node-modules:/work/node_modules" \
             -w /work \
             docker.io/library/node:20-alpine \
             sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 5173"

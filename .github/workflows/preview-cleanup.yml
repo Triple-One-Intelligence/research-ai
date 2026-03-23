@@ -35,6 +35,7 @@ jobs:
           sudo rm -f /etc/research-ai/caddy-previews/pr-${PR_NUMBER}.caddyfile
           sudo podman exec research-ai-frontend caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile 2>/dev/null || true
 
-          # Clean up PR-tagged images
+          # Clean up PR-tagged images and volumes
           podman rmi "research-ai-api:pr-${PR_NUMBER}" 2>/dev/null || true
+          podman volume rm "${POD_NAME}-node-modules" 2>/dev/null || true
           podman image prune -f 2>/dev/null || true
