@@ -1,0 +1,306 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# Cancel previous runs on the same PR when a new commit is pushed.
+# Pushes to master always run to completion (deploy pipeline).
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ── Branch name validation ────────────────────────────────────
+  branch-name:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch naming convention
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          PATTERN='^(feat|fix|test|docs|refactor)/[A-Za-z0-9]+-.*$'
+          if [[ ! "$BRANCH" =~ $PATTERN ]]; then
+            echo "::error::Branch name '$BRANCH' does not follow naming convention."
+            echo ""
+            echo "Expected format: {type}/{ticket}-{description}"
+            echo "  Types: feat/ fix/ test/ docs/ refactor/"
+            echo "  Examples:"
+            echo "    feat/V26J-153-authenticatie-interne-systemen"
+            echo "    fix/V26J-42-broken-neo4j-connection"
+            echo "    docs/V26J-99-api-reference-update"
+            exit 1
+          fi
+          echo "Branch name '$BRANCH' is valid"
+
+  # ── Detect changed paths ────────────────────────────────────
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      needs-manual-test: ${{ steps.filter.outputs.needs-manual-test }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'api/**'
+              - 'caddy/**'
+              - 'kube/**'
+              - 'Makefile'
+            needs-manual-test:
+              - 'api/app/utils/ai_utils/**'
+              - 'api/app/utils/database_utils/**'
+              - 'api/app/scripts/enrich.py'
+              - 'kube/**'
+              - 'Makefile'
+
+  # ── Python unit tests (GitHub-hosted, free, fully mocked) ────
+  test-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: api/requirements*.txt
+
+      - name: Install dependencies
+        run: pip install -r api/requirements.txt -r api/requirements-dev.txt
+
+      - name: Run unit tests
+        working-directory: api
+        run: python -m pytest -m "not smoke and not integration" -v --tb=short
+
+  # ── Frontend build check (GitHub-hosted, free) ────────────────
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install and build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+  # ── Preview pod (self-hosted on Server A) ─────────────────────
+  # Rebuilt on every push to the PR. Stays alive until PR closes.
+  # Has read access to Neo4j/Ollama but runner cannot modify those services.
+  preview-and-test:
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+    needs: [test-api, build-frontend, changes]
+    runs-on: [self-hosted, linux, production]
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      XDG_RUNTIME_DIR: /run/user/500000
+      DBUS_SESSION_BUS_ADDRESS: unix:path=/run/user/500000/bus
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Calculate preview ports
+        id: port
+        run: |
+          # Each PR gets a port range: base for frontend (HTTP), base+1 for API (HTTP)
+          BASE=$(( 4000 + PR_NUMBER * 2 ))
+          UI_PORT=$BASE
+          API_PORT=$(( BASE + 1 ))
+          POD_NAME="preview-pr-${PR_NUMBER}"
+          HOST_IP=$(ip -4 route show default | grep -oP 'src \K[\d.]+' | head -1)
+          echo "ui_port=${UI_PORT}" >> "$GITHUB_OUTPUT"
+          echo "api_port=${API_PORT}" >> "$GITHUB_OUTPUT"
+          echo "pod=${POD_NAME}" >> "$GITHUB_OUTPUT"
+          echo "host_ip=${HOST_IP}" >> "$GITHUB_OUTPUT"
+          echo "Preview: frontend=:${UI_PORT}, api=:${API_PORT}"
+
+      - name: Tear down existing preview pod
+        run: |
+          systemctl --user disable --now "pod-preview-pr-${PR_NUMBER}.service" 2>/dev/null || true
+          podman pod rm -f "preview-pr-${PR_NUMBER}" 2>/dev/null || true
+
+      - name: Build images
+        run: |
+          podman build -t "research-ai-api:pr-${PR_NUMBER}" -f ./api/Containerfile . -q
+          podman build -t "research-ai-frontend:pr-${PR_NUMBER}" \
+            --build-arg VITE_API_URL="/preview/${PR_NUMBER}/api" \
+            --build-arg VITE_PREVIEW_PR="${PR_NUMBER}" \
+            --build-arg VITE_BASE_PATH="/preview/${PR_NUMBER}/" \
+            -f ./frontend/Containerfile.preview . -q
+
+      - name: Create and start preview pod
+        run: |
+          POD="${{ steps.port.outputs.pod }}"
+          UI_PORT="${{ steps.port.outputs.ui_port }}"
+          API_PORT="${{ steps.port.outputs.api_port }}"
+
+          podman pod create \
+            --name "$POD" \
+            --network slirp4netns:allow_host_loopback=true \
+            -p "${UI_PORT}:5173" \
+            -p "${API_PORT}:8000"
+
+          podman run -d \
+            --pod "$POD" \
+            --name "${POD}-api" \
+            --env-file /home/github-runner/.env.ci \
+            -e CORS_ORIGINS="https://researchaicloud.researchai.src.surf-hosted.nl" \
+            -v "${{ github.workspace }}/api:/work:ro" \
+            "research-ai-api:pr-${PR_NUMBER}"
+
+          podman run -d \
+            --pod "$POD" \
+            --name "${POD}-frontend" \
+            "research-ai-frontend:pr-${PR_NUMBER}"
+
+      - name: Keep pod alive via systemd
+        run: |
+          POD="${{ steps.port.outputs.pod }}"
+          mkdir -p ~/.config/systemd/user
+          podman generate systemd --new --name "$POD" --files --restart-policy=on-failure
+          mv pod-${POD}.service ~/.config/systemd/user/
+          mv container-${POD}-*.service ~/.config/systemd/user/ 2>/dev/null || true
+          systemctl --user daemon-reload
+          systemctl --user enable --now "pod-${POD}.service"
+
+      - name: Register preview route in production Caddy
+        run: |
+          UI_PORT="${{ steps.port.outputs.ui_port }}"
+          API_PORT="${{ steps.port.outputs.api_port }}"
+          echo "handle_path /preview/${PR_NUMBER}/api/* {
+            reverse_proxy 10.89.0.1:${API_PORT}
+          }
+          handle /preview/${PR_NUMBER}/* {
+            reverse_proxy 10.89.0.1:${UI_PORT}
+          }" | sudo tee /etc/research-ai/caddy-previews/pr-${PR_NUMBER}.caddyfile > /dev/null
+          sudo podman exec research-ai-frontend caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile || true
+
+      - name: Wait for preview to be ready
+        run: |
+          echo "Waiting for preview..."
+          for i in $(seq 1 30); do
+            if curl -s "http://localhost:${{ steps.port.outputs.ui_port }}" -o /dev/null 2>/dev/null; then
+              echo "Preview is up!"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Run smoke tests
+        id: tests
+        run: |
+          podman run --rm \
+            --pod "${{ steps.port.outputs.pod }}" \
+            -e API_BASE="https://localhost:3000/api" \
+            -e FORCE_COLOR=1 \
+            -v "${{ github.workspace }}/api:/work:ro" \
+            "research-ai-test:pr-${PR_NUMBER}" \
+            python -m pytest tests/test_integration_api.py -v --tb=short -k "not neo4j and not database and not ai" || true
+
+      - name: Post preview URL and test results
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          HOSTNAME=$(hostname -f)
+          PORT="${{ steps.port.outputs.port }}"
+          MARKER="<!-- preview-url -->"
+
+          EXISTING_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --jq ".[] | select(.body | contains(\"${MARKER}\")) | .id" 2>/dev/null | head -1)
+
+          if [ "${{ job.status }}" = "success" ]; then
+            STATUS="✅ All checks passed"
+          else
+            STATUS="❌ Some checks failed — see [CI logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          fi
+
+          BODY="${MARKER}
+          ${STATUS}
+
+          🚀 **Preview environment** for this PR:
+
+          | | |
+          |---|---|
+          | **URL** | [https://${HOSTNAME}/preview/${PR_NUMBER}/](https://researchaicloud.researchai.src.surf-hosted.nl/preview/${PR_NUMBER}/) |
+          | **Branch** | \`${{ github.head_ref }}\` |
+          | **Commit** | \`${GITHUB_SHA::7}\` |
+          | **Updated** | $(date -u '+%Y-%m-%d %H:%M UTC') |
+
+          | Check | Status |
+          |-------|--------|
+          | Build images | ${{ steps.port.outcome != 'failure' && '✅ passed' || '❌ failed' }} |
+          | Preview pod | ${{ steps.tests.outcome != 'skipped' && '✅ running' || '❌ failed to start' }} |
+          | Smoke tests | ${{ steps.tests.outcome == 'success' && '✅ passed' || '⚠️ see logs' }} |
+
+          > Preview is rebuilt on every push. Stays live until PR is closed or merged."
+
+          if [ -n "$EXISTING_ID" ]; then
+            gh api "repos/${{ github.repository }}/issues/comments/${EXISTING_ID}" \
+              -X PATCH -f body="${BODY}"
+          else
+            gh pr comment "${PR_NUMBER}" --repo "${{ github.repository }}" --body "${BODY}"
+          fi
+
+      - name: Cleanup test image (keep preview running)
+        if: always()
+        run: |
+          podman rmi "research-ai-test:pr-${PR_NUMBER}" 2>/dev/null || true
+          podman image prune -f 2>/dev/null || true
+
+  # ── Manual testing warning ──────────────────────────────────
+  manual-test-warning:
+    if: >
+      github.event_name == 'pull_request' &&
+      needs.changes.outputs.needs-manual-test == 'true'
+    needs: [changes]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post manual testing warning
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MARKER="<!-- manual-test-warning -->"
+          EXISTING=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            --jq "[.[] | select(.body | contains(\"${MARKER}\"))] | length" 2>/dev/null)
+
+          if [ "$EXISTING" = "0" ]; then
+            gh pr comment "${{ github.event.pull_request.number }}" \
+              --repo "${{ github.repository }}" \
+              --body "${MARKER}
+          ⚠️ **Manual testing recommended**
+
+          This PR changes files that affect Neo4j, Ollama/AI, or infrastructure.
+          Please test manually on the production environment before merging.
+
+          Changed paths detected in: \`api/app/utils/ai_utils/\`, \`api/app/utils/database_utils/\`, \`api/app/scripts/enrich.py\`, \`kube/\`, or \`Makefile\`"
+          fi
+
+  # ── Deploy to production (self-hosted, auto after merge) ────────
+  # Only rebuilds API + frontend. Does NOT touch Neo4j/Ollama/Ricgraph.
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [test-api, build-frontend]
+    runs-on: [self-hosted, linux, production]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy API + frontend
+        run: make ci-deploy

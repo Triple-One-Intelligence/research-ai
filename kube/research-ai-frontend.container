@@ -20,6 +20,8 @@ PublishPort=443:443
 
 Volume=caddy-data:/data
 Volume=caddy-config:/config
+Volume=/etc/research-ai/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+Volume=/etc/research-ai/caddy-previews:/etc/caddy/previews:ro
 
 [Install]
 WantedBy=multi-user.target

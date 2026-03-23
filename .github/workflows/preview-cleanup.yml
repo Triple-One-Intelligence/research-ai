@@ -1,0 +1,41 @@
+name: Preview Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  cleanup:
+    runs-on: [self-hosted, linux, production]
+    env:
+      XDG_RUNTIME_DIR: /run/user/500000
+      DBUS_SESSION_BUS_ADDRESS: unix:path=/run/user/500000/bus
+    steps:
+      - name: Destroy preview pod
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          POD_NAME="preview-pr-${PR_NUMBER}"
+
+          # Stop and disable systemd service
+          systemctl --user disable --now "pod-${POD_NAME}.service" 2>/dev/null || true
+          rm -f ~/.config/systemd/user/pod-${POD_NAME}.service
+          rm -f ~/.config/systemd/user/container-${POD_NAME}-*.service
+          systemctl --user daemon-reload 2>/dev/null || true
+
+          # Remove pod and containers
+          if podman pod exists "${POD_NAME}" 2>/dev/null; then
+            podman pod rm -f "${POD_NAME}"
+            echo "Destroyed preview pod: ${POD_NAME}"
+          else
+            echo "No preview pod found for PR #${PR_NUMBER}"
+          fi
+
+          # Remove Caddy preview route and reload
+          sudo rm -f /etc/research-ai/caddy-previews/pr-${PR_NUMBER}.caddyfile
+          sudo podman exec research-ai-frontend caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile 2>/dev/null || true
+
+          # Clean up PR-tagged images and volumes
+          podman rmi "research-ai-api:pr-${PR_NUMBER}" 2>/dev/null || true
+          podman volume rm "${POD_NAME}-node-modules" 2>/dev/null || true
+          podman image prune -f 2>/dev/null || true

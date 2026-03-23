@@ -7,10 +7,11 @@ They require the dev pod to be running (make dev).
 Run with: make test-dev
 """
 
+import os
 import pytest
 import httpx
 
-API_BASE = "https://localhost:3000/api"
+API_BASE = os.environ.get("API_BASE", "https://localhost:3000/api")
 TIMEOUT = 5.0
 _client = httpx.Client(verify=False)
 
