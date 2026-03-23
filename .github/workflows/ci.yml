@@ -116,16 +116,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Calculate preview port and host IP
+      - name: Calculate preview ports
         id: port
         run: |
-          PORT=$(( 4000 + PR_NUMBER ))
+          # Each PR gets a port range: base for frontend (HTTP), base+1 for API (HTTP)
+          BASE=$(( 4000 + PR_NUMBER * 2 ))
+          UI_PORT=$BASE
+          API_PORT=$(( BASE + 1 ))
           POD_NAME="preview-pr-${PR_NUMBER}"
           HOST_IP=$(ip -4 route show default | grep -oP 'src \K[\d.]+' | head -1)
-          echo "port=${PORT}" >> "$GITHUB_OUTPUT"
+          echo "ui_port=${UI_PORT}" >> "$GITHUB_OUTPUT"
+          echo "api_port=${API_PORT}" >> "$GITHUB_OUTPUT"
           echo "pod=${POD_NAME}" >> "$GITHUB_OUTPUT"
           echo "host_ip=${HOST_IP}" >> "$GITHUB_OUTPUT"
-          echo "Preview will be on port ${PORT}, host IP ${HOST_IP}"
+          echo "Preview: frontend=:${UI_PORT}, api=:${API_PORT}"
 
       - name: Tear down existing preview pod
         run: |
@@ -140,12 +144,15 @@ jobs:
       - name: Create and start preview pod
         run: |
           POD="${{ steps.port.outputs.pod }}"
-          PORT="${{ steps.port.outputs.port }}"
+          UI_PORT="${{ steps.port.outputs.ui_port }}"
+          API_PORT="${{ steps.port.outputs.api_port }}"
           HOST_IP="${{ steps.port.outputs.host_ip }}"
 
+          # No per-pod Caddy — prod Caddy handles TLS and proxies to these HTTP ports
           podman pod create \
             --name "$POD" \
-            -p "${PORT}:3000" \
+            -p "${UI_PORT}:5173" \
+            -p "${API_PORT}:8000" \
             --add-host=host.containers.internal:${HOST_IP}
 
           # API container (read access to Neo4j/Ollama via host network)
@@ -153,22 +160,15 @@ jobs:
             --pod "$POD" \
             --name "${POD}-api" \
             --env-file /home/github-runner/.env.ci \
-            -e CORS_ORIGINS="https://localhost:${PORT}" \
+            -e CORS_ORIGINS="https://researchaicloud.researchai.src.surf-hosted.nl" \
             -v "${{ github.workspace }}/api:/work:ro" \
             "research-ai-api:pr-${PR_NUMBER}"
 
-          # Caddy reverse proxy
-          podman run -d \
-            --pod "$POD" \
-            --name "${POD}-caddy" \
-            -v "${{ github.workspace }}/caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro" \
-            docker.io/library/caddy:2-alpine
-
-          # Frontend dev server
+          # Frontend dev server (plain HTTP on port 5173)
           podman run -d \
             --pod "$POD" \
             --name "${POD}-frontend" \
-            -e VITE_API_URL="https://localhost:${PORT}/api" \
+            -e VITE_API_URL="/preview/${PR_NUMBER}/api" \
             -v "${{ github.workspace }}/frontend:/work" \
             -w /work \
             docker.io/library/node:20-alpine \
@@ -186,23 +186,22 @@ jobs:
 
       - name: Register preview route in production Caddy
         run: |
-          PORT="${{ steps.port.outputs.port }}"
-          # 10.89.0.1 = gateway of research-ai-net, routes to host where preview pods listen
-          echo "handle_path /preview/${PR_NUMBER}/* {
-            reverse_proxy 10.89.0.1:${PORT} {
-              transport http {
-                tls_insecure_skip_verify
-              }
-            }
+          UI_PORT="${{ steps.port.outputs.ui_port }}"
+          API_PORT="${{ steps.port.outputs.api_port }}"
+          # Prod Caddy proxies /preview/N/ to the preview pod's HTTP ports via the container gateway
+          echo "handle_path /preview/${PR_NUMBER}/api/* {
+            reverse_proxy 10.89.0.1:${API_PORT}
+          }
+          handle_path /preview/${PR_NUMBER}/* {
+            reverse_proxy 10.89.0.1:${UI_PORT}
           }" | sudo tee /etc/research-ai/caddy-previews/pr-${PR_NUMBER}.caddyfile > /dev/null
-          # Reload Caddy to pick up the new route
           sudo podman exec research-ai-frontend caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile || true
 
       - name: Wait for preview to be ready
         run: |
-          echo "Waiting for preview on port ${{ steps.port.outputs.port }}..."
+          echo "Waiting for preview..."
           for i in $(seq 1 30); do
-            if curl -sk "https://localhost:${{ steps.port.outputs.port }}" -o /dev/null 2>/dev/null; then
+            if curl -s "http://localhost:${{ steps.port.outputs.ui_port }}" -o /dev/null 2>/dev/null; then
               echo "Preview is up!"
               break
             fi
@@ -245,7 +244,7 @@ jobs:
 
           | | |
           |---|---|
-          | **URL** | [https://${HOSTNAME}/preview/${PR_NUMBER}/](https://${HOSTNAME}/preview/${PR_NUMBER}/) |
+          | **URL** | [https://${HOSTNAME}/preview/${PR_NUMBER}/](https://researchaicloud.researchai.src.surf-hosted.nl/preview/${PR_NUMBER}/) |
           | **Branch** | \`${{ github.head_ref }}\` |
           | **Commit** | \`${GITHUB_SHA::7}\` |
           | **Updated** | $(date -u '+%Y-%m-%d %H:%M UTC') |
