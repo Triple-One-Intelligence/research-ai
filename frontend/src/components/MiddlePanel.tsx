@@ -8,11 +8,15 @@ interface MiddlePanelProps {
   isGenerating: boolean;
 }
 
+// Middle column: displays the LLM response.
+// - When streaming, it keeps the scroll position pinned to the newest token.
+// - The response is rendered as Markdown (with `https://` links only).
 export const MiddlePanel: React.FC<MiddlePanelProps> = ({ text, isGenerating }) => {
   const outputBoxRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
 
   useEffect(() => {
+    // Auto-scroll while streaming so the user sees new output immediately.
     if (outputBoxRef.current && isGenerating) {
       outputBoxRef.current.scrollTop = outputBoxRef.current.scrollHeight;
     }
@@ -29,6 +33,8 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({ text, isGenerating }) 
         className={`llm-output-box ${isGenerating ? 'generating' : ''}`}
       >
         {text ? (
+          // LLM output is treated as Markdown. We restrict links to `https://` to
+          // avoid accidentally rendering javascript/data URLs.
           <ReactMarkdown
             components={{
               a: ({ href, children, ...props }) => (

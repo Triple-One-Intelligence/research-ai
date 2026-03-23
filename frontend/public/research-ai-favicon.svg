@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Research AI logo">
+  <defs>
+    <linearGradient id="researchAiGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#41D1FF" />
+      <stop offset="100%" stop-color="#BD34FE" />
+    </linearGradient>
+  </defs>
+
+  <!-- Magnifying glass -->
+  <circle cx="214" cy="214" r="150" fill="none" stroke="url(#researchAiGrad)" stroke-width="26" />
+  <path d="M327 327 L462 462" fill="none" stroke="url(#researchAiGrad)" stroke-width="30" stroke-linecap="round" />
+
+  <!-- Simple neural-network overlay -->
+  <g fill="none" stroke="url(#researchAiGrad)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+    <path d="M160 214 L220 170" />
+    <path d="M220 170 L285 200" />
+    <path d="M160 214 L245 245" />
+    <path d="M245 245 L285 200" />
+    <path d="M220 170 L245 245" />
+  </g>
+
+  <g fill="url(#researchAiGrad)" stroke="none">
+    <circle cx="160" cy="214" r="18" />
+    <circle cx="220" cy="170" r="18" />
+    <circle cx="285" cy="200" r="18" />
+    <circle cx="245" cy="245" r="18" />
+  </g>
+</svg>
+

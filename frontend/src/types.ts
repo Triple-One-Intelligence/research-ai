@@ -1,5 +1,9 @@
 export type EntityType = "person" | "organization";
 
+// Normalized frontend representation for a backend entity.
+// - `id` is the backend identifier (author_id / organization_id)
+// - `type` tells us which identifier field it came from
+// - `label` is what we show in the UI
 export type EntityRef = {
   id: string;
   type: EntityType;
@@ -7,6 +11,8 @@ export type EntityRef = {
   extra?: string;
 };
 
+// Currently identical to `EntityRef`, but kept as a separate semantic alias
+// because "suggestions" may eventually carry additional UI-only metadata.
 export type EntitySuggestion = EntityRef;
 
 // Reserved for future use

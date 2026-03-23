@@ -7,6 +7,8 @@ interface CollapsibleCardProps {
   children: ReactNode;
 }
 
+// Wrapper around the native `details/summary` element to show/hide sections.
+// If there is nothing to show (`count === 0`), we hide the card entirely.
 const CollapsibleCard = ({ title, count, defaultOpen = false, children }: CollapsibleCardProps) => {
   if (count === 0) return null;
 
