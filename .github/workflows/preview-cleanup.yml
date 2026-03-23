@@ -7,6 +7,9 @@ on:
 jobs:
   cleanup:
     runs-on: [self-hosted, linux, production]
+    env:
+      XDG_RUNTIME_DIR: /run/user/500000
+      DBUS_SESSION_BUS_ADDRESS: unix:path=/run/user/500000/bus
     steps:
       - name: Destroy preview pod
         env:

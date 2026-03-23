@@ -103,25 +103,29 @@ jobs:
           npm run build
 
   # ── Preview pod (self-hosted on Server A) ─────────────────────
-  # Isolated preview: API + frontend + Caddy only, NO access to Neo4j/Ollama.
   # Rebuilt on every push to the PR. Stays alive until PR closes.
+  # Has read access to Neo4j/Ollama but runner cannot modify those services.
   preview-and-test:
     if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     needs: [test-api, build-frontend, changes]
     runs-on: [self-hosted, linux, production]
     env:
       PR_NUMBER: ${{ github.event.pull_request.number }}
+      XDG_RUNTIME_DIR: /run/user/500000
+      DBUS_SESSION_BUS_ADDRESS: unix:path=/run/user/500000/bus
     steps:
       - uses: actions/checkout@v4
 
-      - name: Calculate preview port
+      - name: Calculate preview port and host IP
         id: port
         run: |
           PORT=$(( 4000 + PR_NUMBER ))
           POD_NAME="preview-pr-${PR_NUMBER}"
+          HOST_IP=$(ip -4 route show default | grep -oP 'src \K[\d.]+' | head -1)
           echo "port=${PORT}" >> "$GITHUB_OUTPUT"
           echo "pod=${POD_NAME}" >> "$GITHUB_OUTPUT"
-          echo "Preview will be on port ${PORT}"
+          echo "host_ip=${HOST_IP}" >> "$GITHUB_OUTPUT"
+          echo "Preview will be on port ${PORT}, host IP ${HOST_IP}"
 
       - name: Tear down existing preview pod
         run: |
@@ -137,17 +141,18 @@ jobs:
         run: |
           POD="${{ steps.port.outputs.pod }}"
           PORT="${{ steps.port.outputs.port }}"
+          HOST_IP="${{ steps.port.outputs.host_ip }}"
 
-          # Isolated pod — no --add-host, no access to Neo4j/Ollama on the host
           podman pod create \
             --name "$POD" \
-            -p "${PORT}:3000"
+            -p "${PORT}:3000" \
+            --add-host=host.containers.internal:${HOST_IP}
 
-          # API container (no database credentials)
+          # API container (read access to Neo4j/Ollama via host network)
           podman run -d \
             --pod "$POD" \
             --name "${POD}-api" \
-            -e LOGLEVEL=INFO \
+            --env-file /home/github-runner/.env.ci \
             -e CORS_ORIGINS="https://localhost:${PORT}" \
             -v "${{ github.workspace }}/api:/work:ro" \
             "research-ai-api:pr-${PR_NUMBER}"
@@ -237,7 +242,6 @@ jobs:
           | Preview pod | ${{ steps.tests.outcome != 'skipped' && '✅ running' || '❌ failed to start' }} |
           | Smoke tests | ${{ steps.tests.outcome == 'success' && '✅ passed' || '⚠️ see logs' }} |
 
-          > ⚠️ Preview is **isolated** — no Neo4j/Ollama access. AI/database features won't work.
           > Preview is rebuilt on every push. Stays live until PR is closed or merged."
 
           if [ -n "$EXISTING_ID" ]; then
