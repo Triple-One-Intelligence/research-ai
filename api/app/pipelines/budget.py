@@ -34,14 +34,17 @@ def fit_publications(pubs_data: list[tuple[str, str]], budget: int) -> list[str]
         return [joined(c, a) for c, a in pubs_data]
 
     data = list(pubs_data)
+    running = total(data)
 
     for i in range(len(data) - 1, -1, -1):
         if data[i][1]:
+            running -= tokens(joined(data[i][0], data[i][1])) - tokens(data[i][0])
             data[i] = (data[i][0], "")
-            if total(data) <= budget:
+            if running <= budget:
                 return [joined(c, a) for c, a in data]
 
-    while data and total(data) > budget:
+    while data and running > budget:
+        running -= tokens(data[-1][0])
         data.pop()
 
     return [joined(c, a) for c, a in data]

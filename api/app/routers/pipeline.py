@@ -1,6 +1,7 @@
 """
 Streaming SSE endpoint for the 4 prompt pipelines. Context built in pipelines/contexts.py.
 """
+import asyncio
 import json
 import logging
 
@@ -40,14 +41,18 @@ def _stream_ollama(payload: dict) -> StreamingResponse:
                     async for line in resp.aiter_lines():
                         if not line:
                             continue
-                        chunk = json.loads(line)
+                        try:
+                            chunk = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
                         token = chunk.get("message", {}).get("content", "")
                         if token:
                             yield f"data: {json.dumps({'token': token})}\n\n"
                         if chunk.get("done"):
                             yield "data: [DONE]\n\n"
         except (httpx.RequestError, httpx.HTTPStatusError) as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            log.error("Ollama request failed: %s", e)
+            yield f"data: {json.dumps({'error': 'AI service unavailable'})}\n\n"
             yield "data: [DONE]\n\n"
 
     return StreamingResponse(
@@ -80,11 +85,11 @@ async def pipeline(prompt_type: str, req: PipelineRequest):
         if prompt_type == "executiveSummary":
             system_prompt = await executive_summary_context(req.entity, req.prompt)
         elif prompt_type == "topOrganizations":
-            system_prompt = top_organizations_context(req.entity, req.prompt)
+            system_prompt = await asyncio.to_thread(top_organizations_context, req.entity, req.prompt)
         elif prompt_type == "topCollaborators":
-            system_prompt = top_collaborators_context(req.entity, req.prompt)
+            system_prompt = await asyncio.to_thread(top_collaborators_context, req.entity, req.prompt)
         else:
-            system_prompt = recent_publications_context(req.entity, req.prompt)
+            system_prompt = await asyncio.to_thread(recent_publications_context, req.entity, req.prompt)
     except Exception as e:
         log.error("Pipeline retrieval failed for %s: %s", prompt_type, e)
         raise HTTPException(status_code=503, detail="Pipeline retrieval failed")

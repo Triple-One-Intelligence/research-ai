@@ -72,11 +72,11 @@ def top_organizations_context(entity: EntityRef, prompt: str) -> str:
     if entity.type == "person":
         orgs = person_collab_organizations(entity.id, limit=50)
         fitted = fit_ranked_lines([f"{i + 1}. {r['name']} ({r['sharedPubs']} shared publications)" for i, r in enumerate(orgs)], budget)
-        section = "Collaborating organizations ranked by shared publications:\n" + "\n".join(fitted) if fitted else "No collaborating organizations found."
+        section = ("Collaborating organizations ranked by shared publications:\n" + "\n".join(fitted)) if fitted else "No collaborating organizations found."
     else:
         orgs = org_related_orgs_ranked(entity.id, limit=50)
         fitted = fit_ranked_lines([f"{i + 1}. {r['name']} ({r['sharedMembers']} shared members)" for i, r in enumerate(orgs)], budget)
-        section = "Related organizations ranked by shared members:\n" + "\n".join(fitted) if fitted else "No related organizations found."
+        section = ("Related organizations ranked by shared members:\n" + "\n".join(fitted)) if fitted else "No related organizations found."
 
     return _build(entity, section)
 
@@ -87,11 +87,11 @@ def top_collaborators_context(entity: EntityRef, prompt: str) -> str:
     if entity.type == "person":
         collabs = person_collaborators_ranked(entity.id, limit=50)
         fitted = fit_ranked_lines([f"{i + 1}. {clean_name(r['rawName'])} ({r['sharedPubs']} shared publications)" for i, r in enumerate(collabs)], budget)
-        section = "Collaborators ranked by shared publications:\n" + "\n".join(fitted) if fitted else "No collaborators found."
+        section = ("Collaborators ranked by shared publications:\n" + "\n".join(fitted)) if fitted else "No collaborators found."
     else:
         members = get_connections(entity.id, entity.type, max_publications=0, max_collaborators=0, max_organizations=0, max_members=50)["members"]
         fitted = fit_ranked_lines([f"{i + 1}. {m.name}" for i, m in enumerate(members) if m.name], budget)
-        section = "Organization members:\n" + "\n".join(fitted) if fitted else "No members found."
+        section = ("Organization members:\n" + "\n".join(fitted)) if fitted else "No members found."
 
     return _build(entity, section)
 

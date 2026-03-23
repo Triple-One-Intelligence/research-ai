@@ -280,6 +280,57 @@ class TestPipelineEndpointValidation:
             resp = client.post("/pipeline/executiveSummary", json={"prompt": "test", "entity": ENTITY_PAYLOAD})
             assert resp.status_code == 503
 
+    def test_ollama_error_does_not_leak_internals(self, client):
+        # When Ollama is unreachable the streamed error must not contain internal URLs or exception details
+        import httpx
+
+        mock_stream_cm = AsyncMock()
+        mock_stream_cm.__aenter__.side_effect = httpx.RequestError("http://internal-host:11434 refused")
+
+        mock_http_client = AsyncMock()
+        mock_http_client.__aenter__.return_value = mock_http_client
+        mock_http_client.__aexit__ = AsyncMock(return_value=False)
+        mock_http_client.stream = MagicMock(return_value=mock_stream_cm)  # sync method, not async
+
+        with patch("app.routers.pipeline.executive_summary_context", new=AsyncMock(return_value="sys")), \
+             patch("httpx.AsyncClient", return_value=mock_http_client):
+            resp = client.post("/pipeline/executiveSummary", json={"prompt": "test", "entity": ENTITY_PAYLOAD})
+            assert "internal-host" not in resp.text
+            assert "11434" not in resp.text
+            assert "AI service unavailable" in resp.text
+
+    def test_malformed_ollama_line_is_skipped(self, client):
+        # A non-JSON line from Ollama must not kill the stream — subsequent tokens should still arrive
+        import json as json_mod
+
+        lines_to_stream = [
+            "not-valid-json",
+            json_mod.dumps({"message": {"content": "hello"}, "done": False}),
+            json_mod.dumps({"done": True}),
+        ]
+
+        async def fake_aiter_lines():
+            for line in lines_to_stream:
+                yield line
+
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.aiter_lines = fake_aiter_lines  # async generator function, not AsyncMock
+
+        mock_stream_cm = AsyncMock()
+        mock_stream_cm.__aenter__.return_value = mock_resp
+        mock_stream_cm.__aexit__ = AsyncMock(return_value=False)
+
+        mock_http_client = AsyncMock()
+        mock_http_client.__aenter__.return_value = mock_http_client
+        mock_http_client.__aexit__ = AsyncMock(return_value=False)
+        mock_http_client.stream = MagicMock(return_value=mock_stream_cm)  # sync method, not async
+
+        with patch("app.routers.pipeline.executive_summary_context", new=AsyncMock(return_value="sys")), \
+             patch("httpx.AsyncClient", return_value=mock_http_client):
+            resp = client.post("/pipeline/executiveSummary", json={"prompt": "test", "entity": ENTITY_PAYLOAD})
+            assert "hello" in resp.text
+
     @pytest.mark.parametrize("prompt_type,expected_fn", [
         ("executiveSummary",    "executive_summary_context"),
         ("topOrganizations",    "top_organizations_context"),
