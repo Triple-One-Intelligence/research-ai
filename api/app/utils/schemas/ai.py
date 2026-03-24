@@ -1,6 +1,6 @@
 """Pydantic schemas for the AI router endpoints."""
 
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel
 
@@ -46,3 +46,11 @@ class ColleagueOut(BaseModel):
     same_organization: bool
     embedding_similarity: float  # cosine similarity (0..1)
     score: float
+
+#TODO: replace this with the normal "Publication"
+class SimilarPublication(TypedDict):
+    doi: str
+    title: str | None
+    year: int | None
+    category: str | None
+    abstract: str | None
