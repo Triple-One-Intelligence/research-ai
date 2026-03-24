@@ -13,7 +13,7 @@ from app.utils.ai_utils.ai_utils import (
 )
 from app.utils.ricgraph_utils.queries import rag_queries
 from app.utils.schemas.ai import (
-    ChatRequest, EntityRef, Message
+    ChatRequest, EntityRef, Message, TopColleaguesRequest, ColleagueOut
 )
 
 #TODO: replace this with the normal "Publication"
@@ -77,6 +77,113 @@ def _stream_prompt1_response(selected_entity: EntityRef, language: str = "Englis
     return _streaming_chat_response(messages)
 
 
+
+
+@router.post("/top_colleagueList", response_model=list[ColleagueOut])
+def top_colleagues(req: TopColleaguesRequest):
+    person_id = req.person_id
+    topK = req.top_n
+
+    query = """
+    // params: $targetId, $topK (e.g. 20)
+    MATCH (target:RicgraphNode {name:'person-root', value: $targetId})
+
+    // 1) target DOIs with embeddings and target centroid
+    OPTIONAL MATCH (target)-[:LINKS_TO]->(td:RicgraphNode {name:'DOI'})
+    WHERE td.embedding IS NOT NULL
+    WITH target, collect(td) AS target_dois
+    WITH target, target_dois,
+        CASE WHEN size(target_dois)>0 THEN
+        [i IN range(0, size(target_dois[0].embedding)-1) |
+            toFloat(reduce(s = 0.0, d IN target_dois | s + toFloat(d.embedding[i]))) / toFloat(size(target_dois))
+        ]
+        ELSE NULL END AS target_centroid
+
+    // 2) candidates: coauthors (via DOI) and org-mates
+    OPTIONAL MATCH (target)-[:LINKS_TO]->(d:RicgraphNode {name:'DOI'})<-[:LINKS_TO]-(coauthor:RicgraphNode {name:'person-root'})
+    OPTIONAL MATCH (target)-[:LINKS_TO]->(o:RicgraphNode {name:'ORGANIZATION_NAME'})<-[:LINKS_TO]-(orgmate:RicgraphNode {name:'person-root'})
+    WITH target, target_dois, target_centroid, coauthor, orgmate
+    WITH target, target_dois, target_centroid, collect(coauthor) + collect(orgmate) AS raw_list
+    UNWIND raw_list AS cand
+    WITH DISTINCT cand, target_dois, target_centroid
+    WHERE cand IS NOT NULL AND cand.value <> $targetId
+
+    // 3) shared pubs and orgs
+    OPTIONAL MATCH (target)-[:LINKS_TO]->(shared_d:RicgraphNode {name:'DOI'})<-[:LINKS_TO]-(cand)
+    WITH cand, target_dois, target_centroid,
+        COUNT(DISTINCT shared_d) AS shared_pub_count,
+        collect(DISTINCT shared_d.value) AS shared_doc_values
+
+    OPTIONAL MATCH (target)-[:LINKS_TO]->(shared_o:RicgraphNode {name:'ORGANIZATION_NAME'})<-[:LINKS_TO]-(cand)
+    WITH cand, target_dois, target_centroid, shared_pub_count, shared_doc_values,
+        COUNT(DISTINCT shared_o) AS shared_org_count
+
+    // 4) candidate DOI embeddings -> centroid (if any)
+    OPTIONAL MATCH (cand)-[:LINKS_TO]->(cdoi:RicgraphNode {name:'DOI'})
+    WHERE cdoi.embedding IS NOT NULL
+    WITH cand, target_dois, target_centroid, shared_pub_count, shared_doc_values, shared_org_count,
+        collect(cdoi.embedding) AS candidate_embs
+
+    WITH cand, target_dois, target_centroid, shared_pub_count, shared_doc_values, shared_org_count,
+        CASE WHEN size(candidate_embs)>0 AND size(candidate_embs[0]) = (CASE WHEN target_centroid IS NULL THEN size(candidate_embs[0]) ELSE size(target_centroid) END) THEN
+        [i IN range(0, size(candidate_embs[0]) - 1) |
+            toFloat(reduce(s = 0.0, vec IN candidate_embs | s + toFloat(vec[i]))) / toFloat(size(candidate_embs))
+        ]
+        ELSE NULL END AS candidate_centroid
+
+    // 5) compute best embedding_overlap score WITHOUT CALL: cosine similarity between candidate_centroid and each target DOI embedding, take max
+    WITH cand, target_dois, shared_pub_count, shared_doc_values, shared_org_count, candidate_centroid
+    UNWIND CASE WHEN candidate_centroid IS NOT NULL THEN target_dois ELSE [] END AS td
+    WITH cand, shared_pub_count, shared_doc_values, shared_org_count, candidate_centroid, td
+    WHERE td.embedding IS NOT NULL AND candidate_centroid IS NOT NULL AND size(td.embedding) = size(candidate_centroid)
+    WITH cand, shared_pub_count, shared_doc_values, shared_org_count, candidate_centroid, td,
+        reduce(acc = 0.0, i IN range(0, size(candidate_centroid)-1) | acc + toFloat(candidate_centroid[i]) * toFloat(td.embedding[i])) AS dot,
+        sqrt(reduce(acc = 0.0, i IN range(0, size(candidate_centroid)-1) | acc + toFloat(candidate_centroid[i]) * toFloat(candidate_centroid[i]))) AS norm_c,
+        sqrt(reduce(acc = 0.0, i IN range(0, size(td.embedding)-1) | acc + toFloat(td.embedding[i]) * toFloat(td.embedding[i]))) AS norm_t
+    WITH cand, shared_pub_count, shared_doc_values, shared_org_count,
+        CASE WHEN norm_c > 0.0 AND norm_t > 0.0 THEN dot / (norm_c * norm_t) ELSE 0.0 END AS sim
+    WITH cand, shared_pub_count, shared_doc_values, shared_org_count, coalesce(max(sim), 0.0) AS best_score
+
+    OPTIONAL MATCH (cand)-[:LINKS_TO]->(fn:RicgraphNode {name:'FULL_NAME'})
+
+    // 6) final scoring (weights as params or inline)
+    WITH cand.value AS person_id,
+        coalesce(fn.value, NULL) AS name,
+        shared_pub_count,
+        (shared_org_count > 0) AS same_org,
+        best_score AS embedding_similarity,
+        (
+        (CASE WHEN shared_pub_count > 0 THEN log(shared_pub_count + 1) ELSE 0 END) * 3.0
+        + (CASE WHEN shared_org_count > 0 THEN 2.5 ELSE 0 END)
+        + (best_score * 2.0)
+        + (CASE WHEN shared_pub_count > 0 AND shared_org_count > 0 THEN 2.0 ELSE 0 END)
+        ) AS score
+    RETURN person_id, name, shared_pub_count, same_org, embedding_similarity, score
+    ORDER BY score DESC
+    LIMIT coalesce($topK,20);
+    """
+
+    # small extra: try to fetch a coauthor name stored in a linked FULL_NAME node if present
+    # we can post-process names by running an additional lookup per returned person if needed
+
+    try:
+        with get_graph().session() as session:
+            results = session.run(query, targetId=person_id, topK=topK)
+            rows = [dict(r) for r in results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    out = []
+    for r in rows:
+        out.append({
+            "person_id": r.get("person_id"),
+            "name": r.get("name"),  # may be null; populate with separate query if required
+            "coauthor_publications": int(r.get("shared_pub_count") or 0),
+            "same_organization": bool(r.get("same_org")),
+            "embedding_similarity": float(r.get("embedding_similarity") or 0.0),
+            "score": float(r.get("score") or 0.0),
+        })
+    return out
 #--------------------------------HELPERS--------------------------------
 def format_similar_publications_for_rag(similar_publications: list[SimilarPublication]) -> str:
     """Turn a list of similar publications into numbered documents for RAG context.

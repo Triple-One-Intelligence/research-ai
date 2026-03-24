@@ -34,3 +34,15 @@ class RagGenerateRequest(BaseModel):
     prompt: str
     entity: EntityRef | None = None
     top_k: int = 8
+
+class TopColleaguesRequest(BaseModel):
+    person_id: str
+    top_n: int = 10
+
+class ColleagueOut(BaseModel):
+    person_id: str
+    name: str | None
+    coauthor_publications: int
+    same_organization: bool
+    embedding_similarity: float  # cosine similarity (0..1)
+    score: float
