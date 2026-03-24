@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EntitySuggestion } from '../../types';
 import { searchEntities } from '../../api';
+import { IconOrganization, IconPerson } from '../RightPanel/RightPanelIcons';
 import './EntitySearchBar.css';
 
 interface EntitySearchBarProps {
@@ -10,10 +11,6 @@ interface EntitySearchBarProps {
   selectedEntity: EntitySuggestion | null;
 }
 
-// Search UI for selecting a person/organization:
-// - debounced autocomplete against `/autocomplete`
-// - keyboard navigation for the suggestion list
-// - clear selection when the user edits the chosen label
 const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarProps) => {
   const { t } = useTranslation();
   const [query, setQuery] = useState(selectedEntity?.label ?? '');
@@ -25,8 +22,6 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
   const dropdownRef = useRef<HTMLUListElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Keep the input value in sync when a selection is changed externally
-  // (e.g. by clicking a collaborator/member in the right panel).
   useEffect(() => {
     if (!selectedEntity) return;
     setQuery(selectedEntity.label);
@@ -35,7 +30,6 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
     setActiveIndex(-1);
   }, [selectedEntity]);
 
-  // Debounced search
   const performSearch = useCallback(async (searchQuery: string) => {
     if (searchQuery.trim().length < 2) {
       setSuggestions([]);
@@ -56,14 +50,11 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
     }
   }, []);
 
-  // Handle input change with debounce
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
     setActiveIndex(-1);
 
-    // If the user edits the currently selected entity name, clear the selection.
-    // This keeps the "selected person" and "typing for another name" in the same field.
     if (selectedEntity && value !== selectedEntity.label) {
       onClear();
     }
@@ -77,7 +68,6 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
     }, 300);
   };
 
-  // Handle selection
   const handleSelect = (entity: EntitySuggestion) => {
     setQuery(entity.label);
     setSuggestions([]);
@@ -86,16 +76,13 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
     onSelect(entity);
   };
 
-  // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!showDropdown || suggestions.length === 0) return;
 
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setActiveIndex((prev) => 
-          prev < suggestions.length - 1 ? prev + 1 : prev
-        );
+        setActiveIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev));
         break;
       case 'ArrowUp':
         e.preventDefault();
@@ -111,10 +98,11 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
         setShowDropdown(false);
         setActiveIndex(-1);
         break;
+      default:
+        break;
     }
   };
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -131,7 +119,6 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Cleanup debounce on unmount
   useEffect(() => {
     return () => {
       if (debounceRef.current) {
@@ -140,7 +127,6 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
     };
   }, []);
 
-  // Scroll active item into view
   useEffect(() => {
     if (activeIndex >= 0 && dropdownRef.current) {
       const activeElement = dropdownRef.current.children[activeIndex] as HTMLElement;
@@ -150,12 +136,15 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
     }
   }, [activeIndex]);
 
+  const renderEntityIcon = (type: EntitySuggestion['type']) =>
+    type === 'person' ? <IconPerson className="entity-type-icon" /> : <IconOrganization className="entity-type-icon" />;
+
   return (
     <div className="entity-search-bar">
       <label className="search-label" htmlFor="entity-search">
         {t('leftPanel.searchLabel')}
       </label>
-      
+
       <div className="search-input-container">
         <input
           ref={inputRef}
@@ -173,9 +162,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
           aria-expanded={showDropdown}
           aria-haspopup="listbox"
           aria-controls="search-suggestions"
-          aria-activedescendant={
-            activeIndex >= 0 ? `suggestion-${activeIndex}` : undefined
-          }
+          aria-activedescendant={activeIndex >= 0 ? `suggestion-${activeIndex}` : undefined}
           autoComplete="off"
         />
         <div className="search-input-actions" aria-hidden="true">
@@ -183,7 +170,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
           {selectedEntity && (
             <div className="selected-inline">
               <span className={`entity-type-badge inline ${selectedEntity.type}`}>
-                {selectedEntity.type === 'person' ? '👤' : '🏛️'}
+                {renderEntityIcon(selectedEntity.type)}
               </span>
               <button
                 className="clear-entity-btn inline"
@@ -197,7 +184,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
                 }}
                 aria-label={t('leftPanel.clearSelection')}
               >
-                ✕
+                x
               </button>
             </div>
           )}
@@ -223,7 +210,7 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
               onMouseEnter={() => setActiveIndex(index)}
             >
               <span className={`entity-type-badge ${suggestion.type}`}>
-                {suggestion.type === 'person' ? '👤' : '🏛️'}
+                {renderEntityIcon(suggestion.type)}
               </span>
               <div className="suggestion-content">
                 <span className="suggestion-label">{suggestion.label}</span>
@@ -239,7 +226,6 @@ const EntitySearchBar = ({ onSelect, onClear, selectedEntity }: EntitySearchBarP
       {showDropdown && query.length >= 2 && suggestions.length === 0 && !loading && (
         <div className="no-results">{t('leftPanel.noResults')}</div>
       )}
-
     </div>
   );
 };

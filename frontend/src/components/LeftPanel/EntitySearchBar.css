@@ -106,6 +106,16 @@
   flex-shrink: 0;
 }
 
+.entity-type-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.entity-type-badge svg {
+  width: 16px;
+  height: 16px;
+}
+
 .entity-type-badge.person {
   background-color: #fef3c7;
 }
