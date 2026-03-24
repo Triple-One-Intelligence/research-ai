@@ -147,6 +147,7 @@ deploy:
 	install -m 0644 kube/research-ai-neo4j.container     /etc/containers/systemd/
 	install -m 0644 kube/research-ai-ai.container        /etc/containers/systemd/
 	install -m 0644 kube/research-ai-prod.env            /etc/research-ai/
+	install -m 0644 caddy/Caddyfile.prod                 /etc/research-ai/
 	set -a; . ./kube/research-ai-prod.env; set +a; \
 	envsubst < kube/ricgraph.ini > /etc/research-ai/ricgraph.ini && chmod 0640 /etc/research-ai/ricgraph.ini
 
