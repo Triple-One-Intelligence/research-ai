@@ -41,8 +41,7 @@ Internationalization with i18n (English and Dutch). AI responses stream from the
 Routers:
 - `/autocomplete` - fulltext search on Neo4j node values
 - `/connections` - graph traversal for entity relationships
-- `/chat` - RAG-powered conversational endpoint
-- `/generate` - direct LLM generation
+- `/generate` - direct LLM generation, optionally RAG-scoped to an entity
 - `/embed` - text embedding via Ollama
 - `/health` - service health checks
 

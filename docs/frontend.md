@@ -19,12 +19,14 @@ App
 - **Entity selection**: User types in EntitySearchBar -> calls `searchEntities` API -> selects entity -> `setSelectedEntity`
 - **On entity select**: RightPanel fetches connections via `fetchConnections` API
 - **Prompt flow**: User types prompt in LeftPanel or clicks template button -> `onAsk` callback -> `handleGenerate` in App
-- If entity selected: `POST /generate` (RAG), else `POST /chat`
+- `POST /generate` handles all prompt requests
+- If entity selected: `/generate` uses RAG context
+- If no entity selected: `/generate` acts as general chat
 - **SSE streaming**: `streamSSE` utility reads response body, parses SSE events, calls `onChunk` for tokens
 
 ## SSE Streaming Implementation
 
-- `streamSSE()` in App.tsx handles both `/chat` and `/generate`
+- `streamSSE()` in App.tsx handles `/generate`
 - Uses fetch API with ReadableStream
 - Parses `data:` lines, handles `[DONE]`, `{token}`, `{debug}`, `{error}` events
 - Debug info displayed in collapsible RAG debug panel (visible when `LOGLEVEL=DEBUG` on backend)

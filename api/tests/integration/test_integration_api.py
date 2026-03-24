@@ -219,36 +219,6 @@ class TestGenerateIntegration:
 
 
 @_skip
-class TestChatIntegration:
-    def test_chat_accepts_post(self):
-        try:
-            resp = _client.post(
-                f"{API_BASE}/chat",
-                json={
-                    "model": "llama3.1:8b",
-                    "messages": [{"role": "user", "content": "Hello"}],
-                },
-                timeout=TIMEOUT,
-            )
-        except httpx.ReadTimeout:
-            return  # Model cold-start — endpoint is reachable
-        if resp.status_code == 503:
-            pytest.skip("AI service not reachable")
-        if resp.status_code == 404:
-            pytest.skip("Ollama model not pulled — run: make deploy")
-        assert resp.status_code == 200
-        assert "text/event-stream" in resp.headers.get("content-type", "")
-
-    def test_chat_missing_messages_returns_422(self):
-        resp = _client.post(
-            f"{API_BASE}/chat",
-            json={"model": "llama3.1:8b"},
-            timeout=TIMEOUT,
-        )
-        assert resp.status_code == 422
-
-
-@_skip
 class TestEmbedIntegration:
     def test_embed_accepts_post(self):
         try:

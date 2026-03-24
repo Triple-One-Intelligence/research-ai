@@ -1,4 +1,4 @@
-from .ai import ChatRequest, EmbedRequest, EntityRef, Message, RagGenerateRequest
+from .ai import EmbedRequest, EntityRef, RagGenerateRequest
 from .connections import (
     Connections,
     Member,
@@ -13,19 +13,17 @@ from .publication import Publication
 from .suggestions import Suggestions
 
 __all__ = [
-    "ChatRequest",
     "Connections",
     "CollaboratorsResponse",
-    "PublicationsResponse",
-    "OrganizationsResponse",
-    "MembersResponse",
     "EmbedRequest",
     "EntityRef",
     "Member",
-    "Message",
+    "MembersResponse",
     "Organization",
+    "OrganizationsResponse",
     "Person",
     "Publication",
+    "PublicationsResponse",
     "RagGenerateRequest",
     "Suggestions",
 ]

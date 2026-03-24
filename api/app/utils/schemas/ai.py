@@ -1,22 +1,10 @@
 """Pydantic schemas for the AI router endpoints."""
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel
 
-from app.utils.ai_utils.ai_utils import CHAT_MODEL, EMBED_MODEL
-
-
-class Message(BaseModel):
-    role: str
-    content: str
-
-
-class ChatRequest(BaseModel):
-    model: str = CHAT_MODEL
-    messages: list[Message]
-    stream: bool = True
-    options: dict[str, Any] | None = None
+from app.utils.ai_utils.ai_utils import EMBED_MODEL
 
 
 class EmbedRequest(BaseModel):

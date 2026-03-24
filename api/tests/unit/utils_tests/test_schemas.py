@@ -4,8 +4,14 @@ import pytest
 from pydantic import ValidationError
 
 from app.utils.schemas import (
-    Person, Organization, Suggestions, Connections, Member,
-    ChatRequest, EmbedRequest, EntityRef, Message, RagGenerateRequest,
+    Connections,
+    EmbedRequest,
+    EntityRef,
+    Member,
+    Organization,
+    Person,
+    RagGenerateRequest,
+    Suggestions,
 )
 
 
@@ -80,8 +86,10 @@ class TestConnections:
         with pytest.raises(ValidationError):
             Connections(
                 entity_type="person",
-                collaborators=[], publications=[],
-                organizations=[], members=[],
+                collaborators=[],
+                publications=[],
+                organizations=[],
+                members=[],
             )
 
     def test_with_members(self):
@@ -99,6 +107,7 @@ class TestConnections:
 class TestPublication:
     def test_minimal_publication(self):
         from app.utils.schemas import Publication
+
         p = Publication(doi="10.1/test")
         assert p.doi == "10.1/test"
         assert p.title is None
@@ -107,9 +116,13 @@ class TestPublication:
 
     def test_full_publication(self):
         from app.utils.schemas import Publication
+
         p = Publication(
-            doi="10.1/test", title="Paper", year=2024,
-            category="article", name="Author",
+            doi="10.1/test",
+            title="Paper",
+            year=2024,
+            category="article",
+            name="Author",
             publication_rootid="root-1",
             versions=[{"doi": "10.1/v2", "year": 2023, "category": "preprint"}],
         )
@@ -117,54 +130,11 @@ class TestPublication:
         assert len(p.versions) == 1
 
 
-class TestMessage:
-    def test_valid_message(self):
-        m = Message(role="user", content="hello")
-        assert m.role == "user"
-        assert m.content == "hello"
-
-    def test_missing_role(self):
-        with pytest.raises(ValidationError):
-            Message(content="hello")
-
-    def test_missing_content(self):
-        with pytest.raises(ValidationError):
-            Message(role="user")
-
-
-class TestChatRequest:
-    def test_defaults(self):
-        req = ChatRequest(messages=[Message(role="user", content="hi")])
-        assert req.stream is True
-        assert req.options is None
-        assert req.model  # has a default from CHAT_MODEL
-
-    def test_custom_model(self):
-        req = ChatRequest(model="llama3", messages=[Message(role="user", content="hi")])
-        assert req.model == "llama3"
-
-    def test_missing_messages(self):
-        with pytest.raises(ValidationError):
-            ChatRequest()
-
-    def test_with_options(self):
-        req = ChatRequest(
-            messages=[Message(role="user", content="hi")],
-            options={"temperature": 0.7},
-        )
-        assert req.options["temperature"] == 0.7
-
-    def test_serialization_excludes_none(self):
-        req = ChatRequest(messages=[Message(role="user", content="hi")])
-        data = req.model_dump(exclude_none=True)
-        assert "options" not in data
-
-
 class TestEmbedRequest:
     def test_defaults(self):
         req = EmbedRequest(prompt="test text")
         assert req.prompt == "test text"
-        assert req.model  # has a default from EMBED_MODEL
+        assert req.model
 
     def test_custom_model(self):
         req = EmbedRequest(model="custom-embed", prompt="test")
