@@ -79,92 +79,133 @@ def _stream_prompt1_response(selected_entity: EntityRef, language: str = "Englis
 
 
 
-@router.post("/top_colleagueList", response_model=list[ColleagueOut])
+@router.post("/top_colleagues", response_model=list[ColleagueOut])
 def top_colleagues(req: TopColleaguesRequest):
     person_id = req.person_id
-    topK = req.top_n
+    top_k = req.top_n
 
     query = """
-    // Step 1: Find all potential colleagues and their co-authored publications
     MATCH (target:RicgraphNode {name: "person-root", value: $target_person_id})
-    MATCH (target)-[:LINKS_TO]->(publication:RicgraphNode {name: "DOI"})
-    MATCH (publication)-[:LINKS_TO]->(colleague:RicgraphNode {name: "person-root"})
-    WHERE colleague.value <> target.value
 
-    WITH DISTINCT colleague, target, publication
-    WITH colleague, target, COLLECT(DISTINCT publication.value) AS coauthor_publications
+    // Get all colleagues (coauthors + org mates)
+    OPTIONAL MATCH (target)-[:LINKS_TO]->(pub:RicgraphNode {name: "DOI"})-[:LINKS_TO]->(coauthor:RicgraphNode {name: "person-root"})
+    WHERE coauthor.value <> target.value
 
-    // Step 2: Get all publications for target
-    MATCH (target)-[:LINKS_TO]->(targetPub:RicgraphNode {name: "DOI"})
-    WITH colleague, target, coauthor_publications, COLLECT(DISTINCT targetPub.value) AS target_publications
+    OPTIONAL MATCH (target)-[:LINKS_TO]->(org:RicgraphNode {name: "ORGANIZATION_NAME"})-[:LINKS_TO]->(orgmate:RicgraphNode {name: "person-root"})
+    WHERE orgmate.value <> target.value
 
-    // Step 3: Get all publications for colleague (excluding co-authored)
-    MATCH (colleague)-[:LINKS_TO]->(colleaguePub:RicgraphNode {name: "DOI"})
-    WHERE NOT colleaguePub.value IN coauthor_publications
-    WITH colleague, target, coauthor_publications, target_publications, 
-        COLLECT(DISTINCT colleaguePub.value) AS colleague_publications
+    WITH target, COLLECT(DISTINCT coauthor) + COLLECT(DISTINCT orgmate) AS all_colleagues
+    UNWIND all_colleagues AS colleague
 
-    // Step 4: Get organization connections
-    MATCH (target)-[:LINKS_TO]->(targetOrg:RicgraphNode {name: "ORGANIZATION_NAME"})
-    WITH colleague, target, coauthor_publications, target_publications, colleague_publications,
-        COLLECT(DISTINCT targetOrg.value) AS target_orgs
+    // Papers together
+    OPTIONAL MATCH (target)-[:LINKS_TO]->(shared_pub:RicgraphNode {name: "DOI"})-[:LINKS_TO]->(colleague)
+    WITH target, colleague, COUNT(DISTINCT shared_pub) AS papers_together, COLLECT(DISTINCT shared_pub) AS shared_pubs
 
-    MATCH (colleague)-[:LINKS_TO]->(colleagueOrg:RicgraphNode {name: "ORGANIZATION_NAME"})
-    WITH colleague, target, coauthor_publications, target_publications, colleague_publications, target_orgs,
-        COLLECT(DISTINCT colleagueOrg.value) AS colleague_orgs
+    // Target's other publications (excluding cowritten)
+    OPTIONAL MATCH (target)-[:LINKS_TO]->(target_pub:RicgraphNode {name: "DOI"})
+    WHERE NOT target_pub IN shared_pubs
+    WITH target, colleague, papers_together, shared_pubs, COLLECT(target_pub.embedding) AS target_embeddings
 
-    // Step 5: Calculate basic metrics
-    WITH colleague, target, coauthor_publications, target_publications, colleague_publications,
-        target_orgs, colleague_orgs,
-        SIZE(coauthor_publications) AS papers_together,
-        SIZE([org IN target_orgs WHERE org IN colleague_orgs]) > 0 AS same_organisation
+    // Colleague's other publications (excluding cowritten)
+    OPTIONAL MATCH (colleague)-[:LINKS_TO]->(colleague_pub:RicgraphNode {name: "DOI"})
+    WHERE NOT colleague_pub IN shared_pubs
+    WITH target, colleague, papers_together, target_embeddings, COLLECT(colleague_pub.embedding) AS colleague_embeddings
 
-    // Step 6: Get colleague name
-    MATCH (colleague)-[:LINKS_TO]->(name:RicgraphNode {name: "FULL_NAME"})
-    WITH colleague, target, coauthor_publications, target_publications, colleague_publications,
-        papers_together, same_organisation, name.value AS colleague_name
-
-    // Step 7: Calculate embedding overlap using manual cosine similarity
-    UNWIND target_publications AS targetPubId
-    UNWIND colleague_publications AS colleaguePubId
-    MATCH (targetPub:RicgraphNode {name: "DOI", value: targetPubId})
-    MATCH (colleaguePub:RicgraphNode {name: "DOI", value: colleaguePubId})
-
-    WITH colleague, target, papers_together, same_organisation, colleague_name,
-        targetPub.embedding AS vec1, colleaguePub.embedding AS vec2,
-        // Cosine similarity: dot_product / (magnitude1 * magnitude2)
-        REDUCE(dot = 0.0, i IN RANGE(0, SIZE(targetPub.embedding) - 1) | 
-        dot + (targetPub.embedding[i] * colleaguePub.embedding[i])
-        ) AS dot_product,
-        SQRT(REDUCE(sum = 0.0, i IN RANGE(0, SIZE(targetPub.embedding) - 1) | 
-        sum + (targetPub.embedding[i] * targetPub.embedding[i])
-        )) AS magnitude1,
-        SQRT(REDUCE(sum = 0.0, i IN RANGE(0, SIZE(colleaguePub.embedding) - 1) | 
-        sum + (colleaguePub.embedding[i] * colleaguePub.embedding[i])
-        )) AS magnitude2
-
-    WITH colleague, target, papers_together, same_organisation, colleague_name,
+    // Handle case where colleague has no other publications
+    WITH target, colleague, papers_together, target_embeddings, colleague_embeddings,
         CASE 
-        WHEN magnitude1 = 0 OR magnitude2 = 0 THEN 0.0
-        ELSE dot_product / (magnitude1 * magnitude2)
-        END AS embedding_score
+        WHEN size(target_embeddings) = 0 OR size(colleague_embeddings) = 0 THEN 0.0
+        ELSE null  // marker to calculate similarity
+        END AS early_exit_score
 
-    WITH colleague, target, papers_together, same_organisation, colleague_name,
-        MAX(embedding_score) AS best_embedding_overlap
+    // If early_exit_score is not null, use it; otherwise calculate
+    WITH target, colleague, papers_together, target_embeddings, colleague_embeddings, early_exit_score,
+        CASE 
+        WHEN early_exit_score IS NOT NULL THEN early_exit_score
+        ELSE (
+            // Calculate magnitudes for target embeddings
+            [t_emb IN target_embeddings | 
+            {
+                embedding: t_emb,
+                magnitude: sqrt(reduce(sum = 0.0, i IN range(0, size(t_emb) - 1) | sum + t_emb[i] * t_emb[i]))
+            }
+            ]  // Get first for now
+        )
+        END AS placeholder
 
-    // Step 8: Calculate final score and return
-    WITH colleague.value AS colleague_id, 
-        colleague_name,
+    // Calculate dot product and magnitudes for each target embedding
+    WITH target, colleague, papers_together, target_embeddings, colleague_embeddings, early_exit_score,
+        [t_emb IN target_embeddings | 
+        {
+            embedding: t_emb,
+            magnitude: sqrt(reduce(sum = 0.0, i IN range(0, size(t_emb) - 1) | sum + t_emb[i] * t_emb[i]))
+        }
+        ] AS target_emb_data
+
+    // Calculate dot product and magnitudes for each colleague embedding
+    WITH target, colleague, papers_together, target_emb_data, colleague_embeddings, early_exit_score,
+        [c_emb IN colleague_embeddings | 
+        {
+            embedding: c_emb,
+            magnitude: sqrt(reduce(sum = 0.0, i IN range(0, size(c_emb) - 1) | sum + c_emb[i] * c_emb[i]))
+        }
+        ] AS colleague_emb_data
+
+    // Calculate best embedding overlap
+    WITH target, colleague, papers_together, early_exit_score,
+        CASE 
+        WHEN early_exit_score IS NOT NULL THEN early_exit_score
+        ELSE (
+            // Calculate all pairwise similarities
+            CASE 
+            WHEN size(target_emb_data) > 0 AND size(colleague_emb_data) > 0 THEN
+                reduce(max_sim = 0.0, t_data IN target_emb_data |
+                reduce(current_max = max_sim, c_data IN colleague_emb_data |
+                    CASE 
+                    WHEN t_data.magnitude = 0 OR c_data.magnitude = 0 THEN current_max
+                    ELSE CASE 
+                        WHEN (reduce(sum = 0.0, i IN range(0, size(t_data.embedding) - 1) | 
+                        sum + t_data.embedding[i] * c_data.embedding[i]) / (t_data.magnitude * c_data.magnitude)) > current_max
+                        THEN (reduce(sum = 0.0, i IN range(0, size(t_data.embedding) - 1) | 
+                        sum + t_data.embedding[i] * c_data.embedding[i]) / (t_data.magnitude * c_data.magnitude))
+                        ELSE current_max
+                    END
+                    END
+                )
+                )
+            ELSE 0.0
+            END
+        )
+        END AS best_embedding_overlap
+
+    // Same organisation
+    OPTIONAL MATCH (target)-[:LINKS_TO]->(shared_org:RicgraphNode {name: "ORGANIZATION_NAME"})-[:LINKS_TO]->(colleague)
+    WITH target, colleague, papers_together, best_embedding_overlap, COUNT(shared_org) > 0 AS same_org
+
+    // Get colleague name
+    OPTIONAL MATCH (colleague)-[:LINKS_TO]->(name:RicgraphNode {name: "FULL_NAME"})
+
+    // Calculate final score
+    WITH colleague.value AS colleague_id,
+        name.value AS colleague_name,
         papers_together,
-        same_organisation,
-        best_embedding_overlap,
-        (papers_together * 3.0) + 
-        (CASE WHEN same_organisation THEN 2.0 ELSE 0.0 END) +
-        (best_embedding_overlap * 1.0) AS final_score
+        same_org,
+        COALESCE(best_embedding_overlap, 0.0) AS best_embedding_overlap,
+        (
+        (CASE WHEN papers_together > 0 THEN CASE WHEN papers_together / 5.0 > 1.0 THEN 1.0 ELSE papers_together / 5.0 END ELSE 0.0 END) * 0.5 +
+        (CASE WHEN same_org THEN 1.0 ELSE 0.0 END) * 0.3 +
+        COALESCE(best_embedding_overlap, 0.0) * 0.2
+        ) AS final_score
 
-    RETURN colleague_id, colleague_name, papers_together, same_organisation, 
-        best_embedding_overlap, final_score
+    RETURN 
+    colleague_id,
+    colleague_name,
+    papers_together,
+    same_org,
+    ROUND(best_embedding_overlap, 3) AS best_embedding_overlap,
+    ROUND(final_score, 3) AS final_score
     ORDER BY final_score DESC
+    LIMIT $top_k
     """
 
     # small extra: try to fetch a coauthor name stored in a linked FULL_NAME node if present
@@ -172,7 +213,7 @@ def top_colleagues(req: TopColleaguesRequest):
 
     try:
         with get_graph().session() as session:
-            results = session.run(query, target_person_id=person_id)
+            results = session.run(query, target_person_id=person_id, top_k=top_k)
             rows = [dict(r) for r in results]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -180,12 +221,12 @@ def top_colleagues(req: TopColleaguesRequest):
     out = []
     for r in rows:
         out.append({
-            "person_id": r.get("person_id"),
-            "name": r.get("name"),  # may be null; populate with separate query if required
-            "coauthor_publications": int(r.get("shared_pub_count") or 0),
+            "colleague_id": r.get("colleague_id"),
+            "colleague_name": r.get("colleague_name"),  # may be null; populate with separate query if required
+            "papers_together": int(r.get("papers_together") or 0),
             "same_organization": bool(r.get("same_org")),
-            "embedding_similarity": float(r.get("embedding_similarity") or 0.0),
-            "score": float(r.get("score") or 0.0),
+            "embedding_similarity": float(r.get("best_embedding_overlap") or 0.0),
+            "score": float(r.get("final_score") or 0.0),
         })
     return out
 #--------------------------------HELPERS--------------------------------
