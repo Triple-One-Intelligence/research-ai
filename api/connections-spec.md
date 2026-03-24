@@ -127,10 +127,122 @@ GET /api/connections/entity
 }
 ```
 
+## Endpoint — collaborators
+
+```
+GET /api/connections/collaborators
+```
+
+**Query parameters**
+
+| Parameter           | Type   | Required | Default | Constraints  | Description |
+|---------------------|--------|----------|---------|--------------|-------------|
+| `entity_id`         | string | yes      | —       | —            | ID of the entity (Ricgraph person or organization key). |
+| `entity_type`       | string | yes      | —       | `person` or `organization` | Type of the entity. |
+| `limit`             | int    | no       | 50      | 1–200        | Maximum number of collaborators to return. |
+| `cursor`            | string | no       | —       | —            | Pagination cursor. |
+
+## Response schema
+
+```json
+{
+  "entity_id": "string",
+  "entity_type": "string",
+  "collaborators": [
+    { "author_id": "string", "name": "string" }
+  ],
+  "cursor": "string | null"
+}
+```
+
+## Endpoint — publications
+
+```
+GET /api/connections/publications
+```
+
+**Query parameters**
+
+| Parameter           | Type   | Required | Default | Constraints  | Description |
+|---------------------|--------|----------|---------|--------------|-------------|
+| `entity_id`         | string | yes      | —       | —            | ID of the entity (Ricgraph person or organization key). |
+| `entity_type`       | string | yes      | —       | `person` or `organization` | Type of the entity. |
+| `limit`             | int    | no       | 50      | 1–200        | Maximum number of publications to return. |
+| `cursor`            | string | no       | —       | —            | Pagination cursor. |
+
+## Response schema
+
+```json
+{
+  "entity_id": "string",
+  "entity_type": "string",
+  "publications": [
+    { "doi": "string", "title": "string | null", "year": "number | null", "category": "string | null", "versions": [] }
+  ],
+  "cursor": "string | null"
+}
+```
+
+## Endpoint — organizations
+
+```
+GET /api/connections/organizations
+```
+
+**Query parameters**
+
+| Parameter            | Type   | Required | Default | Constraints  | Description |
+|----------------------|--------|----------|---------|--------------|-------------|
+| `entity_id`          | string | yes      | —       | —            | ID of the entity (Ricgraph person or organization key). |
+| `entity_type`        | string | yes      | —       | `person` or `organization` | Type of the entity. |
+| `limit`              | int    | no       | 50      | 1–200        | Maximum number of organizations to return. |
+| `cursor`             | string | no       | —       | —            | Pagination cursor. |
+
+## Response schema
+
+```json
+{
+  "entity_id": "string",
+  "entity_type": "string",
+  "organizations": [
+    { "organization_id": "string", "name": "string" }
+  ],
+  "cursor": "string | null"
+}
+```
+
+## Endpoint — members
+
+```
+GET /api/connections/members
+```
+
+**Query parameters**
+
+| Parameter         | Type   | Required | Default | Constraints  | Description |
+|-------------------|--------|----------|---------|--------------|-------------|
+| `entity_id`       | string | yes      | —       | —            | ID of the entity (Ricgraph person or organization key). |
+| `entity_type`     | string | yes      | —       | `person` or `organization` | Type of the entity. |
+| `limit`            | int    | no       | 50      | 1–200        | Maximum number of members to return. |
+| `cursor`           | string | no       | —       | —            | Pagination cursor. |
+
+## Response schema
+
+```json
+{
+  "entity_id": "string",
+  "entity_type": "string",
+  "members": [
+    { "author_id": "string", "name": "string" }
+  ],
+  "cursor": "string | null"
+}
+```
+
 ## Notes for backend implementer
 
 - `doi` is the only required field on publications; `title`, `year`, `category`, and `versions` may be null or omitted.
-- Publications with the same normalized title are deduplicated; when multiple versions exist, the first is kept and the rest are listed in `versions` (each with `doi`, `year`, `category`). See `format_publications` in `api/app/utils/ricgraph_utils/connections_utils.py`.
+- Publications with the same normalized title are deduplicated; when multiple versions exist, the first is kept and the rest are listed in `versions` (each with `doi`, `year`, `category`). See `format_publications` in `api/app/utils/ricgraph_utils/connections/formatters.py`.
 - `members` is always `[]` when `entity_type` is `"person"`.
 - `collaborators` is always `[]` when `entity_type` is `"organization"` (use `members` for organization personnel).
 - The frontend renders each section as a collapsible card. Sections with 0 items are hidden automatically.

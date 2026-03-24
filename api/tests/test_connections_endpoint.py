@@ -1,14 +1,17 @@
-"""Tests for the connections router and connections_utils."""
+"""Tests for the connections router and connections package."""
 
 from unittest.mock import patch, MagicMock
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from app.utils.ricgraph_utils.connections_utils import (
+from app.utils.ricgraph_utils.connections import (
     clean_name, clean_title, parse_year,
     format_people, format_organizations, format_publications,
-    get_connections, InvalidEntityTypeError, ConnectionsError,
+    get_connections, InvalidEntityTypeError, InvalidCursorError, ConnectionsError,
+    encode_cursor,
 )
+from app.utils.schemas import Member, Organization, Person, Publication
 
 
 # ── Unit tests for helper functions ───────────────────────────────────────────
@@ -106,15 +109,15 @@ class TestFormatPublications:
         assert result[0].title == "Paper A"
         assert result[0].year == 2024
 
-    def test_deduplicates_by_title(self):
+    def test_preserves_rows_with_same_title(self):
         rows = [
             {"doi": "10.1/a", "title": "Same Paper", "year": "2024", "category": "article"},
             {"doi": "10.1/b", "title": "Same Paper", "year": "2023", "category": "preprint"},
         ]
         result = format_publications(rows)
-        assert len(result) == 1
-        assert result[0].versions is not None
-        assert len(result[0].versions) == 2
+        assert len(result) == 2
+        assert result[0].doi == "10.1/a"
+        assert result[1].doi == "10.1/b"
 
     def test_null_title_not_grouped(self):
         rows = [
@@ -124,14 +127,14 @@ class TestFormatPublications:
         result = format_publications(rows)
         assert len(result) == 2
 
-    def test_sorted_by_year_descending(self):
+    def test_preserves_query_order(self):
         rows = [
             {"doi": "10.1/a", "title": "Old", "year": "2020", "category": None},
             {"doi": "10.1/b", "title": "New", "year": "2024", "category": None},
         ]
         result = format_publications(rows)
-        assert result[0].year == 2024
-        assert result[1].year == 2020
+        assert result[0].year == 2020
+        assert result[1].year == 2024
 
 
 # ── Unit tests for get_connections ────────────────────────────────────────────
@@ -141,7 +144,7 @@ class TestGetConnections:
         with pytest.raises(InvalidEntityTypeError):
             get_connections("id", "invalid_type")
 
-    @patch("app.utils.ricgraph_utils.connections_utils.database_utils")
+    @patch("app.utils.ricgraph_utils.connections.utils.database_utils")
     def test_person_returns_structure(self, mock_db):
         mock_session = MagicMock()
         mock_session.run.return_value.single.return_value = MagicMock(
@@ -158,7 +161,7 @@ class TestGetConnections:
         assert "organizations" in result
         assert "members" in result
 
-    @patch("app.utils.ricgraph_utils.connections_utils.database_utils")
+    @patch("app.utils.ricgraph_utils.connections.utils.database_utils")
     def test_organization_returns_structure(self, mock_db):
         mock_session = MagicMock()
         mock_session.run.return_value.data.return_value = []
@@ -227,6 +230,34 @@ class TestConnectionsEndpoint:
             "entity_id": "x", "entity_type": "person",
         })
         assert resp.status_code == 500
+        assert resp.json()["detail"] == "Connections query failed."
+
+    @patch("app.routers.connections.get_connections")
+    def test_invalid_cursor_returns_400(self, mock_gc, client):
+        mock_gc.side_effect = InvalidCursorError("bad cursor")
+        resp = client.get("/connections/entity", params={
+            "entity_id": "x", "entity_type": "person",
+        })
+        assert resp.status_code == 400
+        assert "bad cursor" in resp.json()["detail"]
+
+    @patch("app.routers.connections.get_connections")
+    def test_http_exception_passthrough(self, mock_gc, client):
+        mock_gc.side_effect = HTTPException(status_code=409, detail="conflict")
+        resp = client.get("/connections/entity", params={
+            "entity_id": "x", "entity_type": "person",
+        })
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == "conflict"
+
+    @patch("app.routers.connections.get_connections")
+    def test_unexpected_exception_returns_500(self, mock_gc, client):
+        mock_gc.side_effect = RuntimeError("boom")
+        resp = client.get("/connections/entity", params={
+            "entity_id": "x", "entity_type": "person",
+        })
+        assert resp.status_code == 500
+        assert resp.json()["detail"] == "Connections query failed."
 
     def test_missing_entity_id(self, client):
         resp = client.get("/connections/entity", params={"entity_type": "person"})
@@ -248,10 +279,10 @@ class TestConnectionsEndpoint:
             "max_organizations": 30, "max_members": 40,
         })
         call_kwargs = mock_gc.call_args.kwargs
-        assert call_kwargs["max_publications"] == 10
-        assert call_kwargs["max_collaborators"] == 20
-        assert call_kwargs["max_organizations"] == 30
-        assert call_kwargs["max_members"] == 40
+        assert call_kwargs["max_publications"] == 11
+        assert call_kwargs["max_collaborators"] == 21
+        assert call_kwargs["max_organizations"] == 31
+        assert call_kwargs["max_members"] == 41
 
     def test_limit_validation_too_high(self, client):
         resp = client.get("/connections/entity", params={
@@ -266,3 +297,248 @@ class TestConnectionsEndpoint:
             "max_publications": 0,
         })
         assert resp.status_code == 422
+
+    @pytest.mark.parametrize("param_name", [
+        "max_collaborators",
+        "max_organizations",
+        "max_members",
+    ])
+    def test_entity_limit_validation_too_high_for_other_limits(self, client, param_name):
+        resp = client.get("/connections/entity", params={
+            "entity_id": "p1",
+            "entity_type": "person",
+            param_name: 999,
+        })
+        assert resp.status_code == 422
+
+    @pytest.mark.parametrize("param_name", [
+        "max_collaborators",
+        "max_organizations",
+        "max_members",
+    ])
+    def test_entity_limit_validation_too_low_for_other_limits(self, client, param_name):
+        resp = client.get("/connections/entity", params={
+            "entity_id": "p1",
+            "entity_type": "person",
+            param_name: 0,
+        })
+        assert resp.status_code == 422
+
+    @patch("app.routers.connections.get_connections")
+    def test_entity_connections_trims_and_sets_cursors(self, mock_gc, client):
+        mock_gc.return_value = {
+            "collaborators": [
+                Person(author_id="a1", name="A One", sort_name="one,a"),
+                Person(author_id="a2", name="A Two", sort_name="two,a"),
+            ],
+            "publications": [
+                Publication(doi="10.1/a", title="Paper A", year=2023, category="article"),
+                Publication(doi="10.1/b", title="Paper B", year=2024, category="article"),
+            ],
+            "organizations": [
+                Organization(organization_id="o1", name="Org One"),
+                Organization(organization_id="o2", name="Org Two"),
+            ],
+            "members": [
+                Member(author_id="m1", name="Member One", sort_name="member,one"),
+                Member(author_id="m2", name="Member Two", sort_name="member,two"),
+            ],
+        }
+        resp = client.get("/connections/entity", params={
+            "entity_id": "root-1",
+            "entity_type": "person",
+            "max_collaborators": 1,
+            "max_publications": 1,
+            "max_organizations": 1,
+            "max_members": 1,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["collaborators"]) == 1
+        assert len(data["publications"]) == 1
+        assert len(data["organizations"]) == 1
+        assert len(data["members"]) == 1
+        assert data["collaborators_cursor"] is not None
+        assert data["publications_cursor"] is not None
+        assert data["organizations_cursor"] is not None
+        assert data["members_cursor"] is not None
+
+    @patch("app.routers.connections.get_collaborators_list")
+    def test_person_collaborators_endpoint_passes_limit(self, mock_gc, client):
+        mock_gc.return_value = [
+            Person(author_id="p2", name="Example Coauthor", sort_name="coauthor,example"),
+            Person(author_id="p3", name="Second Coauthor", sort_name="coauthor,second"),
+        ]
+        resp = client.get("/connections/collaborators", params={
+            "entity_id": "person-1",
+            "entity_type": "person",
+            "limit": 1,
+            "cursor": "cur-1",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["entity_id"] == "person-1"
+        assert data["entity_type"] == "person"
+        assert data["collaborators"] == [{"author_id": "p2", "name": "Example Coauthor"}]
+        assert data["cursor"] == encode_cursor({"name": "coauthor,example", "author_id": "p2"})
+
+        call_kwargs = mock_gc.call_args.kwargs
+        assert call_kwargs["max_collaborators"] == 2
+        assert call_kwargs["cursor"] == "cur-1"
+
+    @patch("app.routers.connections.get_members_list")
+    def test_organization_members_endpoint_passes_limit(self, mock_gc, client):
+        mock_gc.return_value = [
+            Member(author_id="p1", name="Member Example", sort_name="member,example"),
+            Member(author_id="p2", name="Member Example 2", sort_name="member,example2"),
+        ]
+        resp = client.get("/connections/members", params={
+            "entity_id": "org-1",
+            "entity_type": "organization",
+            "limit": 1,
+            "cursor": "cur-2",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["entity_id"] == "org-1"
+        assert data["entity_type"] == "organization"
+        assert data["members"] == [{"author_id": "p1", "name": "Member Example"}]
+        assert data["cursor"] == encode_cursor({"name": "member,example", "author_id": "p1"})
+
+        call_kwargs = mock_gc.call_args.kwargs
+        assert call_kwargs["max_members"] == 2
+        assert call_kwargs["cursor"] == "cur-2"
+
+    @patch("app.routers.connections.get_publications_list")
+    def test_person_publications_endpoint_passes_limit(self, mock_gc, client):
+        mock_gc.return_value = [
+            Publication(doi="10.1/a", title="Paper A", year=2024, category="article"),
+            Publication(doi="10.1/b", title="Paper B", year=2025, category="article"),
+        ]
+        resp = client.get("/connections/publications", params={
+            "entity_id": "person-1",
+            "entity_type": "person",
+            "limit": 1,
+            "cursor": "cur-3",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["entity_id"] == "person-1"
+        assert data["entity_type"] == "person"
+        assert data["publications"][0]["doi"] == "10.1/a"
+        assert data["cursor"] == encode_cursor({"sort_key": "title:paper a", "doi": "10.1/a"})
+
+        call_kwargs = mock_gc.call_args.kwargs
+        assert call_kwargs["max_publications"] == 2
+        assert call_kwargs["cursor"] == "cur-3"
+
+    @patch("app.routers.connections.get_organizations_list")
+    def test_person_organizations_endpoint_passes_limit(self, mock_gc, client):
+        mock_gc.return_value = [
+            Organization(organization_id="org-2", name="Example Org"),
+            Organization(organization_id="org-3", name="Another Org"),
+        ]
+        resp = client.get("/connections/organizations", params={
+            "entity_id": "person-1",
+            "entity_type": "person",
+            "limit": 1,
+            "cursor": "cur-4",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["entity_id"] == "person-1"
+        assert data["entity_type"] == "person"
+        assert data["organizations"] == [{"organization_id": "org-2", "name": "Example Org"}]
+        assert data["cursor"] == encode_cursor({"name": "example org", "organization_id": "org-2"})
+
+        call_kwargs = mock_gc.call_args.kwargs
+        assert call_kwargs["max_organizations"] == 2
+        assert call_kwargs["cursor"] == "cur-4"
+
+    @pytest.mark.parametrize("endpoint", [
+        "/connections/collaborators",
+        "/connections/publications",
+        "/connections/organizations",
+        "/connections/members",
+    ])
+    def test_list_endpoint_limit_validation_too_high(self, client, endpoint):
+        resp = client.get(endpoint, params={
+            "entity_id": "e1",
+            "entity_type": "person",
+            "limit": 999,
+        })
+        assert resp.status_code == 422
+
+    @pytest.mark.parametrize("endpoint", [
+        "/connections/collaborators",
+        "/connections/publications",
+        "/connections/organizations",
+        "/connections/members",
+    ])
+    def test_list_endpoint_limit_validation_too_low(self, client, endpoint):
+        resp = client.get(endpoint, params={
+            "entity_id": "e1",
+            "entity_type": "person",
+            "limit": 0,
+        })
+        assert resp.status_code == 422
+
+    @pytest.mark.parametrize(
+        "endpoint,patch_target,error",
+        [
+            ("/connections/collaborators", "app.routers.connections.get_collaborators_list", InvalidEntityTypeError("bad type")),
+            ("/connections/publications", "app.routers.connections.get_publications_list", InvalidCursorError("bad cursor")),
+            ("/connections/organizations", "app.routers.connections.get_organizations_list", ConnectionsError("db")),
+            ("/connections/members", "app.routers.connections.get_members_list", RuntimeError("boom")),
+        ],
+    )
+    def test_list_endpoints_exception_mapping(self, client, endpoint, patch_target, error):
+        with patch(patch_target) as mock_call:
+            mock_call.side_effect = error
+            resp = client.get(endpoint, params={
+                "entity_id": "e1",
+                "entity_type": "person",
+                "limit": 1,
+            })
+
+        if isinstance(error, (InvalidEntityTypeError, InvalidCursorError)):
+            assert resp.status_code == 400
+        else:
+            assert resp.status_code == 500
+
+    @pytest.mark.parametrize(
+        "endpoint,patch_target",
+        [
+            ("/connections/collaborators", "app.routers.connections.get_collaborators_list"),
+            ("/connections/publications", "app.routers.connections.get_publications_list"),
+            ("/connections/organizations", "app.routers.connections.get_organizations_list"),
+            ("/connections/members", "app.routers.connections.get_members_list"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "error,expected_status",
+        [
+            (InvalidEntityTypeError("bad type"), 400),
+            (InvalidCursorError("bad cursor"), 400),
+            (ConnectionsError("db fail"), 500),
+            (RuntimeError("boom"), 500),
+            (HTTPException(status_code=418, detail="teapot"), 418),
+        ],
+    )
+    def test_list_endpoints_full_exception_matrix(
+        self,
+        client,
+        endpoint,
+        patch_target,
+        error,
+        expected_status,
+    ):
+        with patch(patch_target) as mock_call:
+            mock_call.side_effect = error
+            resp = client.get(endpoint, params={
+                "entity_id": "e1",
+                "entity_type": "person",
+                "limit": 1,
+            })
+
+        assert resp.status_code == expected_status

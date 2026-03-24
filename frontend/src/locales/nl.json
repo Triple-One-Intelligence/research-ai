@@ -25,8 +25,9 @@
   "rightPanel": {
     "selectEntity": "Selecteer een persoon of organisatie in de linkerkolom om connecties te bekijken",
     "loadingConnections": "Connecties laden...",
+    "loadMore": "Meer laden",
+    "loadingMore": "Laden...",
     "loadFailed": "Connecties laden mislukt.",
-    "loadFailedFallback": "Connecties laden mislukt",
     "title": "Connecties",
     "collaborators": "Medewerkers",
     "publications": "Publicaties",
