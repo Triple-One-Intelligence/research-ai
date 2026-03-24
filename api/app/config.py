@@ -1,3 +1,4 @@
+"""All environment variables read in one place."""
 import os
 
 # --- Neo4j ---

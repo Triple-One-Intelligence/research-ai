@@ -31,6 +31,7 @@ class PipelineRequest(BaseModel):
 
 
 def _stream_ollama(payload: dict) -> StreamingResponse:
+    """Streams chat response as SSE."""
     url = f"{AI_SERVICE_URL}/api/chat"
 
     async def generate():
@@ -63,6 +64,7 @@ def _stream_ollama(payload: dict) -> StreamingResponse:
 
 
 def _llm_payload(system_prompt: str, user_prompt: str) -> dict:
+    """Builds chat request payload."""
     return {
         "model": CHAT_MODEL,
         "messages": [
@@ -76,6 +78,7 @@ def _llm_payload(system_prompt: str, user_prompt: str) -> dict:
 
 @router.post("/pipeline/{prompt_type}")
 async def pipeline(prompt_type: str, req: PipelineRequest):
+    """Builds pipeline context and streams the LLM response."""
     if prompt_type not in _VALID_PROMPT_TYPES:
         raise HTTPException(status_code=404, detail=f"Unknown pipeline: {prompt_type}")
     if not req.prompt.strip():

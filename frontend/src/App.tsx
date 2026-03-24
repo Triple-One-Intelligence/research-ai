@@ -121,6 +121,7 @@ const App = () => {
     window.addEventListener('mouseup', onMouseUp);
   }, [leftWidth, rightWidth, onMouseMove, onMouseUp]);
 
+  // Calls the dedicated pipeline endpoint for the given prompt type and streams the response.
   const handlePipeline = (promptType: string, prompt: string) => {
     if (isGenerating || !selectedEntity) return;
 
