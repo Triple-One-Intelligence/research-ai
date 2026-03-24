@@ -14,7 +14,6 @@ import time
 
 import httpx
 import app.utils.database_utils.database_utils as database_utils
-# Refactoring: Shotgun Surgery fix — imports from centralized config in ai_utils
 from app.utils.ai_utils.ai_utils import AI_SERVICE_URL, EMBED_MODEL, EMBED_DIMENSIONS
 
 log = logging.getLogger(__name__)
@@ -95,7 +94,6 @@ def generate_embedding(text: str, client: httpx.Client) -> list[float] | None:
 
 # ── Main enrichment loop ───────────────────────────────────────────────────
 
-# Refactoring: Duplicate Code fix — was two near-identical Cypher queries
 def find_publication_dois(driver, force: bool) -> list[str]:
     """Return DOIs for publication nodes that need enrichment."""
     base = "MATCH (n:RicgraphNode) WHERE n.name = 'DOI' AND n.value IS NOT NULL"
@@ -105,7 +103,6 @@ def find_publication_dois(driver, force: bool) -> list[str]:
         return [r["doi"] for r in session.run(query)]
 
 
-# Refactoring: Separate Query from Modifier — this only writes, find_publication_dois only reads.
 def store_enrichment(driver, doi: str, abstract: str, embedding: list[float]):
     """Write abstract + embedding back to the node."""
     with driver.session() as session:

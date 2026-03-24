@@ -307,17 +307,24 @@ class TestTopCollaboratorsContext:
         result = top_collaborators_context(entity("person"), "Who?")
         assert "No collaborators found." in result
 
-    @patch("app.pipelines.contexts.get_connections")
-    def test_org_entity(self, mock_connections):
-        from app.utils.schemas.connections import Member
-        mock_connections.return_value = {
-            "members": [Member(author_id="p1", name="Alice"), Member(author_id="p2", name="Bob")],
-            "publications": [], "collaborators": [], "organizations": [],
-        }
+    @patch("app.pipelines.contexts.org_external_collaborators_ranked")
+    def test_org_entity(self, mock_collabs):
+        mock_collabs.return_value = [
+            {"rawName": "Alice, A.", "sharedPubs": 9},
+            {"rawName": "Bob, B.", "sharedPubs": 4},
+        ]
         from app.pipelines.contexts import top_collaborators_context
-        result = top_collaborators_context(entity("organization"), "Who are the members?")
+        result = top_collaborators_context(entity("organization"), "Who are the top collaborators?")
         assert "Alice" in result
         assert "Bob" in result
+        assert "9" in result
+
+    @patch("app.pipelines.contexts.org_external_collaborators_ranked")
+    def test_org_entity_no_collabs(self, mock_collabs):
+        mock_collabs.return_value = []
+        from app.pipelines.contexts import top_collaborators_context
+        result = top_collaborators_context(entity("organization"), "Who?")
+        assert "No external collaborators found." in result
 
 
 class TestRecentPublicationsContext:
