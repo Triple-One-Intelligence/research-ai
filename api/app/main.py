@@ -1,7 +1,6 @@
 """FastAPI application entry point — configures logging, CORS, routers, and lifespan."""
 
 import logging
-import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -9,13 +8,11 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import ai, autocomplete, connections
+from app.config import LOGLEVEL, CORS_ORIGINS
+from app.routers import ai, autocomplete, connections, pipeline
 import app.utils.database_utils.database_utils as database_utils
 
-logging.basicConfig(
-    level=os.environ.get("LOGLEVEL", "INFO").upper(),
-    format="%(levelname)s: %(message)s",
-)
+logging.basicConfig(level=LOGLEVEL, format="%(levelname)s: %(message)s")
 log = logging.getLogger(__name__)
 
 
@@ -31,16 +28,13 @@ app = FastAPI(
     description="API",
     version="0.0.1",
     root_path="/api",
-    debug=os.environ.get("LOGLEVEL", "INFO").upper() == "DEBUG",
+    debug=LOGLEVEL == "DEBUG",
     lifespan=lifespan
 )
 
-cors_env = os.environ.get("CORS_ORIGINS", "http://localhost:5173,https://localhost:3000")
-origins = [o.strip() for o in cors_env.split(",")]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,6 +43,7 @@ app.add_middleware(
 app.include_router(connections.router)
 app.include_router(autocomplete.router)
 app.include_router(ai.router)
+app.include_router(pipeline.router)
 
 @app.get("/health")
 def health():

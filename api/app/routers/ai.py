@@ -9,9 +9,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.utils.database_utils.database_utils import get_graph, VECTOR_INDEX_NAME
-# Refactoring: Shotgun Surgery fix — constants centralized in ai_utils
 from app.utils.ai_utils.ai_utils import (
-    AI_SERVICE_URL, CHAT_MODEL, CHAT_MAX_TOKENS, async_embed, send_async_ai_request,
+    AI_SERVICE_URL, CHAT_MODEL, CHAT_MAX_TOKENS, CHAT_CONTEXT_WINDOW, async_embed, send_async_ai_request,
 )
 from app.utils.ricgraph_utils.queries import rag_queries
 from app.utils.schemas.ai import (
@@ -20,8 +19,6 @@ from app.utils.schemas.ai import (
 from app.prompts.system_prompt import SYSTEM_PROMPT
 
 
-# Refactoring: Replace Data Value with Object (Primitive Obsession fix)
-# Was list[dict], now a typed structure so callers know the shape.
 class SimilarPublication(TypedDict):
     doi: str
     title: str | None
@@ -31,7 +28,6 @@ class SimilarPublication(TypedDict):
 
 log = logging.getLogger(__name__)
 
-# Refactoring: Replace Magic Number with Symbolic Constant
 # Number of candidates fetched from the vector index before filtering to top_k.
 # A higher multiplier improves recall when scoped to a specific entity.
 VECTOR_SEARCH_MULTIPLIER = 25
@@ -82,20 +78,17 @@ async def get_similar_publications(prompt: str, entity: EntityRef | None, top_k:
 
 
 def format_similar_publications_for_rag(similar_publications: list[SimilarPublication]) -> str:
-    """Turn a list of similar publications into numbered documents for RAG context.
-
-    Uses a numbered document format (Document [1], Document [2], …) so that
-    citation-aware models like Command-R can produce inline references."""
+    """Turn a list of similar publications into numbered documents for RAG context."""
     blocks = []
     for idx, doc in enumerate(similar_publications, 1):
         lines = [f"Document [{idx}]"]
-        lines.append(f"DOI: {doc.get('doi', 'n/a')}")
-        lines.append(f"Title: {doc.get('title', 'n/a')}")
-        lines.append(f"Year: {doc.get('year', 'n/a')}")
-        if doc.get("category"):
-            lines.append(f"Category: {doc['category']}")
-        if doc.get("abstract"):
-            lines.append(f"Abstract: {doc['abstract']}")
+        lines.extend(filter(None, [
+            f"DOI: {doc['doi']}" if doc.get("doi") else None,
+            f"Title: {doc['title']}" if doc.get("title") else None,
+            f"Year: {doc['year']}" if doc.get("year") else None,
+            f"Category: {doc['category']}" if doc.get("category") else None,
+            f"Abstract: {doc['abstract']}" if doc.get("abstract") else None,
+        ]))
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
 
@@ -109,10 +102,7 @@ def format_entity_context(entity: EntityRef) -> str:
 
 
 def _build_rag_system_prompt(entity: EntityRef | None, publications_context: str) -> str:
-    """Build the system prompt incorporating RAG context.
-
-    Pattern: Builder — constructs the prompt step-by-step from parts.
-    Prepends the global SYSTEM_PROMPT, then appends entity and document context."""
+    """Build the system prompt incorporating RAG context."""
     parts = [SYSTEM_PROMPT]
     if entity:
         parts.append(f"\n{format_entity_context(entity)}")
@@ -127,9 +117,7 @@ def _build_rag_system_prompt(entity: EntityRef | None, publications_context: str
 # --------------------------------------------------------------------
 
 def _streaming_chat_response(payload: dict):
-    """Return a StreamingResponse that proxies Ollama /api/chat as SSE.
-
-    Pattern: Proxy — wraps the Ollama API and transforms its response format."""
+    """Return a StreamingResponse that proxies Ollama /api/chat as SSE."""
     url = f"{AI_SERVICE_URL}/api/chat"
 
     async def stream_ollama():
@@ -195,7 +183,7 @@ async def rag_generate(req: RagGenerateRequest):
             {"role": "user", "content": req.prompt},
         ],
         "stream": True,
-        "options": {"num_predict": CHAT_MAX_TOKENS},
+        "options": {"num_predict": CHAT_MAX_TOKENS, "num_ctx": CHAT_CONTEXT_WINDOW},
     }
 
     if log.isEnabledFor(logging.DEBUG):
@@ -208,7 +196,6 @@ async def rag_generate(req: RagGenerateRequest):
     return _streaming_chat_response(payload)
 
 
-# Refactoring: Feature Envy fix — was duplicating httpx logic from ai_utils
 @router.post("/embed")
 async def embed(req: EmbedRequest):
     """Sends an embedding request to the Ollama container."""

@@ -5,16 +5,13 @@ parts of the database.
 """
 
 import logging
-import os
 import re
 import time
 from neo4j import Driver, GraphDatabase
 
-log = logging.getLogger(__name__)
+from app.config import REMOTE_NEO4J_URL, REMOTE_NEO4J_USER, REMOTE_NEO4J_PASS
 
-REMOTE_NEO4J_URL  = os.environ["REMOTE_NEO4J_URL"]
-REMOTE_NEO4J_USER = os.environ["REMOTE_NEO4J_USER"]
-REMOTE_NEO4J_PASS = os.environ["REMOTE_NEO4J_PASS"]
+log = logging.getLogger(__name__)
 
 FULLTEXT_INDEX_NAME = "ValueFulltextIndex"
 VECTOR_INDEX_NAME = "publicationEmbeddingIndex"
@@ -27,7 +24,6 @@ def validate_index(index_name : str) -> None:
 validate_index(FULLTEXT_INDEX_NAME)
 validate_index(VECTOR_INDEX_NAME)
 
-# Pattern: Singleton — single shared Neo4j driver instance, accessed via get_graph().
 graph: Driver | None = None
 
 def connect_to_database(max_retries: int = 10, retry_delay: float = 3.0) -> None:
@@ -48,9 +44,7 @@ def connect_to_database(max_retries: int = 10, retry_delay: float = 3.0) -> None
             time.sleep(retry_delay)
 
 def startup() -> None:
-    """Connect to the Ricgraph Neo4j database and ensure indexes are ready.
-
-    Pattern: Facade — hides the multi-step init (connect + ensure indexes) behind one call."""
+    """Connect to the Ricgraph Neo4j database and ensure indexes are ready."""
     try:
         connect_to_database()
     except Exception as exception:

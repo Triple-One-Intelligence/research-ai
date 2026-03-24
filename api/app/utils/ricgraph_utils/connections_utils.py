@@ -26,7 +26,6 @@ class ConnectionsError(RuntimeError):
 class InvalidEntityTypeError(ValueError):
     pass
 
-# Refactoring: Extract Method — data cleaning separated from query logic.
 def clean_name(raw: str | None) -> str:
     if not raw:
         return ""
@@ -61,9 +60,7 @@ class ConnectionsPayload(TypedDict):
     members: list[Member]
 
 def format_people(rows: list[dict[str, Any]], *, as_members: bool = False) -> list[PeopleOrMembers]:
-    """Format person rows as Person or Member models.
-
-    Pattern: Factory Method — creates Person or Member based on as_members flag."""
+    """Format person rows as Person or Member models."""
     out: list[PeopleOrMembers] = []
     for row in rows:
         name = clean_name(row.get("rawName"))
@@ -155,7 +152,6 @@ def organization_connections(
         "members": format_people(members, as_members=True),
     }
 
-# Pattern: Facade — callers don't need to know about person_connections vs organization_connections.
 def get_connections(
     entity_id: str,
     entity_type: str,
