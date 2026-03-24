@@ -30,9 +30,13 @@ class TestOrganization:
         assert o.organization_id == "org1"
         assert o.name == "Utrecht University"
 
-    def test_missing_fields(self):
+    def test_missing_organization_id(self):
         with pytest.raises(ValidationError):
             Organization(name="Utrecht University")
+
+    def test_missing_name(self):
+        with pytest.raises(ValidationError):
+            Organization(organization_id="abc123")
 
 
 class TestSuggestions:

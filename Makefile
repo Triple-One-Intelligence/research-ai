@@ -9,12 +9,10 @@
 REMOTE_SERVER    ?= root@0xai.nl
 NEO4J_BACKUP_DIR := /var/backups/research-ai
 
-UNIT_TESTS := tests/test_query_utils.py tests/test_database_utils.py \
-              tests/test_autocomplete_utils.py tests/test_enrich.py \
-              tests/test_schemas.py tests/test_api_endpoints.py \
-              tests/test_connections_endpoint.py tests/test_pipelines.py
+UNIT_TESTS   := tests/unit/
+DEV_TESTS    := tests/integration/ tests/system/test_smoke_dev.py
+DEPLOY_TESTS := tests/system/test_smoke_deploy.py
 
-DEV_TESTS  := tests/test_smoke_dev.py tests/test_integration_api.py
 
 TEST_IMG := research-ai-test:dev
 TEST_RUN := podman run --rm -t --network host -v ./api:/work:ro $(TEST_IMG)
@@ -229,7 +227,7 @@ test-deploy: test-image
 	podman run --rm -t --network host -v ./api:/work:ro \
 	    -e CADDY_HOSTNAME=$$CADDY_HOSTNAME -e VERIFY_SSL=false \
 	    -e REMOTE_NEO4J_USER=$$REMOTE_NEO4J_USER -e REMOTE_NEO4J_PASS=$$REMOTE_NEO4J_PASS \
-	    $(TEST_IMG) python -m pytest tests/test_smoke_deploy.py -v --tb=short
+	    $(TEST_IMG) python -m pytest $(DEPLOY_TESTS) -v --tb=short
 
 test: test-unit
 	@echo ""

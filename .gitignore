@@ -11,3 +11,5 @@ enrich.log
 __pycache__/
 .venv/
 api/.venv/
+.coverage
+.vscode/settings.json
