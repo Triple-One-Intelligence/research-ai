@@ -1,6 +1,6 @@
 """Tests for the enrichment pipeline (abstract fetching, embedding, storage)."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 import pytest
 import httpx
 
@@ -10,6 +10,8 @@ from app.scripts.enrich import (
     generate_embedding,
     find_publication_dois,
     store_enrichment,
+    run,
+    main,
 )
 
 
@@ -199,3 +201,154 @@ class TestStoreEnrichment:
         assert call_kwargs.kwargs["doi"] == "10.1/test"
         assert call_kwargs.kwargs["abstract"] == "An abstract"
         assert call_kwargs.kwargs["embedding"] == [0.1, 0.2]
+
+
+class TestRun:
+    @patch("app.scripts.enrich.AI_SERVICE_URL", "")
+    def test_exits_when_no_ai_service_url(self):
+        with pytest.raises(SystemExit, match="1"):
+            run()
+
+    @patch("app.scripts.enrich.time.sleep")
+    @patch("app.scripts.enrich.AI_SERVICE_URL", "http://ai:11434")
+    @patch("app.scripts.enrich.EMBED_DIMENSIONS", 768)
+    @patch("app.scripts.enrich.database_utils")
+    def test_returns_early_when_no_publications(self, mock_db, mock_sleep):
+        mock_driver = MagicMock()
+        mock_db.get_graph.return_value = mock_driver
+
+        mock_session = MagicMock()
+        mock_session.run.return_value = []
+        mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+
+        run(force=False)
+
+        mock_db.connect_to_database.assert_called_once()
+        mock_db.ensure_vector_index.assert_called_once_with(mock_driver, 768)
+        mock_driver.close.assert_called_once()
+
+    @patch("app.scripts.enrich.time.sleep")
+    @patch("app.scripts.enrich.store_enrichment")
+    @patch("app.scripts.enrich.generate_embedding")
+    @patch("app.scripts.enrich.fetch_abstract")
+    @patch("app.scripts.enrich.find_publication_dois")
+    @patch("app.scripts.enrich.AI_SERVICE_URL", "http://ai:11434")
+    @patch("app.scripts.enrich.EMBED_DIMENSIONS", 768)
+    @patch("app.scripts.enrich.database_utils")
+    def test_enriches_publications(
+        self, mock_db, mock_find, mock_fetch, mock_embed, mock_store, mock_sleep
+    ):
+        mock_driver = MagicMock()
+        mock_db.get_graph.return_value = mock_driver
+        mock_find.return_value = ["10.1/a", "10.1/b"]
+        mock_fetch.side_effect = ["Abstract A", "Abstract B"]
+        mock_embed.side_effect = [[0.1, 0.2], [0.3, 0.4]]
+
+        run(force=False)
+
+        assert mock_store.call_count == 2
+        mock_store.assert_any_call(mock_driver, "10.1/a", "Abstract A", [0.1, 0.2])
+        mock_store.assert_any_call(mock_driver, "10.1/b", "Abstract B", [0.3, 0.4])
+        mock_driver.close.assert_called_once()
+
+    @patch("app.scripts.enrich.time.sleep")
+    @patch("app.scripts.enrich.store_enrichment")
+    @patch("app.scripts.enrich.generate_embedding")
+    @patch("app.scripts.enrich.fetch_abstract")
+    @patch("app.scripts.enrich.find_publication_dois")
+    @patch("app.scripts.enrich.AI_SERVICE_URL", "http://ai:11434")
+    @patch("app.scripts.enrich.EMBED_DIMENSIONS", 768)
+    @patch("app.scripts.enrich.database_utils")
+    def test_skips_when_no_abstract(
+        self, mock_db, mock_find, mock_fetch, mock_embed, mock_store, mock_sleep
+    ):
+        mock_driver = MagicMock()
+        mock_db.get_graph.return_value = mock_driver
+        mock_find.return_value = ["10.1/a"]
+        mock_fetch.return_value = None
+
+        run(force=False)
+
+        mock_embed.assert_not_called()
+        mock_store.assert_not_called()
+        mock_driver.close.assert_called_once()
+
+    @patch("app.scripts.enrich.time.sleep")
+    @patch("app.scripts.enrich.store_enrichment")
+    @patch("app.scripts.enrich.generate_embedding")
+    @patch("app.scripts.enrich.fetch_abstract")
+    @patch("app.scripts.enrich.find_publication_dois")
+    @patch("app.scripts.enrich.AI_SERVICE_URL", "http://ai:11434")
+    @patch("app.scripts.enrich.EMBED_DIMENSIONS", 768)
+    @patch("app.scripts.enrich.database_utils")
+    def test_skips_when_embedding_fails(
+        self, mock_db, mock_find, mock_fetch, mock_embed, mock_store, mock_sleep
+    ):
+        mock_driver = MagicMock()
+        mock_db.get_graph.return_value = mock_driver
+        mock_find.return_value = ["10.1/a"]
+        mock_fetch.return_value = "An abstract"
+        mock_embed.return_value = None
+
+        run(force=False)
+
+        mock_store.assert_not_called()
+        mock_driver.close.assert_called_once()
+
+    @patch("app.scripts.enrich.time.sleep")
+    @patch("app.scripts.enrich.store_enrichment")
+    @patch("app.scripts.enrich.generate_embedding")
+    @patch("app.scripts.enrich.fetch_abstract")
+    @patch("app.scripts.enrich.find_publication_dois")
+    @patch("app.scripts.enrich.AI_SERVICE_URL", "http://ai:11434")
+    @patch("app.scripts.enrich.EMBED_DIMENSIONS", 768)
+    @patch("app.scripts.enrich.database_utils")
+    def test_closes_driver_on_exception(
+        self, mock_db, mock_find, mock_fetch, mock_embed, mock_store, mock_sleep
+    ):
+        mock_driver = MagicMock()
+        mock_db.get_graph.return_value = mock_driver
+        mock_find.side_effect = RuntimeError("db error")
+
+        with pytest.raises(RuntimeError, match="db error"):
+            run(force=False)
+
+        mock_driver.close.assert_called_once()
+
+    @patch("app.scripts.enrich.time.sleep")
+    @patch("app.scripts.enrich.store_enrichment")
+    @patch("app.scripts.enrich.generate_embedding")
+    @patch("app.scripts.enrich.fetch_abstract")
+    @patch("app.scripts.enrich.find_publication_dois")
+    @patch("app.scripts.enrich.AI_SERVICE_URL", "http://ai:11434")
+    @patch("app.scripts.enrich.EMBED_DIMENSIONS", 768)
+    @patch("app.scripts.enrich.database_utils")
+    def test_batch_pause(
+        self, mock_db, mock_find, mock_fetch, mock_embed, mock_store, mock_sleep
+    ):
+        mock_driver = MagicMock()
+        mock_db.get_graph.return_value = mock_driver
+        mock_find.return_value = ["10.1/a", "10.1/b"]
+        mock_fetch.return_value = "Abstract"
+        mock_embed.return_value = [0.1]
+
+        run(force=False, batch_size=1)
+
+        # Each item gets a 0.15s sleep, plus batch pause (1s) after every batch_size items
+        sleep_values = [c.args[0] for c in mock_sleep.call_args_list]
+        assert 1 in sleep_values
+
+
+class TestMain:
+    @patch("app.scripts.enrich.run")
+    def test_parses_defaults(self, mock_run):
+        with patch("sys.argv", ["enrich"]):
+            main()
+        mock_run.assert_called_once_with(force=False, batch_size=50)
+
+    @patch("app.scripts.enrich.run")
+    def test_parses_force_and_batch_size(self, mock_run):
+        with patch("sys.argv", ["enrich", "--force", "--batch-size", "10"]):
+            main()
+        mock_run.assert_called_once_with(force=True, batch_size=10)

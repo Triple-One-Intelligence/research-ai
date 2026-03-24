@@ -116,6 +116,54 @@ class TestConnectToDatabase:
             database_utils.graph = original
 
 
+class TestStartup:
+    @patch("app.utils.database_utils.database_utils.ensure_fulltext_indexes")
+    @patch("app.utils.database_utils.database_utils.connect_to_database")
+    def test_connects_and_ensures_indexes(self, mock_connect, mock_ensure):
+        mock_driver = MagicMock()
+        original = database_utils.graph
+        try:
+            def set_graph():
+                database_utils.graph = mock_driver
+            mock_connect.side_effect = lambda: set_graph()
+
+            database_utils.startup()
+
+            mock_connect.assert_called_once()
+            mock_ensure.assert_called_once_with(mock_driver)
+        finally:
+            database_utils.graph = original
+
+    @patch("app.utils.database_utils.database_utils.connect_to_database")
+    def test_raises_and_closes_driver_on_failure(self, mock_connect):
+        mock_driver = MagicMock()
+        original = database_utils.graph
+        try:
+            database_utils.graph = mock_driver
+            mock_connect.side_effect = ConnectionError("down")
+
+            with pytest.raises(ConnectionError, match="down"):
+                database_utils.startup()
+
+            mock_driver.close.assert_called_once()
+        finally:
+            database_utils.graph = original
+
+    @patch("app.utils.database_utils.database_utils.connect_to_database")
+    def test_raises_without_close_when_graph_is_none(self, mock_connect):
+        original = database_utils.graph
+        try:
+            database_utils.graph = None
+            mock_connect.side_effect = ConnectionError("down")
+
+            with pytest.raises(ConnectionError, match="down"):
+                database_utils.startup()
+
+            assert database_utils.graph is None
+        finally:
+            database_utils.graph = original
+
+
 class TestEnsureFulltextIndexes:
     def test_creates_index_when_missing(self):
         mock_driver = MagicMock()
