@@ -215,40 +215,11 @@ Returns member connections for an entity.
 | 500 | Query failed |
 
 ---
-## POST /chat
 
-Streaming chat (no RAG). Returns Server-Sent Events.
-
-**Request Body:**
-
-```json
-{
-  "model": "tinyllama",
-  "messages": [{"role": "user", "content": "Hello"}],
-  "stream": true,
-  "options": {}
-}
-```
-
-**SSE Events:**
-
-```
-data: {"token": "..."}\n\n
-...
-data: [DONE]\n\n
-```
-
-On error:
-
-```
-data: {"error": "..."}\n\n
-```
-
----
 
 ## POST /generate
 
-RAG-augmented generation. Embeds the prompt, retrieves similar publications from the vector index (scoped to entity), and streams the LLM response.
+RAG-augmented generation. Embeds the prompt, retrieves similar publications from the vector index when an entity is provided, and streams the LLM response.
 
 **Request Body:**
 
@@ -259,6 +230,8 @@ RAG-augmented generation. Embeds the prompt, retrieves similar publications from
   "top_k": 8
 }
 ```
+
+`entity` is optional. Without it, `/generate` behaves like the old general chat flow.
 
 **SSE Events:**
 

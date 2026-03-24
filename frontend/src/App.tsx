@@ -5,7 +5,7 @@ import { LeftPanel } from './components/LeftPanel';
 import { MiddlePanel } from './components/MiddlePanel';
 import { RightPanel } from './components/RightPanel';
 import type { EntitySuggestion } from './types';
-import { API_BASE } from './api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 // Shared SSE stream reader — works for both `/chat` and `/generate`.
 //
@@ -162,35 +162,22 @@ const App = () => {
     setDebugInfo(null);
     setIsGenerating(true);
 
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    if (selectedEntity) {
-      streamSSE(
-        `${API_BASE}/generate`,
-        {
-          prompt,
-          entity: {
-            id: selectedEntity.id,
-            type: selectedEntity.type,
-            label: selectedEntity.label,
-          },
-        },
-        (chunk) => setResponseText((prev) => prev + chunk),
-        () => setIsGenerating(false),
-        (info) => setDebugInfo(info),
-        controller.signal,
-      );
-    } else {
-      streamSSE(
-        `${API_BASE}/chat`,
-        { messages: [{ role: 'user', content: prompt }] },
-        (chunk) => setResponseText((prev) => prev + chunk),
-        () => setIsGenerating(false),
-        undefined,
-        controller.signal,
-      );
-    }
+    streamSSE(
+      `${API_BASE}/generate`,
+      selectedEntity
+        ? {
+            prompt,
+            entity: {
+              id: selectedEntity.id,
+              type: selectedEntity.type,
+              label: selectedEntity.label,
+            },
+          }
+        : { prompt },
+      (chunk) => setResponseText((prev) => prev + chunk),
+      () => setIsGenerating(false),
+      (info) => setDebugInfo(info),
+    );
   };
 
   // When switching persons/entities, clear the AI output because it is tied to the previous entity.
@@ -209,18 +196,10 @@ const App = () => {
     i18n.changeLanguage(lng);
   };
 
-  const previewPR = import.meta.env.VITE_PREVIEW_PR;
-  if (previewPR) document.title = `[PR #${previewPR}] Research AI`;
-
   return (
     <div className="app-container">
-      {previewPR && (
-        <div style={{ background: '#ff6b00', color: '#fff', textAlign: 'center', padding: '4px 0', fontSize: '13px', fontWeight: 600 }}>
-          ⚠ PREVIEW — PR #{previewPR} — Dit is niet de productie-omgeving
-        </div>
-      )}
       <header className="app-header">
-        <h1>{previewPR ? `[PR #${previewPR}] ${t('header.title')}` : t('header.title')}</h1>
+        <h1>{t('header.title')}</h1>
         <div className="language-buttons">
           <button
             className={`lang-btn ${language === 'nl' ? 'active' : ''}`}
