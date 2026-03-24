@@ -95,7 +95,7 @@ class TestAutocompleteEndpoint:
 
     @patch("app.routers.autocomplete.get_autocomplete_suggestions")
     def test_autocomplete_invalid_query_returns_400(self, mock_ac, client):
-        from app.utils.ricgraph_utils.autocomplete_utils import InvalidQueryError
+        from app.utils.ricgraph_utils.autocomplete import InvalidQueryError
 
         mock_ac.side_effect = InvalidQueryError("at least 2 characters")
 
@@ -104,7 +104,7 @@ class TestAutocompleteEndpoint:
 
     @patch("app.routers.autocomplete.get_autocomplete_suggestions")
     def test_autocomplete_error_returns_500(self, mock_ac, client):
-        from app.utils.ricgraph_utils.autocomplete_utils import AutocompleteError
+        from app.utils.ricgraph_utils.autocomplete import AutocompleteError
 
         mock_ac.side_effect = AutocompleteError("something failed")
 

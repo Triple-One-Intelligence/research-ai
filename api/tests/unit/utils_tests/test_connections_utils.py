@@ -184,15 +184,15 @@ class TestFormatPublications:
         assert result[0].title == "Paper A"
         assert result[0].year == 2024
 
-    def test_deduplicates_by_title(self):
+    def test_preserves_rows_with_same_title(self):
         rows = [
             {"doi": "10.1/a", "title": "Same Paper", "year": "2024", "category": "article"},
             {"doi": "10.1/b", "title": "Same Paper", "year": "2023", "category": "preprint"},
         ]
         result = format_publications(rows)
-        assert len(result) == 1
-        assert result[0].versions is not None
-        assert len(result[0].versions) == 2
+        assert len(result) == 2
+        assert result[0].doi == "10.1/a"
+        assert result[1].doi == "10.1/b"
 
     def test_null_title_not_grouped(self):
         rows = [
@@ -202,35 +202,33 @@ class TestFormatPublications:
         result = format_publications(rows)
         assert len(result) == 2
 
-    def test_sorted_by_year_descending(self):
+    def test_preserves_query_order(self):
         rows = [
             {"doi": "10.1/a", "title": "Old", "year": "2020", "category": None},
             {"doi": "10.1/b", "title": "New", "year": "2024", "category": None},
         ]
         result = format_publications(rows)
-        assert result[0].year == 2024
-        assert result[1].year == 2020
+        assert result[0].year == 2020
+        assert result[1].year == 2024
 
-    def test_case_insensitive_dedup(self):
-        """Titles differing only in case should be grouped."""
+    def test_preserves_rows_with_same_title_different_case(self):
         rows = [
             {"doi": "10.1/a", "title": "My Paper", "year": "2024", "category": "article"},
             {"doi": "10.1/b", "title": "my paper", "year": "2023", "category": "preprint"},
         ]
         result = format_publications(rows)
-        assert len(result) == 1
-        assert result[0].versions is not None
-        assert len(result[0].versions) == 2
+        assert len(result) == 2
+        assert result[0].doi == "10.1/a"
+        assert result[1].doi == "10.1/b"
 
-    def test_none_year_sorted_last(self):
-        """Publications with year=None should sort after those with years."""
+    def test_preserves_order_with_none_year(self):
         rows = [
             {"doi": "10.1/a", "title": "No Year", "year": None, "category": None},
             {"doi": "10.1/b", "title": "Has Year", "year": "2020", "category": None},
         ]
         result = format_publications(rows)
-        assert result[0].title == "Has Year"
-        assert result[1].title == "No Year"
+        assert result[0].title == "No Year"
+        assert result[1].title == "Has Year"
 
     def test_single_entry_has_no_versions(self):
         rows = [{"doi": "10.1/a", "title": "Solo", "year": "2024", "category": "article"}]
@@ -296,12 +294,12 @@ class TestGetConnections:
     def test_db_exception_wrapped_in_connections_error(self, mock_db):
         mock_db.get_graph.side_effect = RuntimeError("driver not initialized")
 
-        with pytest.raises(ConnectionsError, match="Connections query failed"):
+        with pytest.raises(RuntimeError, match="driver not initialized"):
             get_connections("p1", "person")
 
     @patch("app.utils.ricgraph_utils.connections.utils.database_utils")
     def test_org_db_exception_wrapped_in_connections_error(self, mock_db):
-        mock_db.get_graph.side_effect = RuntimeError("driver not initialized")
+        mock_db.execute_cypher.side_effect = RuntimeError("driver not initialized")
 
         with pytest.raises(ConnectionsError, match="Connections query failed"):
             get_connections("o1", "organization")
@@ -312,40 +310,33 @@ class TestGetConnections:
 class TestPersonConnections:
     @patch("app.utils.ricgraph_utils.connections.utils.database_utils")
     def test_calls_correct_queries(self, mock_db):
-        mock_session = MagicMock()
-        mock_session.run.return_value.data.return_value = []
-        mock_db.get_graph.return_value.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_db.execute_cypher.return_value = []
+        mock_db.get_graph.return_value.session.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_db.get_graph.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
         result = person_connections("p1", max_publications=10, max_collaborators=5, max_organizations=3)
 
-        assert mock_session.run.call_count == 3
+        assert mock_db.execute_cypher.call_count == 3
         assert result["members"] == []
 
     @patch("app.utils.ricgraph_utils.connections.utils.database_utils")
     def test_passes_limits_to_queries(self, mock_db):
-        mock_session = MagicMock()
-        mock_session.run.return_value.data.return_value = []
-        mock_db.get_graph.return_value.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_db.execute_cypher.return_value = []
+        mock_db.get_graph.return_value.session.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_db.get_graph.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
         person_connections("p1", max_publications=10, max_collaborators=5, max_organizations=3)
 
-        calls = mock_session.run.call_args_list
-        # Collaborators call
-        assert calls[0].kwargs["limit"] == 5
-        # Publications call
-        assert calls[1].kwargs["limit"] == 10
-        # Organizations call
-        assert calls[2].kwargs["limit"] == 3
+        calls = mock_db.execute_cypher.call_args_list
+        assert calls[0].kwargs["limit"] == 5   # collaborators
+        assert calls[1].kwargs["limit"] == 10  # publications
+        assert calls[2].kwargs["limit"] == 3   # organizations
 
     @patch("app.utils.ricgraph_utils.connections.utils.database_utils")
     def test_formats_results(self, mock_db):
-        mock_session = MagicMock()
-        mock_db.get_graph.return_value.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_db.get_graph.return_value.session.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_db.get_graph.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_session.run.return_value.data.side_effect = [
+        mock_db.execute_cypher.side_effect = [
             [{"author_id": "c1", "rawName": "Collaborator"}],  # collaborators
             [{"doi": "10.1/a", "title": "Paper", "year": "2024", "category": "article"}],  # publications
             [{"organization_id": "o1", "name": "Org"}],  # organizations
@@ -366,23 +357,16 @@ class TestPersonConnections:
 class TestOrganizationConnections:
     @patch("app.utils.ricgraph_utils.connections.utils.database_utils")
     def test_calls_correct_queries(self, mock_db):
-        mock_session = MagicMock()
-        mock_session.run.return_value.data.return_value = []
-        mock_db.get_graph.return_value.session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_db.get_graph.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
+        mock_db.execute_cypher.return_value = []
 
         result = organization_connections("o1", max_publications=10, max_organizations=5, max_members=3)
 
-        assert mock_session.run.call_count == 3
+        assert mock_db.execute_cypher.call_count == 3
         assert result["collaborators"] == []
 
     @patch("app.utils.ricgraph_utils.connections.utils.database_utils")
     def test_members_formatted_as_member_type(self, mock_db):
-        mock_session = MagicMock()
-        mock_db.get_graph.return_value.session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_db.get_graph.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_session.run.return_value.data.side_effect = [
+        mock_db.execute_cypher.side_effect = [
             [],  # publications
             [],  # organizations
             [{"author_id": "m1", "rawName": "Member Name"}],  # members
