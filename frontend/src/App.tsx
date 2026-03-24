@@ -196,6 +196,31 @@ const App = () => {
     );
   };
 
+  const handleTop10Colleagues = () => {
+    if (isGenerating || !selectedEntity) return;
+  
+    setResponseText('');
+    setDebugInfo(null);
+    setIsGenerating(true);
+  
+    const langStr = language === 'nl' ? 'Dutch' : 'English';
+  
+    // send language as query param, body only contains selected_entity
+    const url = `${API_BASE}//top_colleagues?language=${encodeURIComponent(langStr)}`;
+  
+    streamSSE(
+      url,
+      {
+        id: String(selectedEntity.id),
+        type: selectedEntity.type,
+        label: selectedEntity.label,
+      },
+      (chunk) => setResponseText((prev) => prev + chunk),
+      () => setIsGenerating(false),
+      (info) => setDebugInfo(info),
+    );
+  };
+
   const { t, i18n } = useTranslation();
   const language = i18n.language as 'en' | 'nl';
 
@@ -235,6 +260,7 @@ const App = () => {
           selectedEntity={selectedEntity}
           onAsk={handleGenerate}
           onTop5Pubs={handleTop5Pubs}
+          onTop10Colleagues={handleTop10Colleagues}
           isGenerating={isGenerating}
           onEntitySelect={setSelectedEntity}
           onEntityClear={() => setSelectedEntity(null)}

@@ -9,13 +9,14 @@ import './LeftPanel.css';
 interface LeftPanelProps {
   onAsk: (prompt: string) => void;
   onTop5Pubs: () => void;
+  onTop10Colleagues: () => void;
   isGenerating: boolean;
   selectedEntity: EntitySuggestion | null;
   onEntitySelect: (entity: EntitySuggestion) => void;
   onEntityClear: () => void;
 }
 
-const LeftPanel = ({ onAsk, onTop5Pubs, isGenerating, selectedEntity, onEntitySelect, onEntityClear }: LeftPanelProps) => {
+const LeftPanel = ({ onAsk, onTop5Pubs, onTop10Colleagues, isGenerating, selectedEntity, onEntitySelect, onEntityClear }: LeftPanelProps) => {
   const { t, i18n } = useTranslation();
   const [customPrompt, setCustomPrompt] = useState('');
 
@@ -79,6 +80,16 @@ const LeftPanel = ({ onAsk, onTop5Pubs, isGenerating, selectedEntity, onEntitySe
           >
             <span className="prompt-icon">5️⃣</span>
             {t('Top 5 publications')}
+          </button>
+
+          <button
+            className="prompt-btn"
+            onClick={onTop10Colleagues}
+            disabled={isGenerating}
+            title={t('leftPanel.top10Colleagues') ?? 'Stream top 10 Colleagues'}
+          >
+            <span className="prompt-icon">🤠</span>
+            {t('Top 10 Colleagues')}
           </button>
         </div>
       )}
