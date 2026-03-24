@@ -8,7 +8,8 @@ System prompt context builders for each pipeline.
 """
 import asyncio
 
-from app.utils.ricgraph_utils.connections_utils import get_connections, clean_name
+from app.utils.ricgraph_utils.connections import get_connections
+from app.utils.ricgraph_utils.connections.formatters import clean_name
 from app.utils.schemas.ai import EntityRef
 from app.prompts.system_prompt import SYSTEM_PROMPT
 from app.routers.ai import get_similar_publications, format_entity_context

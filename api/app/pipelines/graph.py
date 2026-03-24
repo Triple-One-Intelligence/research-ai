@@ -2,7 +2,7 @@
 Neo4j queries for pipeline context — ranked by shared publication count, unlike the display queries in connections_queries.py.
 """
 from app.utils.database_utils.database_utils import get_graph
-from app.utils.ricgraph_utils.connections_utils import EXCLUDE_CATEGORIES
+from app.utils.ricgraph_utils.connections.constants import EXCLUDE_CATEGORIES
 
 _PERSON_COLLABORATORS_RANKED = """
 MATCH (root:RicgraphNode {value: $rootValue})-[:LINKS_TO]-(pub:RicgraphNode {name: 'DOI'})

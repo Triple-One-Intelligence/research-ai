@@ -70,7 +70,11 @@ Returns connections for an entity.
   "collaborators": [{"author_id": "string", "name": "string"}],
   "publications": [{"doi": "string", "title": "string", "year": 2024, "category": "string", "versions": []}],
   "organizations": [{"organization_id": "string", "name": "string"}],
-  "members": [{"author_id": "string", "name": "string"}]
+  "members": [{"author_id": "string", "name": "string"}],
+  "collaborators_cursor": "string | null",
+  "publications_cursor": "string | null",
+  "organizations_cursor": "string | null",
+  "members_cursor": "string | null"
 }
 ```
 
@@ -83,6 +87,134 @@ Returns connections for an entity.
 
 ---
 
+## GET /connections/collaborators
+
+Returns collaborator connections for an entity.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `entity_id` | str | yes | — | Entity identifier |
+| `entity_type` | str | yes | — | `"person"` or `"organization"` |
+| `limit` | int | no | 50 | Max collaborators returned (range 1-200) |
+| `cursor` | str | no | — | Pagination cursor from previous response |
+
+**Response:**
+
+```json
+{
+  "entity_id": "string",
+  "entity_type": "person",
+  "collaborators": [{"author_id": "string", "name": "string"}],
+  "cursor": "string | null"
+}
+```
+
+**Errors:**
+
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid entity_type |
+| 500 | Query failed |
+
+---
+## GET /connections/publications
+
+Returns publication connections for an entity.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `entity_id` | str | yes | — | Entity identifier |
+| `entity_type` | str | yes | — | `"person"` or `"organization"` |
+| `limit` | int | no | 50 | Max publications returned (range 1-200) |
+| `cursor` | str | no | — | Pagination cursor from previous response |
+
+**Response:**
+
+```json
+{
+  "entity_id": "string",
+  "entity_type": "organization",
+  "publications": [{"doi": "string", "title": "string", "year": 2024, "category": "string", "versions": []}],
+  "cursor": "string | null"
+}
+```
+
+**Errors:**
+
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid entity_type |
+| 500 | Query failed |
+
+---
+## GET /connections/organizations
+
+Returns organization connections for an entity.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `entity_id` | str | yes | — | Entity identifier |
+| `entity_type` | str | yes | — | `"person"` or `"organization"` |
+| `limit` | int | no | 50 | Max organizations returned (range 1-200) |
+| `cursor` | str | no | — | Pagination cursor from previous response |
+
+**Response:**
+
+```json
+{
+  "entity_id": "string",
+  "entity_type": "person",
+  "organizations": [{"organization_id": "string", "name": "string"}],
+  "cursor": "string | null"
+}
+```
+
+**Errors:**
+
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid entity_type |
+| 500 | Query failed |
+
+---
+## GET /connections/members
+
+Returns member connections for an entity.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `entity_id` | str | yes | — | Entity identifier |
+| `entity_type` | str | yes | — | `"person"` or `"organization"` |
+| `limit` | int | no | 50 | Max members returned (range 1-200) |
+| `cursor` | str | no | — | Pagination cursor from previous response |
+
+**Response:**
+
+```json
+{
+  "entity_id": "string",
+  "entity_type": "organization",
+  "members": [{"author_id": "string", "name": "string"}],
+  "cursor": "string | null"
+}
+```
+
+**Errors:**
+
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid entity_type |
+| 500 | Query failed |
+
+---
 ## POST /chat
 
 Streaming chat (no RAG). Returns Server-Sent Events.

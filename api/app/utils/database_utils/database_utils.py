@@ -7,6 +7,7 @@ parts of the database.
 import logging
 import re
 import time
+from typing import Any
 from neo4j import Driver, GraphDatabase
 
 from app.config import REMOTE_NEO4J_URL, REMOTE_NEO4J_USER, REMOTE_NEO4J_PASS
@@ -63,6 +64,16 @@ def get_graph() -> Driver:
     if graph is None:
         raise RuntimeError("Neo4j driver not initialized — was connect_to_database() called?")
     return graph
+
+
+def execute_cypher(
+    query: str, session: Any | None = None, **params: Any
+) -> list[dict[str, Any]]:
+    """Execute a Cypher query and return rows as dictionaries."""
+    if session is not None:
+        return session.run(query, **params).data()
+    with get_graph().session() as new_session:
+        return new_session.run(query, **params).data()
 
 def shutdown() -> None:
     """Close the Ricgraph Neo4j database connection."""

@@ -1,6 +1,5 @@
 import logging
 
-from neo4j import Result
 from neo4j.exceptions import ServiceUnavailable
 
 from app.utils.database_utils import query_utils, database_utils
@@ -22,8 +21,8 @@ def get_autocomplete_suggestions(user_query: str, limit: int = 10) -> Suggestion
     index on RicgraphNode.value.
     """
 
-    persons_out : list[Person]       = []
-    orgs_out    : list[Organization] = []
+    persons_out: list[Person] = []
+    orgs_out: list[Organization] = []
 
     # Validate & clean input
     query = (user_query or "").strip()
@@ -34,11 +33,7 @@ def get_autocomplete_suggestions(user_query: str, limit: int = 10) -> Suggestion
     query = query_utils.normalize_query_for_index(query)
 
     # Create tokens (all lowercase, remove empty tokens)
-    keywords = [
-        keyword.lower()
-        for keyword in query.split()
-        if keyword.strip()
-    ]
+    keywords = [keyword.lower() for keyword in query.split() if keyword.strip()]
 
     if not keywords:
         return Suggestions(persons=persons_out, organizations=orgs_out)
@@ -47,9 +42,8 @@ def get_autocomplete_suggestions(user_query: str, limit: int = 10) -> Suggestion
     lucene_query = query_utils.build_lucene_query(keywords)
 
     try:
-        rows = database_utils.get_graph().execute_query(
+        rows = database_utils.execute_cypher(
             AUTOCOMPLETE_CYPHER,
-            result_transformer_=Result.data,
             indexName=database_utils.FULLTEXT_INDEX_NAME,
             luceneQuery=lucene_query,
             keywords=keywords,
@@ -68,6 +62,9 @@ def get_autocomplete_suggestions(user_query: str, limit: int = 10) -> Suggestion
 
     except ServiceUnavailable:
         # Propagate Neo4j service availability issues so the API layer can return 503.
+        raise
+    except AutocompleteError:
+        # Preserve explicit domain errors raised while parsing result rows.
         raise
     except RuntimeError:
         # Propagate driver-not-initialized errors so the API layer can return 503.

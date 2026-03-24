@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class Person(BaseModel):
     """ 
@@ -7,3 +7,4 @@ class Person(BaseModel):
 
     author_id: str
     name: str
+    sort_name: str | None = Field(default=None, exclude=True)
