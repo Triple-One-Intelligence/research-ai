@@ -72,7 +72,7 @@ def _llm_payload(system_prompt: str, user_prompt: str) -> dict:
             {"role": "user", "content": user_prompt},
         ],
         "stream": True,
-        "options": {"num_predict": CHAT_MAX_TOKENS, "num_ctx": CHAT_CONTEXT_WINDOW, "temperature": 0},
+        "options": {"num_predict": CHAT_MAX_TOKENS, "num_ctx": CHAT_CONTEXT_WINDOW},
     }
 
 
