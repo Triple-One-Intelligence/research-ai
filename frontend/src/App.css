@@ -95,10 +95,10 @@
   padding: 1.5rem;
 }
 
-/* Right panel - connections */
+/* Right panel - connections. tokens in RightPanel.css */
 .right-panel {
-  background: #ffffff;
-  border-left: 1px solid #e5e7eb;
+  background: var(--right-panel-bg, #ffffff);
+  border-left: 1px solid var(--right-panel-border, #e5e7eb);
   overflow-y: auto;
   padding: 1.5rem;
 }
