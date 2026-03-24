@@ -1,20 +1,9 @@
 {$CADDY_HOSTNAME} {
-    # PR preview pods (managed by CI) — these use handle_path /preview/N/*
-    import /etc/caddy/previews/*
-
-    # Fallback for non-existent previews
-    handle /preview/* {
-        respond "Preview not found — this PR has no active preview." 404
-    }
-
-    # Production API
     handle_path /api/* {
         reverse_proxy research-ai-api:8000
     }
 
-    # Production frontend (SPA)
-    @notpreview not path /preview/*
-    handle @notpreview {
+    handle {
         root * /srv
         try_files {path} /index.html
         file_server
