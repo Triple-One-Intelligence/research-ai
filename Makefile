@@ -136,8 +136,7 @@ neo4j-restore:
 deploy:
 	podman build -t research-ai-api:prod -f ./api/Containerfile .
 	set -a; . ./kube/research-ai-prod.env; set +a; \
-	podman build -t research-ai-frontend:prod -f ./frontend/Containerfile . \
-	    --build-arg VITE_API_URL=$$VITE_API_URL
+	podman build -t research-ai-frontend:prod -f ./frontend/Containerfile .
 
 	mkdir -p /etc/containers/systemd /etc/research-ai
 	install -m 0644 kube/research-ai-net.network         /etc/containers/systemd/
@@ -147,7 +146,6 @@ deploy:
 	install -m 0644 kube/research-ai-neo4j.container     /etc/containers/systemd/
 	install -m 0644 kube/research-ai-ai.container        /etc/containers/systemd/
 	install -m 0644 kube/research-ai-prod.env            /etc/research-ai/
-	install -m 0644 caddy/Caddyfile.prod                 /etc/research-ai/
 	set -a; . ./kube/research-ai-prod.env; set +a; \
 	envsubst < kube/ricgraph.ini > /etc/research-ai/ricgraph.ini && chmod 0640 /etc/research-ai/ricgraph.ini
 
@@ -175,11 +173,9 @@ deploy:
 ci-deploy:
 	podman build -t research-ai-api:prod -f ./api/Containerfile .
 	set -a; . ./kube/research-ai-prod.env; set +a; \
-	podman build -t research-ai-frontend:prod -f ./frontend/Containerfile . \
-	    --build-arg VITE_API_URL=$$VITE_API_URL
+	podman build -t research-ai-frontend:prod -f ./frontend/Containerfile .
 	sudo install -m 0644 kube/research-ai-frontend.container /etc/containers/systemd/
 	sudo install -m 0644 kube/research-ai-api.container      /etc/containers/systemd/
-	sudo install -m 0644 caddy/Caddyfile.prod                /etc/research-ai/Caddyfile.prod
 	sudo systemctl daemon-reload
 	sudo systemctl restart research-ai-api.service
 	sudo systemctl restart research-ai-frontend.service
