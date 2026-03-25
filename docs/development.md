@@ -161,7 +161,8 @@ This relabels the project files so Podman containers can read them.
 | **Development** | |
 | `make dev` | Full dev environment: tunnel + pod + tests |
 | `make up` / `make down` | Start / stop dev pod |
-| `make tunnel` | SSH tunnel to remote services |
+| `make tunnel` | SSH tunnel to remote services (Neo4j, Ollama, Ricgraph) |
+| `make tunnel-ui` | Tunnel the UI to `http://localhost:8080` |
 | `make tunnel-stop` | Stop the SSH tunnel |
 | `make tunnel-status` | Check if the tunnel is running |
 | `make watch` | Tail all container logs |

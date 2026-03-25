@@ -3,9 +3,8 @@ Production deployment smoke tests.
 
 Verify that a production deployment is fully operational:
 - All services are healthy and responsive
-- Network ports open (HTTP 80, HTTPS 443, internal services)
+- Network ports open (HTTP 8080, internal services)
 - End-to-end request flow works (frontend -> Caddy -> API -> Neo4j)
-- Both HTTP and HTTPS work correctly
 - Inter-service communication works
 
 Run with: make test-deploy
@@ -18,11 +17,9 @@ import socket
 import pytest
 import httpx
 
-PROD_HOSTNAME = os.environ.get("PROD_HOSTNAME", os.environ.get("CADDY_HOSTNAME", "localhost"))
-PROD_BASE_HTTP = f"http://{PROD_HOSTNAME}"
-PROD_BASE_HTTPS = f"https://{PROD_HOSTNAME}"
+PROD_HOSTNAME = os.environ.get("PROD_HOSTNAME", "localhost")
+PROD_BASE = f"http://{PROD_HOSTNAME}:8080"
 TIMEOUT = 10.0
-VERIFY_SSL = os.environ.get("VERIFY_SSL", "false").lower() == "true"
 
 pytestmark = pytest.mark.smoke
 
@@ -33,8 +30,7 @@ class TestProdNetworkConnectivity:
     """Verify services are listening on expected ports."""
 
     @pytest.mark.parametrize("port,service", [
-        (80, "Caddy HTTP"),
-        (443, "Caddy HTTPS"),
+        (8080, "Caddy HTTP"),
         (7474, "Neo4j HTTP"),
         (7687, "Neo4j Bolt"),
         (11434, "Ollama"),
@@ -53,56 +49,38 @@ class TestProdNetworkConnectivity:
 # -- HTTP Endpoints -----------------------------------------------------------
 
 class TestProdHTTPEndpoints:
-    """Test public-facing endpoints work end-to-end over both HTTP and HTTPS."""
+    """Test public-facing endpoints work end-to-end over HTTP."""
 
-    def test_https_frontend_serves_html(self):
-        """HTTPS: root URL should serve the frontend SPA."""
+    def test_frontend_serves_html(self):
+        """Root URL should serve the frontend SPA."""
         try:
-            resp = httpx.get(PROD_BASE_HTTPS, timeout=TIMEOUT, verify=VERIFY_SSL, follow_redirects=True)
+            resp = httpx.get(PROD_BASE, timeout=TIMEOUT, follow_redirects=True)
             assert resp.status_code == 200, (
-                f"Frontend returned {resp.status_code} over HTTPS.\n"
+                f"Frontend returned {resp.status_code}.\n"
                 "  -> Check: podman logs research-ai-frontend"
             )
             assert "text/html" in resp.headers.get("content-type", "")
         except httpx.ConnectError as e:
-            pytest.fail(f"Could not connect to {PROD_BASE_HTTPS}: {e}")
+            pytest.fail(f"Could not connect to {PROD_BASE}: {e}")
 
-    def test_http_redirects_to_https(self):
-        """HTTP on port 80 should redirect to HTTPS on port 443."""
+    def test_api_health(self):
+        """API health endpoint should return ok."""
         try:
-            resp = httpx.get(PROD_BASE_HTTP, timeout=TIMEOUT, follow_redirects=False)
-            assert resp.status_code in (301, 302, 308), (
-                f"HTTP did not redirect to HTTPS, got {resp.status_code}.\n"
-                "  -> Caddy should auto-redirect HTTP -> HTTPS"
-            )
-            location = resp.headers.get("location", "")
-            assert "https://" in location, (
-                f"Redirect location doesn't point to HTTPS: {location}"
-            )
-        except httpx.ConnectError:
-            pytest.skip("HTTP port 80 not reachable")
-
-    def test_https_api_health(self):
-        """HTTPS: API health endpoint should return ok."""
-        try:
-            resp = httpx.get(
-                f"{PROD_BASE_HTTPS}/api/health",
-                timeout=TIMEOUT, verify=VERIFY_SSL,
-            )
+            resp = httpx.get(f"{PROD_BASE}/api/health", timeout=TIMEOUT)
             assert resp.status_code == 200
             data = resp.json()
             assert data["status"] == "ok", f"Health: {data}"
             assert data["service"] == "Research-AI API"
         except httpx.ConnectError as e:
-            pytest.fail(f"Could not reach API health over HTTPS: {e}")
+            pytest.fail(f"Could not reach API health: {e}")
 
-    def test_https_api_autocomplete(self):
-        """HTTPS: autocomplete should respond (200 or 503 if Neo4j starting)."""
+    def test_api_autocomplete(self):
+        """Autocomplete should respond (200 or 503 if Neo4j starting)."""
         try:
             resp = httpx.get(
-                f"{PROD_BASE_HTTPS}/api/autocomplete",
+                f"{PROD_BASE}/api/autocomplete",
                 params={"query": "utrecht", "limit": 5},
-                timeout=TIMEOUT, verify=VERIFY_SSL,
+                timeout=TIMEOUT,
             )
             assert resp.status_code in (200, 503), (
                 f"Autocomplete returned {resp.status_code}: {resp.text[:200]}"
@@ -112,15 +90,15 @@ class TestProdHTTPEndpoints:
                 assert "persons" in data
                 assert "organizations" in data
         except httpx.ConnectError as e:
-            pytest.fail(f"Could not reach autocomplete over HTTPS: {e}")
+            pytest.fail(f"Could not reach autocomplete: {e}")
 
-    def test_https_api_connections(self):
-        """HTTPS: connections endpoint should return data."""
+    def test_api_connections(self):
+        """Connections endpoint should return data."""
         try:
             resp = httpx.get(
-                f"{PROD_BASE_HTTPS}/api/connections/entity",
+                f"{PROD_BASE}/api/connections/entity",
                 params={"entity_id": "test-1", "entity_type": "person"},
-                timeout=TIMEOUT, verify=VERIFY_SSL,
+                timeout=TIMEOUT,
             )
             assert resp.status_code == 200
             data = resp.json()
@@ -128,15 +106,15 @@ class TestProdHTTPEndpoints:
             assert "collaborators" in data
             assert "publications" in data
         except httpx.ConnectError as e:
-            pytest.fail(f"Could not reach connections over HTTPS: {e}")
+            pytest.fail(f"Could not reach connections: {e}")
 
-    def test_https_api_generate(self):
-        """HTTPS: /generate should accept POST and return SSE stream."""
+    def test_api_generate(self):
+        """/generate should accept POST and return SSE stream."""
         try:
             resp = httpx.post(
-                f"{PROD_BASE_HTTPS}/api/generate",
+                f"{PROD_BASE}/api/generate",
                 json={"prompt": "What is this?"},
-                timeout=TIMEOUT, verify=VERIFY_SSL,
+                timeout=TIMEOUT,
             )
             assert resp.status_code in (200, 503), (
                 f"Generate returned {resp.status_code}: {resp.text[:200]}"
@@ -144,23 +122,23 @@ class TestProdHTTPEndpoints:
             if resp.status_code == 200:
                 assert "text/event-stream" in resp.headers.get("content-type", "")
         except httpx.ConnectError as e:
-            pytest.fail(f"Could not reach /generate over HTTPS: {e}")
+            pytest.fail(f"Could not reach /generate: {e}")
         except httpx.ReadTimeout:
             pass  # Model loading on first call — endpoint is reachable
 
-    def test_https_api_embed(self):
-        """HTTPS: /embed should accept POST."""
+    def test_api_embed(self):
+        """/embed should accept POST."""
         try:
             resp = httpx.post(
-                f"{PROD_BASE_HTTPS}/api/embed",
+                f"{PROD_BASE}/api/embed",
                 json={"prompt": "test embedding"},
-                timeout=TIMEOUT, verify=VERIFY_SSL,
+                timeout=TIMEOUT,
             )
             assert resp.status_code in (200, 503), (
                 f"Embed returned {resp.status_code}: {resp.text[:200]}"
             )
         except httpx.ConnectError as e:
-            pytest.fail(f"Could not reach /embed over HTTPS: {e}")
+            pytest.fail(f"Could not reach /embed: {e}")
         except httpx.ReadTimeout:
             pass  # Model loading on first call — endpoint is reachable
 

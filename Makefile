@@ -3,7 +3,7 @@
         logs logs-api logs-ui logs-ric \
         enrich enrich-force harvest \
         neo4j-backup neo4j-restore \
-        tunnel \
+        tunnel tunnel-ui \
         test test-unit test-dev test-deploy test-image
 
 REMOTE_SERVER    ?= root@0xai.nl
@@ -25,6 +25,7 @@ dev\n\
   up            build and start the dev pod\n\
   down          stop the dev pod\n\
   tunnel        open SSH tunnel to $(REMOTE_SERVER) (blocking)\n\
+  tunnel-ui     tunnel the UI to localhost:8080\n\
   dev           up + tunnel\n\
   watch         tail all dev pod logs\n\
   wapi          tail api logs\n\
@@ -70,13 +71,19 @@ down:
 	set -a; . ./kube/research-ai-dev.env; set +a; \
 	envsubst < kube/pod-dev.yaml | podman kube down - 2>/dev/null || true
 
+# Tunnels: Neo4j Bolt (7687), Neo4j HTTP (7474), Ricgraph Explorer (3030), Ollama (11434)
 tunnel:
 	ssh -N \
 	    -L 7687:localhost:7687 \
 	    -L 7474:localhost:7474 \
-	    -L 18080:localhost:8080 \
 	    -L 3030:localhost:3030 \
 	    -L 11434:localhost:11434 \
+	    $(REMOTE_SERVER)
+
+# Tunnels the frontend (8080) to localhost for local access
+tunnel-ui:
+	ssh -N \
+	    -L 8080:localhost:8080 \
 	    $(REMOTE_SERVER)
 
 dev: up tunnel
@@ -225,7 +232,6 @@ test-dev: test-image
 test-deploy: test-image
 	set -a; . ./kube/research-ai-prod.env; set +a; \
 	podman run --rm -t --network host -v ./api:/work:ro \
-	    -e CADDY_HOSTNAME=$$CADDY_HOSTNAME -e VERIFY_SSL=false \
 	    -e REMOTE_NEO4J_USER=$$REMOTE_NEO4J_USER -e REMOTE_NEO4J_PASS=$$REMOTE_NEO4J_PASS \
 	    $(TEST_IMG) python -m pytest $(DEPLOY_TESTS) -v --tb=short
 

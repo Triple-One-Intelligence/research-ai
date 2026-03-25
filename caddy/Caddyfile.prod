@@ -1,11 +1,16 @@
-{$CADDY_HOSTNAME} {
-    handle_path /api/* {
-        reverse_proxy research-ai-api:8000
-    }
+{
+  auto_https off
+}
 
-    handle {
-        root * /srv
-        try_files {path} /index.html
-        file_server
-    }
+:8080 {
+  handle /api/* {
+    uri strip_prefix /api
+    reverse_proxy research-ai-api:8000
+  }
+
+  handle {
+    root * /srv
+    try_files {path} /index.html
+    file_server
+  }
 }

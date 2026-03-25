@@ -15,8 +15,7 @@ Network=research-ai-net
 EnvironmentFile=/etc/research-ai/research-ai-prod.env
 
 # Public port for caddy
-PublishPort=80:80
-PublishPort=443:443
+PublishPort=8080:8080
 
 Volume=caddy-data:/data
 Volume=caddy-config:/config
